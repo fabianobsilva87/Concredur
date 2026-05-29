@@ -155,38 +155,45 @@
               </div>
               
               <div class="form-group alert-box-criticidade">
-                <label style="color:#004f9f;">⚙️ Fluxograma de Criticidade Automatizado</label>
-                <div style="font-size:11px; margin-bottom:6px; color:#555;">Responda para calcular o Nível ABC:</div>
+                <label style="color:#004f9f; font-weight:700;">⚙️ Matriz de Criticidade (Fluxograma Completo)</label>
+                <div style="font-size:11px; margin-bottom:8px; color:#555;">Responda às etapas abaixo para determinar a classificação automática:</div>
                 
                 <div class="criticidade-question-row">
-                  <span>1. A parada deste ativo interrompe a produção/operação principal?</span>
-                  <select id="crit-q1" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
+                  <span>1. A parada do equipamento paralisa a produção ou gera interrupção total das atividades da área?</span>
+                  <select id="crit-interrupcao" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
                     <option value="sim">Sim</option>
                     <option value="nao" selected>Não</option>
                   </select>
                 </div>
                 
-                <div class="criticidade-question-row" style="margin-top:4px;">
-                  <span>2. A falha causa riscos imediatos à Segurança ou Meio Ambiente?</span>
-                  <select id="crit-q2" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
+                <div class="criticidade-question-row" style="margin-top:6px;">
+                  <span>2. A falha do ativo compromete diretamente a Segurança do Trabalho ou descumpre normas de Meio Ambiente?</span>
+                  <select id="crit-seguranca" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
                     <option value="sim">Sim</option>
                     <option value="nao" selected>Não</option>
                   </select>
                 </div>
 
-                <div class="criticidade-question-row" style="margin-top:4px;">
-                  <span>3. Existe equipamento reserva imediato (Stand-by) instalado no local?</span>
-                  <select id="crit-q3" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
+                <div class="criticidade-question-row" style="margin-top:6px;">
+                  <span>3. O equipamento opera continuamente (24 horas) ou é indispensável para a conservação de insumos/vida?</span>
+                  <select id="crit-operacao" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
                     <option value="sim">Sim</option>
                     <option value="nao" selected>Não</option>
                   </select>
                 </div>
 
-                <div style="margin-top:10px; font-weight:600; font-size:12px;">
-                  Nível Calculado: <span id="label-criticidade-calculada" style="color:#2b6cb0; background:#ebf4ff; padding:2px 8px; border-radius:4px;">Média (B)</span>
+                <div class="criticidade-question-row" style="margin-top:6px;">
+                  <span>4. Existe equipamento reserva imediato (Stand-by) configurado e operacional no ambiente?</span>
+                  <select id="crit-reserva" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
+                    <option value="sim">Sim</option>
+                    <option value="nao" selected>Não</option>
+                  </select>
+                </div>
+
+                <div style="margin-top:12px; font-weight:600; font-size:13px; display:flex; align-items:center; gap:8px;">
+                  Classe Apurada: <span id="label-criticidade-calculada" style="color:#2b6cb0; background:#ebf4ff; padding:4px 10px; border-radius:4px; font-weight:700;">Classe Média (B)</span>
                 </div>
               </div>
-
             </div>
             <div class="btn-row">
               <button id="btn-salvar" class="btn-primary">+ Salvar equipamento</button>
@@ -239,13 +246,17 @@
                 </select>
               </div>
               <div class="form-group">
+                <label>Data da Inspeção (Editável)</label>
+                <input type="date" id="pmoc-data" class="form-input-style">
+              </div>
+              <div class="form-group">
                 <label>Frequência da Inspeção</label>
                 <select id="pmoc-frequencia" class="form-input-style" onchange="toggleItemsPorFrequencia()">
                   <option value="M" selected>Mensal</option>
                   <option value="T">Trimestral</option>
                 </select>
               </div>
-              <div class="form-group">
+              <div class="form-group" style="grid-column: span 2;">
                 <label>Foto da Inspeção (Opcional)</label>
                 <input type="file" id="pmoc-foto" accept="image/*" class="form-input-style">
               </div>
@@ -369,24 +380,80 @@
       </div>
 
       <div id="section-ordens" class="app-section" style="display: none;">
-        <div class="topbar">
+        <div class="topbar no-print">
           <h2>Ordens de Serviço (O.S.)</h2>
         </div>
         <div class="section-content">
-          <div class="card">
-            <h3 class="card-title">Nova Ordem de Serviço</h3>
+          <div class="card no-print">
+            <h3 class="card-title">Abertura / Registro de Ordem de Serviço</h3>
             <div class="form-grid">
               <div class="form-group">
-                <label>Ativo Vinculado (TAG)</label>
-                <select id="os-equipamento" class="form-input-style"></select>
+                <label>Equipamento Vinculado (TAG)</label>
+                <select id="os-equipamento" class="form-input-style">
+                  <option value="">-- Selecione o Ativo --</option>
+                </select>
               </div>
               <div class="form-group">
-                <label>Técnico Designado</label>
-                <select id="os-tecnico" class="form-input-style"></select>
+                <label>Realizado por (Nome do Colaborador)</label>
+                <select id="os-tecnico" class="form-input-style">
+                  <option value="">-- Selecione o Colaborador Registrado --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Tipo de Manutenção</label>
+                <select id="os-tipo" class="form-input-style">
+                  <option value="Corretiva">Corretiva</option>
+                  <option value="Preventiva">Preventiva</option>
+                  <option value="Instalação">Instalação / Start-Up</option>
+                  <option value="Emergencial">Emergencial</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Status Atual da O.S.</label>
+                <select id="os-status" class="form-input-style">
+                  <option value="Aberta">Aberta / Pendente</option>
+                  <option value="Em Andamento">Em Andamento</option>
+                  <option value="Concluída">Concluída</option>
+                </select>
+              </div>
+              <div class="form-group" style="grid-column: span 2;">
+                <label>Descrição do Defeito / Solicitação</label>
+                <textarea id="os-defeito" rows="2" placeholder="Descreva os sintomas apresentados pelo equipamento ou a queixa do cliente..."></textarea>
+              </div>
+              <div class="form-group" style="grid-column: span 2;">
+                <label>Laudo Técnico Técnico / Atividades Executadas</label>
+                <textarea id="os-laudo" rows="3" placeholder="Insira o detalhamento do serviço realizado, peças trocadas e testes de funcionamento executados..."></textarea>
               </div>
             </div>
-            <p style="font-size: 13px; color:#667085; margin-top:10px;">Estrutura pronta e amarrada ao banco para as próximas expansões.</p>
+            <div class="btn-row">
+              <button id="btn-salvar-os" class="btn-primary">✓ Salvar Ordem de Serviço</button>
+            </div>
+            <p id="msg-os" class="msg-form"></p>
           </div>
+
+          <div class="card no-print">
+            <h3 class="card-title">Ordens de Serviço Registradas</h3>
+            <div class="table-wrap">
+              <table id="tabela-os">
+                <thead>
+                  <tr>
+                    <th>Nº O.S</th>
+                    <th>Data</th>
+                    <th>TAG Ativo</th>
+                    <th>Realizado Por</th>
+                    <th>Tipo</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-os">
+                  <tr><td colspan="7" style="text-align:center;color:#999;">Carregando Ordens de Serviço...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="area-os-impressao" class="print-only report-laudo-card"></div>
         </div>
       </div>
 
