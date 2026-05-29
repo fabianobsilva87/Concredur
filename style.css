@@ -422,11 +422,9 @@ tr:hover td { background: #f7fafc; }
     overflow: visible !important;
     height: auto !important;
   }
-  /* Oculta tudo que não deve ser impresso */
   .no-print, .sidebar, .topbar, .card.no-print, nav, .btn-primary, .btn-secondary, button {
     display: none !important;
   }
-  /* Força contêineres a liberarem espaço de scroll em vez de travarem a tela */
   .app-container, .main-content, .section-content {
     display: block !important;
     overflow: visible !important;
@@ -437,13 +435,11 @@ tr:hover td { background: #f7fafc; }
     border: none !important;
     box-shadow: none !important;
   }
-  /* Garante que apenas as seções que contêm o espelho da laudo apareçam */
   .app-section {
     display: block !important;
     overflow: visible !important;
     height: auto !important;
   }
-  /* Remove cartazes vazios e renderiza apenas o elemento que o JS preencheu */
   .card:not(.report-laudo-card) {
     display: none !important;
   }
