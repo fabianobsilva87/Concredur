@@ -156,7 +156,6 @@ async function mostrarApp() {
 // ===================== VERIFICAÇÃO DE PERMISSÕES MASTER =====================
 function verificarRegraAdmin(email) {
   const emailNormalizado = email.toLowerCase().trim();
-  // Vinculado explicitamente ao seu e-mail da imagem para evitar falhas
   if (emailNormalizado === 'fabianob.silva87@gmail.com' || emailNormalizado.includes('admin') || emailNormalizado.includes('master')) {
     document.getElementById('label-admin').style.display = 'block';
     document.getElementById('nav-usuarios').style.display = 'flex';
@@ -219,31 +218,38 @@ async function renderizarGraficosDashboard() {
   });
 }
 
-// ===================== CADASTRO ADMINISTRATIVO DE USUÁRIOS =====================
+// ===================== GESTÃO DE USUÁRIOS COM PERFIS E MÓDULOS DE ACESSO =====================
 btnAdminSalvarUsuario.addEventListener('click', async () => {
   const novoEmail = document.getElementById('adm-user-email').value.trim();
   const novaSenha = document.getElementById('adm-user-password').value;
   const roleAcesso = document.getElementById('adm-user-role').value;
 
+  const modulosSelecionados = [...document.querySelectorAll('.chk-acesso:checked')].map(cb => cb.value);
+
   if (!novoEmail || novaSenha.length < 6) {
-    msgAdminUsuario.style.color = "red";
+    msgAdminUsuario.style.color = "#ef4444";
     msgAdminUsuario.innerText = "Informe um e-mail válido e senha com no mínimo 6 caracteres.";
     return;
   }
 
-  msgAdminUsuario.style.color = "blue";
-  msgAdminUsuario.innerText = "Registrando credenciais na base...";
+  msgAdminUsuario.style.color = "#3b82f6";
+  msgAdminUsuario.innerText = "Registrando credenciais e permissões na base...";
 
   const { error } = await supabaseClient.from('perfis_usuarios').insert([
-    { email: novoEmail, role: roleAcesso, password_hint: novaSenha }
+    { 
+      email: novoEmail, 
+      role: roleAcesso, 
+      password_hint: novaSenha,
+      observacoes: `Modulos Permitidos: ${modulosSelecionados.join(', ')}`
+    }
   ]);
 
   if (error) {
-    msgAdminUsuario.style.color = "red";
+    msgAdminUsuario.style.color = "#ef4444";
     msgAdminUsuario.innerText = "Erro ao registrar: " + error.message;
   } else {
-    msgAdminUsuario.style.color = "green";
-    msgAdminUsuario.innerText = "Usuário cadastrado com sucesso na lista de permissões!";
+    msgAdminUsuario.style.color = "#10b981";
+    msgAdminUsuario.innerText = "Usuário e perfil criados com sucesso!";
     document.getElementById('adm-user-email').value = "";
     document.getElementById('adm-user-password').value = "";
     carregarUsuariosSistema();
@@ -253,7 +259,7 @@ btnAdminSalvarUsuario.addEventListener('click', async () => {
 async function carregarUsuariosSistema() {
   const tbody = document.getElementById('tbody-usuarios-sistema');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">Carregando...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">Carregando operadores...</td></tr>';
 
   const { data, error } = await supabaseClient.from('perfis_usuarios').select('*').order('created_at', { ascending: false });
 
@@ -262,14 +268,26 @@ async function carregarUsuariosSistema() {
     return;
   }
 
-  tbody.innerHTML = data.map(u => `
-    <tr>
-      <td><strong>${u.email}</strong></td>
-      <td><span class="tag-badge" style="${u.role === 'admin' ? 'background:#fee2e2;color:#991b1b;' : 'background:#e0f2fe;color:#0369a1;'}">${u.role.toUpperCase()}</span></td>
-      <td>${new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
-      <td><button class="btn-excluir" onclick="excluirUsuarioSistema('${u.id}')">✕ Remover</button></td>
-    </tr>
-  `).join('');
+  tbody.innerHTML = data.map(u => {
+    let corBadge = "background:#fee2e2; color:#991b1b;"; 
+    if(u.role === 'tecnico') corBadge = "background:#e0f2fe; color:#0369a1;";
+    if(u.role === 'master') corBadge = "background:#fef3c7; color:#d97706;";
+    if(u.role === 'auditor') corBadge = "background:#e2e8f0; color:#4a5568;";
+
+    let modulos = "Padrão";
+    if (u.observacoes && u.observacoes.includes("Modulos Permitidos:")) {
+      modulos = u.observacoes.replace("Modulos Permitidos: ", "").split(', ').map(m => `<span class="badge-modulo">${m}</span>`).join('');
+    }
+
+    return `
+      <tr>
+        <td><strong>${u.email}</strong></td>
+        <td><span class="badge-perfil" style="${corBadge}">${u.role}</span></td>
+        <td>${modulos}</td>
+        <td><button class="btn-excluir" style="padding: 2px 6px; font-size:10px;" onclick="excluirUsuarioSistema('${u.id}')">✕ Revogar</button></td>
+      </tr>
+    `;
+  }).join('');
 }
 
 async function excluirUsuarioSistema(id) {
@@ -697,7 +715,7 @@ btnSalvarOS.addEventListener('click', async () => {
   const descricao_defeito = txtOSDefeito.value.trim();
   const laudo_tecnico = txtOSLaudo.value.trim();
 
-  if (!equipamento_id || !colaborador_id || !descricao_defeito) {
+  if (!equipment_id || !colaborador_id || !descricao_defeito) {
     msgOS.style.color = "red";
     msgOS.innerText = "Os campos Ativo, Realizado por e Descrição do Defeito são obrigatórios.";
     return;
@@ -1054,6 +1072,84 @@ btnAtualizarSenha.addEventListener('click', async () => {
     setTimeout(() => msgConta.innerText = "", 4000);
   }
 });
+
+// ===================== GESTÃO DE USUÁRIOS COM PERFIS E MÓDULOS DE ACESSO =====================
+btnAdminSalvarUsuario.addEventListener('click', async () => {
+  const novoEmail = document.getElementById('adm-user-email').value.trim();
+  const novaSenha = document.getElementById('adm-user-password').value;
+  const roleAcesso = document.getElementById('adm-user-role').value;
+
+  const modulosSelecionados = [...document.querySelectorAll('.chk-acesso:checked')].map(cb => cb.value);
+
+  if (!novoEmail || novaSenha.length < 6) {
+    msgAdminUsuario.style.color = "#ef4444";
+    msgAdminUsuario.innerText = "Informe um e-mail válido e senha com no mínimo 6 caracteres.";
+    return;
+  }
+
+  msgAdminUsuario.style.color = "#3b82f6";
+  msgAdminUsuario.innerText = "Registrando credenciais e permissões na base...";
+
+  const { error } = await supabaseClient.from('perfis_usuarios').insert([
+    { 
+      email: novoEmail, 
+      role: roleAcesso, 
+      password_hint: novaSenha,
+      observacoes: `Modulos Permitidos: ${modulosSelecionados.join(', ')}`
+    }
+  ]);
+
+  if (error) {
+    msgAdminUsuario.style.color = "#ef4444";
+    msgAdminUsuario.innerText = "Erro ao registrar: " + error.message;
+  } else {
+    msgAdminUsuario.style.color = "#10b981";
+    msgAdminUsuario.innerText = "Usuário e perfil criados com sucesso!";
+    document.getElementById('adm-user-email').value = "";
+    document.getElementById('adm-user-password').value = "";
+    carregarUsuariosSistema();
+  }
+});
+
+async function carregarUsuariosSistema() {
+  const tbody = document.getElementById('tbody-usuarios-sistema');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">Carregando operadores...</td></tr>';
+
+  const { data, error } = await supabaseClient.from('perfis_usuarios').select('*').order('created_at', { ascending: false });
+
+  if (error || !data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">Nenhum operador adicional cadastrado.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(u => {
+    let corBadge = "background:#fee2e2; color:#991b1b;"; 
+    if(u.role === 'tecnico') corBadge = "background:#e0f2fe; color:#0369a1;";
+    if(u.role === 'master') corBadge = "background:#fef3c7; color:#d97706;";
+    if(u.role === 'auditor') corBadge = "background:#e2e8f0; color:#4a5568;";
+
+    let modulos = "Padrão";
+    if (u.observacoes && u.observacoes.includes("Modulos Permitidos:")) {
+      modulos = u.observacoes.replace("Modulos Permitidos: ", "").split(', ').map(m => `<span class="badge-modulo">${m}</span>`).join('');
+    }
+
+    return `
+      <tr>
+        <td><strong>${u.email}</strong></td>
+        <td><span class="badge-perfil" style="${corBadge}">${u.role}</span></td>
+        <td>${modulos}</td>
+        <td><button class="btn-excluir" style="padding: 2px 6px; font-size:10px;" onclick="excluirUsuarioSistema('${u.id}')">✕ Revogar</button></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function excluirUsuarioSistema(id) {
+  if (!confirm("Revogar acesso deste usuário?")) return;
+  const { error } = await supabaseClient.from('perfis_usuarios').delete().eq('id', id);
+  if (!error) carregarUsuariosSistema();
+}
 
 // ===================== NAVEGAÇÃO =====================
 function showSection(name) {
