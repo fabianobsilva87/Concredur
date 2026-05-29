@@ -2,6 +2,10 @@ const SUPABASE_URL = "https://nweligwbglblbncaegir.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53ZWxpZ3diZ2xibGJuY2FlZ2lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwMzAzNTgsImV4cCI6MjA5NTYwNjM1OH0.6eKcn40QmcfvHKAxuDH3kB6vHBJUu5LUVzfr27dvbKk";
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Varáveis globais para instâncias de gráficos para evitar sobreposição de canvas
+let instanceChartOS = null;
+let instanceChartCrit = null;
+
 // ===================== ELEMENTOS DE LOGIN =====================
 const emailInput = document.getElementById('email');
 const passwordInput = document.getElementById('password');
@@ -120,7 +124,7 @@ btnLogout.addEventListener('click', async () => {
   passwordInput.value = "";
 });
 
-// ===================== MOSTRAR APP & VERIFICAÇÃO DE PERMISSÕES =====================
+// ===================== MOSTRAR APP =====================
 async function mostrarApp() {
   loginBox.style.display = "none";
   appBox.style.display = "flex";
@@ -146,12 +150,12 @@ async function mostrarApp() {
   carregarOrdensServico();
   carregarOSGeral();
   toggleItemsPorFrequencia();
+  renderizarGraficosDashboard();
 }
 
-// ===================== VERIFICAÇÃO DE REGRA ADMINISTRADORA =====================
+// ===================== VERIFICAÇÃO DE PERMISSÕES =====================
 function verificarRegraAdmin(email) {
-  // Define quem herda visualização da aba Administrativa (Coloque seu e-mail master aqui se desejar)
-  if (email.includes('admin') || email.includes('master') || email === 'seu-email-principal@dominio.com') {
+  if (email.includes('admin') || email.includes('master')) {
     document.getElementById('label-admin').style.display = 'block';
     document.getElementById('nav-usuarios').style.display = 'flex';
     carregarUsuariosSistema();
@@ -159,6 +163,61 @@ function verificarRegraAdmin(email) {
     document.getElementById('label-admin').style.display = 'none';
     document.getElementById('nav-usuarios').style.display = 'none';
   }
+}
+
+// ===================== LÓGICA DO DASHBOARD (INDICADORES) =====================
+async function renderizarGraficosDashboard() {
+  // 1. Coleta de números para os Flashcards
+  const { count: countAtivos } = await supabaseClient.from('equipamentos').select('*', { count: 'exact', head: true });
+  const { count: countFichas } = await supabaseClient.from('fichas_pmoc').select('*', { count: 'exact', head: true });
+  
+  const { count: countAbertas } = await supabaseClient.from('ordens_servico').select('*', { count: 'exact', head: true }).neq('status_os', 'Concluída');
+  const { count: countFechadas } = await supabaseClient.from('ordens_servico').select('*', { count: 'exact', head: true }).eq('status_os', 'Concluída');
+
+  document.getElementById('dash-txt-ativos').innerText = countAtivos || 0;
+  document.getElementById('dash-txt-fichas').innerText = countFichas || 0;
+  document.getElementById('dash-txt-os-abertas').innerText = countAbertas || 0;
+  document.getElementById('dash-txt-os-fechadas').innerText = countFechadas || 0;
+
+  // 2. Gráfico: Status de Atendimento (O.S. Ar) via Views criadas no Supabase
+  const { data: dataStatus } = await supabaseClient.from('resumo_status_os').select('*');
+  const labelsStatus = (dataStatus || []).map(item => item.status_os);
+  const valoresStatus = (dataStatus || []).map(item => item.total);
+
+  if(instanceChartOS) instanceChartOS.destroy();
+  const ctxOS = document.getElementById('chartStatusOS').getContext('2d');
+  instanceChartOS = new Chart(ctxOS, {
+    type: 'bar',
+    data: {
+      labels: labelsStatus.length ? labelsStatus : ['Sem Dados'],
+      datasets: [{
+        label: 'Quantidade de O.S.',
+        data: valoresStatus.length ? valoresStatus : [0],
+        backgroundColor: ['#f59e0b', '#3b82f6', '#10b981'],
+        borderWidth: 1
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false }
+  });
+
+  // 3. Gráfico: Equipamentos por Criticidade (Pizza/Doughnut)
+  const { data: dataCrit } = await supabaseClient.from('resumo_criticidade').select('*');
+  const labelsCrit = (dataCrit || []).map(item => 'Classe ' + item.criticidade);
+  const valoresCrit = (dataCrit || []).map(item => item.total);
+
+  if(instanceChartCrit) instanceChartCrit.destroy();
+  const ctxCrit = document.getElementById('chartCriticidade').getContext('2d');
+  instanceChartCrit = new Chart(ctxCrit, {
+    type: 'doughnut',
+    data: {
+      labels: labelsCrit.length ? labelsCrit : ['Nenhum Ativo'],
+      datasets: [{
+        data: valoresCrit.length ? valoresCrit : [1],
+        backgroundColor: ['#ef4444', '#3b82f6', '#10b981'],
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false }
+  });
 }
 
 // ===================== CADASTRO ADMINISTRATIVO DE USUÁRIOS =====================
@@ -176,7 +235,6 @@ btnAdminSalvarUsuario.addEventListener('click', async () => {
   msgAdminUsuario.style.color = "blue";
   msgAdminUsuario.innerText = "Registrando credenciais na base...";
 
-  // Salva na tabela auxiliar de perfis do sistema
   const { error } = await supabaseClient.from('perfis_usuarios').insert([
     { email: novoEmail, role: roleAcesso, password_hint: novaSenha }
   ]);
@@ -193,7 +251,6 @@ btnAdminSalvarUsuario.addEventListener('click', async () => {
   }
 });
 
-// ===================== CARREGAR LISTA DE USUÁRIOS DO SISTEMA =====================
 async function carregarUsuariosSistema() {
   const tbody = document.getElementById('tbody-usuarios-sistema');
   if (!tbody) return;
@@ -217,7 +274,7 @@ async function carregarUsuariosSistema() {
 }
 
 async function excluirUsuarioSistema(id) {
-  if (!confirm("Revogar permanentemente o acesso deste usuário?")) return;
+  if (!confirm("Revogar acesso deste usuário?")) return;
   const { error } = await supabaseClient.from('perfis_usuarios').delete().eq('id', id);
   if (!error) carregarUsuariosSistema();
 }
@@ -282,7 +339,6 @@ btnSalvarColaborador.addEventListener('click', async () => {
   }
 });
 
-// ===================== SELECT DE FUNÇÕES =====================
 async function atualizarSelectFuncoes() {
   if (!selectFuncaoColab) return;
   const { data, error } = await supabaseClient.from('funcoes').select('id, nome, nivel').order('nome', { ascending: true });
@@ -297,7 +353,6 @@ async function atualizarSelectFuncoes() {
   }
 }
 
-// ===================== SELECT DE COLABORADORES =====================
 async function atualizarSelectColaboradores() {
   if (!selectTecnicoPMOC) return;
   const { data, error } = await supabaseClient.from('colaboradores').select('id, nome').order('nome', { ascending: true });
@@ -322,7 +377,7 @@ async function atualizarSelectColaboradores() {
 
       if (selectOSGTecnico) {
         const optOSG = document.createElement('option');
-        optOSG.value = c.name || c.nome; 
+        optOSG.value = c.nome;
         optOSG.textContent = c.nome;
         selectOSGTecnico.appendChild(optOSG);
       }
@@ -369,7 +424,6 @@ btnSalvar.addEventListener('click', async () => {
   }
 });
 
-// ===================== LIMPAR FORMULÁRIO EQUIPAMENTO =====================
 btnLimpar.addEventListener('click', limparFormulario);
 function limparFormulario() {
   ['eq-tag','eq-marca','eq-potencia','eq-serie','eq-patrimonio',
@@ -384,7 +438,6 @@ function limparFormulario() {
   msgEq.innerText = "";
 }
 
-// ===================== CARREGAR EQUIPAMENTOS =====================
 async function carregarEquipamentos() {
   const tbody = document.getElementById('tbody-equipamentos');
   if (!tbody) return;
@@ -418,7 +471,6 @@ async function excluirEquipamento(id) {
   if (!error) carregarEquipamentos();
 }
 
-// ===================== SELECT DE EQUIPAMENTOS =====================
 async function atualizarSelectEquipamentos() {
   if (!selectEquipamento) return;
   const { data, error } = await supabaseClient.from('equipamentos').select('id, tag, marca, produto');
@@ -518,7 +570,6 @@ function limparFormularioFicha() {
   toggleItemsPorFrequencia();
 }
 
-// ===================== CARREGAR HISTÓRICO PMOC =====================
 async function carregarHistoricoFichas() {
   const tbody = document.getElementById('tbody-fichas');
   if (!tbody) return;
@@ -558,7 +609,6 @@ async function carregarHistoricoFichas() {
   }).join('');
 }
 
-// ===================== EMITIR RELATÓRIO PMOC =====================
 function emitirRelatorio(fichaBase64) {
   const ficha = JSON.parse(decodeURIComponent(escape(atob(fichaBase64))));
   const eq = ficha.equipamentos || {};
@@ -677,7 +727,6 @@ btnSalvarOS.addEventListener('click', async () => {
   }
 });
 
-// ===================== CARREGAR O.S. AR CONDICIONADO =====================
 async function carregarOrdensServico() {
   const tbody = document.getElementById('tbody-os');
   if (!tbody) return;
@@ -828,7 +877,6 @@ function limparFormOSG() {
   if (selectOSGTecnico) selectOSGTecnico.value = '';
 }
 
-// ===================== CARREGAR O.S. GERAIS =====================
 async function carregarOSGeral() {
   const tbody = document.getElementById('tbody-osg');
   if (!tbody) return;
@@ -871,7 +919,6 @@ async function excluirOSGeral(id) {
   if (!error) carregarOSGeral();
 }
 
-// ===================== IMPRIMIR O.S. GERAL (MODELO UNIVAG) =====================
 function imprimirOSGeral(osBase64) {
   const os = JSON.parse(decodeURIComponent(escape(atob(osBase64))));
   const areas = os.areas_servico || [];
@@ -1019,6 +1066,7 @@ function showSection(name) {
   const target = document.getElementById('section-' + name);
   if (target) target.style.display = 'block';
 
+  if (name === 'dashboard') renderizarGraficosDashboard();
   if (name === 'relatorios') carregarHistoricoFichas();
   if (name === 'ordens') carregarOrdensServico();
   if (name === 'os-grid') carregarOSGeral();
