@@ -8,47 +8,99 @@
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
 <body>
-    <div class="login-container" id="login-box">
-        <h2>Acesso ao Sistema PMOC</h2>
-        <input type="email" id="email" placeholder="Seu e-mail" required>
-        <input type="password" id="password" placeholder="Sua senha" required>
-        <button id="btn-login">Entrar</button>
-        <button id="btn-cadastro" class="secondary">Cadastrar Nova Conta</button>
-        <p id="mensagem" class="erro"></p>
-    </div>
 
-    <div class="dashboard-container" id="dashboard-box" style="display: none;">
-        <h2>Painel do PMOC</h2>
-        <p>Bem-vindo ao sistema! Você está logado com sucesso.</p>
-        <button id="btn-logout">Sair do Sistema</button>
-    </div>
+  <!-- TELA DE LOGIN -->
+  <div class="login-container" id="login-box">
+    <h2>Acesso ao Sistema PMOC</h2>
+    <input type="email" id="email" placeholder="Seu e-mail" required>
+    <input type="password" id="password" placeholder="Sua senha" required>
+    <button id="btn-login">Entrar</button>
+    <button id="btn-cadastro" class="secondary">Cadastrar Nova Conta</button>
+    <p id="mensagem" class="erro"></p>
+  </div>
 
-    <script src="app.js"></script>
+  <!-- SISTEMA PRINCIPAL -->
+  <div class="app-container" id="app-box" style="display:none;">
+    
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h3>Sistema PMOC</h3>
+        <p>Gestão de equipamentos</p>
+      </div>
+      <nav>
+        <div class="nav-label">Cadastros</div>
+        <div class="nav-item active" id="nav-equipamentos" onclick="showSection('equipamentos')">
+          <span>🌡</span> Equipamentos
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <button id="btn-logout" class="btn-sair">Sair do sistema</button>
+      </div>
+    </aside>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="main-content">
+      <div class="topbar">
+        <h2>Cadastro de Equipamentos</h2>
+      </div>
+
+      <!-- SEÇÃO EQUIPAMENTOS -->
+      <div id="section-equipamentos">
+
+        <!-- FORMULÁRIO -->
+        <div class="card">
+          <h3 class="card-title">Novo equipamento</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Marca</label>
+              <input type="text" id="eq-marca" placeholder="Ex: Carrier, Springer...">
+            </div>
+            <div class="form-group">
+              <label>Potência</label>
+              <input type="text" id="eq-potencia" placeholder="Ex: 9000 BTU, 12000 BTU...">
+            </div>
+            <div class="form-group">
+              <label>TAG</label>
+              <input type="text" id="eq-tag" placeholder="Ex: AR-01, EQ-023...">
+            </div>
+            <div class="form-group">
+              <label>Patrimônio</label>
+              <input type="text" id="eq-patrimonio" placeholder="Ex: 00123456...">
+            </div>
+          </div>
+          <div class="btn-row">
+            <button id="btn-salvar" class="btn-primary">+ Salvar equipamento</button>
+            <button id="btn-limpar" class="btn-secondary">Limpar</button>
+          </div>
+          <p id="msg-equipamento" class="msg-form"></p>
+        </div>
+
+        <!-- TABELA -->
+        <div class="card">
+          <h3 class="card-title">Equipamentos cadastrados</h3>
+          <div class="table-wrap">
+            <table id="tabela-equipamentos">
+              <thead>
+                <tr>
+                  <th>TAG</th>
+                  <th>Marca</th>
+                  <th>Potência</th>
+                  <th>Patrimônio</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-equipamentos">
+                <tr><td colspan="5" style="text-align:center;color:#999;">Carregando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
 </body>
 </html>
-<div id="area-pmoc" class="container">
-    <h2>Cadastrar Manutenção PMOC</h2>
-    <form id="form-manutencao">
-        <input type="text" id="pmoc-cliente" placeholder="Nome do Cliente / Empresa" required>
-        <input type="text" id="pmoc-equipamento" placeholder="Equipamento (Ex: Split 12000 BTUs)" required>
-        <input type="text" id="pmoc-tag" placeholder="TAG / Identificação do Aparelho">
-        
-        <select id="pmoc-tipo" required>
-            <option value="">Selecione o Tipo</option>
-            <option value="Preventiva">Preventiva (Limpeza/Filtros)</option>
-            <option value="Corretiva">Corretiva (Conserto/Peças)</option>
-        </select>
-        
-        <textarea id="pmoc-descricao" placeholder="Descrição das atividades realizadas..." required></textarea>
-        <input type="text" id="pmoc-tecnico" placeholder="Nome do Técnico Responsável" required>
-        
-        <button type="submit" id="btn-salvar-manutencao">Salvar Manutenção</button>
-    </form>
-
-    <hr>
-
-    <h2>Relatórios de Manutenção</h2>
-    <button id="btn-carregar-relatorio">Gerar e Visualizar Relatório Geral</button>
-    
-    <div id="lista-relatorios" class="tabela-relatorio"></div>
-</div>
