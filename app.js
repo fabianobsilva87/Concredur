@@ -35,10 +35,9 @@ function toggleItemsPorFrequencia() {
   
   itensTrimestrais.forEach(item => {
     if (freq === 'T') {
-      item.style.display = 'flex'; // Torna visível na manutenção acumulada
+      item.style.display = 'flex';
     } else {
-      item.style.display = 'none'; // Esconde na manutenção puramente mensal
-      // Desmarca os inputs do tipo rádio escondidos para evitar salvar lixo eletrônico no banco
+      item.style.display = 'none';
       item.querySelectorAll('input[type="radio"]').forEach(radio => radio.checked = false);
     }
   });
@@ -230,7 +229,7 @@ async function atualizarSelectEquipamentos() {
   }
 }
 
-// SALVAR FORMULÁRIO PMOC HOSPITALAR COMPLETO COM ARQUIVOS
+// SALVAR FORMULÁRIO PMOC HOSPITALAR
 btnSalvarFicha.addEventListener('click', async () => {
   const equipamento_id = selectEquipamento.value;
   const tecnico_nome = document.getElementById('pmoc-tecnico').value.trim();
@@ -238,19 +237,16 @@ btnSalvarFicha.addEventListener('click', async () => {
   const observacoes = document.getElementById('pmoc-obs').value.trim();
   const arquivoFoto = fotoInput.files[0]; 
 
-  // Captura dinâmica das notas do Checklist Hospitalar
   const fil_01 = document.querySelector('input[name="fil_01"]:checked')?.value;
   const bio_01 = document.querySelector('input[name="bio_01"]:checked')?.value;
   const bio_02 = document.querySelector('input[name="bio_02"]:checked')?.value;
   const mec_01 = document.querySelector('input[name="mec_01"]:checked')?.value;
 
-  // Itens trimestrais opcionais
   const fil_02 = document.querySelector('input[name="fil_02"]:checked')?.value || 'NA';
   const bio_03 = document.querySelector('input[name="bio_03"]:checked')?.value || 'NA';
   const ele_01 = document.querySelector('input[name="ele_01"]:checked')?.value || 'NA';
   const ele_02 = document.querySelector('input[name="ele_02"]:checked')?.value || 'NA';
 
-  // Validação conforme a frequência selecionada
   if (!equipamento_id || !tecnico_nome || !fil_01 || !bio_01 || !bio_02 || !mec_01) {
     msgFicha.style.color = "red";
     msgFicha.innerText = "Por favor, preencha os dados básicos e os itens mensais obrigatórios.";
@@ -293,7 +289,6 @@ btnSalvarFicha.addEventListener('click', async () => {
 
   msgFicha.innerText = "Salvando formulário de manutenção...";
 
-  // Envia a carga dinâmica adaptada (Importante: Adicione as colunas fil_01, fil_02, bio_01, etc., na sua tabela 'fichas_pmoc' do Supabase se desejar mapear os itens separadamente, ou use a coluna observações se preferir simplificar)
   const { error } = await supabaseClient.from('fichas_pmoc').insert([
     {
       equipamento_id,
@@ -351,7 +346,6 @@ async function carregarHistoricoFichas() {
     const dataFormatada = new Date(ficha.created_at).toLocaleDateString('pt-BR');
     const eq = ficha.equipamentos || { tag: "N/A", marca: "Desconhecido" };
     
-    // Extrai a frequência direto da string estruturada das observações salvadas
     const isTrimestral = ficha.observacoes.includes("Frequência: Trimestral");
     const labelFreq = isTrimestral ? "Trimestral" : "Mensal";
 
@@ -373,7 +367,7 @@ async function carregarHistoricoFichas() {
   }).join('');
 }
 
-// GERAR DOCUMENTO FORMAL BASEADO NO PDF PMOC_HOSPITALAR E IMPRIMIR
+// GERAR DOCUMENTO E IMPRIMIR
 function emitirRelatorio(fichaBase64) {
   const ficha = JSON.parse(decodeURIComponent(escape(atob(fichaBase64))));
   const eq = ficha.equipamentos || {};
@@ -381,7 +375,6 @@ function emitirRelatorio(fichaBase64) {
   
   const isTrimestral = ficha.observacoes.includes("Frequência: Trimestral");
 
-  // Função interna auxiliar para ler notas individuais guardadas no texto das observações
   const extrairNota = (id) => {
     const regex = new RegExp(`${id}:([C|NC|NA]+)`);
     const match = ficha.observacoes.match(regex);
@@ -421,12 +414,12 @@ function emitirRelatorio(fichaBase64) {
           <tr><td>MEC-01</td><td>Mecânica</td><td>Ruídos, vibrações e fixação do motoventilador</td><td style="text-align:center;">M</td><td style="text-align:center;"><strong>${extrairNota('MEC-01')}</strong></td></tr>
           
           ${isTrimestral ? `
-          <tr><td>FIL-02</td><td>Qualidade do Ar</td><td>Diferencial de pressão dos filtros (quando aplicável)</td><td style="text-align:center;">T</td><td style="text-align:center;"><strong>${extrairNota('FIL-02')}</strong></td></tr>
-          <tr><td>BIO-03</td><td>Biocontrole</td><td>Limpeza química das serpentinas (Evaporadora/Condensadora)</td><td style="text-align:center;">T</td><td style="text-align:center;"><strong>${extrairNota('BIO-03')}</strong></td></tr>
+          <tr><td>FIL-02</td><td>Qualidade do Ar</td><td>Diferencial de pressão dos filtros</td><td style="text-align:center;">T</td><td style="text-align:center;"><strong>${extrairNota('FIL-02')}</strong></td></tr>
+          <tr><td>BIO-03</td><td>Biocontrole</td><td>Limpeza química das serpentinas</td><td style="text-align:center;">T</td><td style="text-align:center;"><strong>${extrairNota('BIO-03')}</strong></td></tr>
           <tr><td>ELE-01</td><td>Elétrica</td><td>Medição elétrica (A) do compressor e motores</td><td style="text-align:center;">T</td><td style="text-align:center;"><strong>${extrairNota('ELE-01')}</strong></td></tr>
-          <tr><td>ELE-02</td><td>Elétrica</td><td>Reaperto de contatos elétricos e verificação do painel</td><td style="text-align:center;">T</td><td style="text-align:center;"><strong>${extrairNota('ELE-02')}</strong></td></tr>
+          <tr><td>ELE-02</td><td>Elétrica</td><td>Reaperto de contatos elétricos e painel</td><td style="text-align:center;">T</td><td style="text-align:center;"><strong>${extrairNota('ELE-02')}</strong></td></tr>
           ` : `
-          <tr style="color:#a0aec0;"><td colspan="5" style="text-align:center; font-style:italic; padding:10px;">Rotinas trimestrais (FIL-02, BIO-03, ELE-01, ELE-02) omitidas nesta folha mensal.</td></tr>
+          <tr style="color:#a0aec0;"><td colspan="5" style="text-align:center; font-style:italic; padding:10px;">Rotinas trimestrais omitidas nesta folha mensal.</td></tr>
           `}
         </tbody>
       </table>
@@ -458,7 +451,7 @@ function emitirRelatorio(fichaBase64) {
   window.print();
 }
 
-// NAVEGAÇÃO ENTRE AS SEÇÕES DO APP
+// NAVEGAÇÃO ENTRE AS SEÇÕES DO APP (EXPANDIDA PARA INCLUIR OS NOVOS MÓDULOS)
 function showSection(name) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   document.getElementById('nav-' + name)?.classList.add('active');
