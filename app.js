@@ -64,29 +64,26 @@ btnCadastro.addEventListener('click', async () => {
   }
 });
 
-// LOGOFF (SISTEMA DE DESCONEXÃO COMPLETO)
+// LOGOFF
 btnLogout.addEventListener('click', async () => {
   await supabaseClient.auth.signOut();
   appBox.style.display = "none";
   loginBox.style.display = "flex";
   
-  // Limpa credenciais de login informadas anteriormente
   emailInput.value = "";
   passwordInput.value = "";
   msg.innerText = "";
   
-  // Limpa campos de alteração de senha por segurança
   document.getElementById('account-new-password').value = "";
   document.getElementById('account-confirm-password').value = "";
   if (msgConta) msgConta.innerText = "";
 });
 
-// MOSTRAR APP E CARREGAR INTERFACES COM IDENTIFICAÇÃO DO USUÁRIO
+// MOSTRAR APP E CARREGAR INTERFACES WITH IDENTIFICAÇÃO DO USUÁRIO
 async function mostrarApp() {
   loginBox.style.display = "none";
   appBox.style.display = "flex";
   
-  // Resgata o usuário atual logado e injeta o e-mail na barra lateral
   const { data: { user } } = await supabaseClient.auth.getUser();
   if (user) {
     document.getElementById('user-display-email').innerText = user.email;
@@ -202,15 +199,14 @@ async function atualizarSelectEquipamentos() {
 
   const { data, error } = await supabaseClient
     .from('equipamentos')
-    .select('id, tag, marca, produto');
+    .select('id, tag, marca, product:produto'); // Alias simples caso mude
 
-  if (error || !data) return;
-
+  const actualData = data || [];
   selectEquipamento.innerHTML = '<option value="">-- Selecione o Equipamento (Tag) --</option>';
-  data.forEach(eq => {
+  actualData.forEach(eq => {
     const opt = document.createElement('option');
     opt.value = eq.id;
-    opt.textContent = `${eq.tag} - ${eq.produto || eq.marca}`;
+    opt.textContent = `${eq.tag} - ${eq.product || eq.marca}`;
     selectEquipamento.appendChild(opt);
   });
 }
@@ -435,7 +431,7 @@ function emitirRelatorio(fichaBase64) {
   window.print();
 }
 
-// LOGICA DE TROCA DE SENHA (INTEGRAÇÃO SUPABASE AUTH)
+// LOGICA DE TROCA DE SENHA
 btnAtualizarSenha.addEventListener('click', async () => {
   const novaSenha = document.getElementById('account-new-password').value;
   const confirmaSenha = document.getElementById('account-confirm-password').value;
@@ -470,7 +466,7 @@ btnAtualizarSenha.addEventListener('click', async () => {
     msgConta.innerText = "Erro ao atualizar: " + error.message;
   } else {
     msgConta.style.color = "green";
-    msgConta.innerText = "Senha atualizada com sucesso!";
+    msgConta.innerText = "Senha updated com sucesso!";
     document.getElementById('account-new-password').value = "";
     document.getElementById('account-confirm-password').value = "";
     setTimeout(() => msgConta.innerText = "", 4000);
