@@ -1,7 +1,7 @@
 // Configuração de conexão com o Supabase
 const SUPABASE_URL = "https://nweligwbgblblncaegir.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_kajKlLpAjRorDNIAuKQbZA_tjyfJ3rK";
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const SUPABASE_ANON_KEY = " sb_publishable_kajKlLpAjRorDNIAuKQbZA_tjyfJ3rK "; 
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Pegando os elementos da tela
 const emailInput = document.getElementById('email');
@@ -16,11 +16,17 @@ const dashboardBox = document.getElementById('dashboard-box');
 
 // Função de Cadastro
 btnCadastro.addEventListener('click', async () => {
-    const { data, error } = await supabase.auth.signUp({
+    msg.style.color = "blue";
+    msg.innerText = "Processando cadastro...";
+    
+    // Atualizado para usar o novo nome da variável
+    const { data, error } = await supabaseClient.auth.signUp({
         email: emailInput.value,
         password: passwordInput.value,
     });
+    
     if (error) {
+        msg.style.color = "red";
         msg.innerText = "Erro ao cadastrar: " + error.message;
     } else {
         msg.style.color = "green";
@@ -30,15 +36,20 @@ btnCadastro.addEventListener('click', async () => {
 
 // Função de Login
 btnLogin.addEventListener('click', async () => {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    msg.style.color = "blue";
+    msg.innerText = "Verificando acesso...";
+
+    // Atualizado para usar o novo nome da variável
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
         email: emailInput.value,
         password: passwordInput.value,
     });
+    
     if (error) {
         msg.style.color = "red";
         msg.innerText = "Erro no acesso: " + error.message;
     } else {
-        // Esconde a caixa de login e mostra o painel do sistema
+        msg.innerText = "";
         loginBox.style.display = "none";
         dashboardBox.style.display = "block";
     }
@@ -46,7 +57,8 @@ btnLogin.addEventListener('click', async () => {
 
 // Função de Sair
 btnLogout.addEventListener('click', async () => {
-    await supabase.auth.signOut();
+    // Atualizado para usar o novo nome da variável
+    await supabaseClient.auth.signOut();
     loginBox.style.display = "block";
     dashboardBox.style.display = "none";
     msg.innerText = "";
