@@ -26,3 +26,29 @@
     <script src="app.js"></script>
 </body>
 </html>
+<div id="area-pmoc" class="container">
+    <h2>Cadastrar Manutenção PMOC</h2>
+    <form id="form-manutencao">
+        <input type="text" id="pmoc-cliente" placeholder="Nome do Cliente / Empresa" required>
+        <input type="text" id="pmoc-equipamento" placeholder="Equipamento (Ex: Split 12000 BTUs)" required>
+        <input type="text" id="pmoc-tag" placeholder="TAG / Identificação do Aparelho">
+        
+        <select id="pmoc-tipo" required>
+            <option value="">Selecione o Tipo</option>
+            <option value="Preventiva">Preventiva (Limpeza/Filtros)</option>
+            <option value="Corretiva">Corretiva (Conserto/Peças)</option>
+        </select>
+        
+        <textarea id="pmoc-descricao" placeholder="Descrição das atividades realizadas..." required></textarea>
+        <input type="text" id="pmoc-tecnico" placeholder="Nome do Técnico Responsável" required>
+        
+        <button type="submit" id="btn-salvar-manutencao">Salvar Manutenção</button>
+    </form>
+
+    <hr>
+
+    <h2>Relatórios de Manutenção</h2>
+    <button id="btn-carregar-relatorio">Gerar e Visualizar Relatório Geral</button>
+    
+    <div id="lista-relatorios" class="tabela-relatorio"></div>
+</div>
