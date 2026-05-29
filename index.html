@@ -9,7 +9,6 @@
 </head>
 <body>
 
-  <!-- TELA DE LOGIN -->
   <div class="login-container" id="login-box">
     <h2>Acesso ao Sistema PMOC</h2>
     <input type="email" id="email" placeholder="Seu e-mail" required>
@@ -19,10 +18,8 @@
     <p id="mensagem" class="erro"></p>
   </div>
 
-  <!-- SISTEMA PRINCIPAL -->
   <div class="app-container" id="app-box" style="display:none;">
     
-    <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="sidebar-header">
         <h3>Sistema PMOC</h3>
@@ -33,71 +30,146 @@
         <div class="nav-item active" id="nav-equipamentos" onclick="showSection('equipamentos')">
           <span>🌡</span> Equipamentos
         </div>
+        <div class="nav-item" id="nav-fichas" onclick="showSection('fichas')">
+          <span>📋</span> Ficha PMOC
+        </div>
       </nav>
       <div class="sidebar-footer">
         <button id="btn-logout" class="btn-sair">Sair do sistema</button>
       </div>
     </aside>
 
-    <!-- CONTEÚDO PRINCIPAL -->
     <main class="main-content">
-      <div class="topbar">
-        <h2>Cadastro de Equipamentos</h2>
+      
+      <div id="section-equipamentos" class="app-section">
+        <div class="topbar">
+          <h2>Cadastro de Equipamentos</h2>
+        </div>
+        
+        <div class="section-content">
+          <div class="card">
+            <h3 class="card-title">Novo equipamento</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Marca</label>
+                <input type="text" id="eq-marca" placeholder="Ex: Carrier, Springer...">
+              </div>
+              <div class="form-group">
+                <label>Potência</label>
+                <input type="text" id="eq-potencia" placeholder="Ex: 9000 BTU, 12000 BTU...">
+              </div>
+              <div class="form-group">
+                <label>TAG</label>
+                <input type="text" id="eq-tag" placeholder="Ex: AR-01, EQ-023...">
+              </div>
+              <div class="form-group">
+                <label>Patrimônio</label>
+                <input type="text" id="eq-patrimonio" placeholder="Ex: 00123456...">
+              </div>
+            </div>
+            <div class="btn-row">
+              <button id="btn-salvar" class="btn-primary">+ Salvar equipamento</button>
+              <button id="btn-limpar" class="btn-secondary">Limpar</button>
+            </div>
+            <p id="msg-equipamento" class="msg-form"></p>
+          </div>
+
+          <div class="card">
+            <h3 class="card-title">Equipamentos cadastrados</h3>
+            <div class="table-wrap">
+              <table id="tabela-equipamentos">
+                <thead>
+                  <tr>
+                    <th>TAG</th>
+                    <th>Marca</th>
+                    <th>Potência</th>
+                    <th>Patrimônio</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-equipamentos">
+                  <tr><td colspan="5" style="text-align:center;color:#999;">Carregando...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- SEÇÃO EQUIPAMENTOS -->
-      <div id="section-equipamentos">
-
-        <!-- FORMULÁRIO -->
-        <div class="card">
-          <h3 class="card-title">Novo equipamento</h3>
-          <div class="form-grid">
-            <div class="form-group">
-              <label>Marca</label>
-              <input type="text" id="eq-marca" placeholder="Ex: Carrier, Springer...">
-            </div>
-            <div class="form-group">
-              <label>Potência</label>
-              <input type="text" id="eq-potencia" placeholder="Ex: 9000 BTU, 12000 BTU...">
-            </div>
-            <div class="form-group">
-              <label>TAG</label>
-              <input type="text" id="eq-tag" placeholder="Ex: AR-01, EQ-023...">
-            </div>
-            <div class="form-group">
-              <label>Patrimônio</label>
-              <input type="text" id="eq-patrimonio" placeholder="Ex: 00123456...">
-            </div>
-          </div>
-          <div class="btn-row">
-            <button id="btn-salvar" class="btn-primary">+ Salvar equipamento</button>
-            <button id="btn-limpar" class="btn-secondary">Limpar</button>
-          </div>
-          <p id="msg-equipamento" class="msg-form"></p>
+      <div id="section-fichas" class="app-section" style="display: none;">
+        <div class="topbar">
+          <h2>Execução da Ficha PMOC</h2>
         </div>
 
-        <!-- TABELA -->
-        <div class="card">
-          <h3 class="card-title">Equipamentos cadastrados</h3>
-          <div class="table-wrap">
-            <table id="tabela-equipamentos">
-              <thead>
-                <tr>
-                  <th>TAG</th>
-                  <th>Marca</th>
-                  <th>Potência</th>
-                  <th>Patrimônio</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody id="tbody-equipamentos">
-                <tr><td colspan="5" style="text-align:center;color:#999;">Carregando...</td></tr>
-              </tbody>
-            </table>
+        <div class="section-content">
+          <div class="card">
+            <h3 class="card-title">Nova Inspeção Periódica</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Equipamento (TAG)</label>
+                <select id="pmoc-equipamento" class="form-input-style">
+                  <option value="">-- Selecione o Equipamento (Tag) --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Nome do Técnico</label>
+                <input type="text" id="pmoc-tecnico" placeholder="Nome do responsável">
+              </div>
+            </div>
+
+            <div class="pmoc-checklist-container">
+              <h4>Itens de Verificação (C: Conforme | NC: Não Conforme | NA: Não Aplicável)</h4>
+              
+              <div class="checklist-row">
+                <span>Filtro de Ar está limpo?</span>
+                <div class="radio-group">
+                  <label><input type="radio" name="filtro" value="C"> C</label>
+                  <label><input type="radio" name="filtro" value="NC"> NC</label>
+                  <label><input type="radio" name="filtro" value="NA"> NA</label>
+                </div>
+              </div>
+
+              <div class="checklist-row">
+                <span>Serpentina está limpa?</span>
+                <div class="radio-group">
+                  <label><input type="radio" name="serpentina" value="C"> C</label>
+                  <label><input type="radio" name="serpentina" value="NC"> NC</label>
+                  <label><input type="radio" name="serpentina" value="NA"> NA</label>
+                </div>
+              </div>
+
+              <div class="checklist-row">
+                <span>Bandeja de condensado limpa?</span>
+                <div class="radio-group">
+                  <label><input type="radio" name="bandeja" value="C"> C</label>
+                  <label><input type="radio" name="bandeja" value="NC"> NC</label>
+                  <label><input type="radio" name="bandeja" value="NA"> NA</label>
+                </div>
+              </div>
+
+              <div class="checklist-row">
+                <span>Ventilador/Rotor operando OK?</span>
+                <div class="radio-group">
+                  <label><input type="radio" name="ventilador" value="C"> C</label>
+                  <label><input type="radio" name="ventilador" value="NC"> NC</label>
+                  <label><input type="radio" name="ventilador" value="NA"> NA</label>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 14px;">
+              <label>Observações / Diagnóstico</label>
+              <textarea id="pmoc-obs" rows="3" placeholder="Digite observações técnicas adicionais aqui..."></textarea>
+            </div>
+
+            <div class="btn-row">
+              <button id="btn-salvar-ficha" class="btn-primary">✓ Salvar Ficha PMOC</button>
+            </div>
+            <p id="msg-ficha" class="msg-form"></p>
           </div>
         </div>
-
       </div>
+
     </main>
   </div>
 
