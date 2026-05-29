@@ -54,17 +54,200 @@
             <h3 class="card-title">Novo equipamento</h3>
             <div class="form-grid">
               <div class="form-group">
-                <label>Marca</label>
-                <input type="text" id="eq-marca" placeholder="Ex: Carrier, Springer...">
-              </div>
-              <div class="form-group">
-                <label>Potência</label>
-                <input type="text" id="eq-potencia" placeholder="Ex: 9000 BTU, 12000 BTU...">
-              </div>
-              <div class="form-group">
-                <label>TAG</label>
+                <label>TAG Consolidada</label>
                 <input type="text" id="eq-tag" placeholder="Ex: AR-01, EQ-023...">
               </div>
               <div class="form-group">
-                <label>Patrimônio</label>
-                <input type="text" id="eq-patrimonio" placeholder="Ex: 00123
+                <label>Marca Fabricante</label>
+                <input type="text" id="eq-marca" placeholder="Ex: Carrier, Springer...">
+              </div>
+              <div class="form-group">
+                <label>Potência / Capacidade</label>
+                <input type="text" id="eq-potencia" placeholder="Ex: 9000 BTU, 12000 BTU...">
+              </div>
+              <div class="form-group">
+                <label>Nº de Série</label>
+                <input type="text" id="eq-serie" placeholder="Ex: 123456789XX">
+              </div>
+              <div class="form-group">
+                <label>Plaqueta / Patrimônio</label>
+                <input type="text" id="eq-patrimonio" placeholder="Ex: 00123456...">
+              </div>
+              <div class="form-group">
+                <label>Equipamento (Tipo/Produto)</label>
+                <input type="text" id="eq-produto" placeholder="Ex: Split Hi-Wall, Cassete...">
+              </div>
+              <div class="form-group">
+                <label>Descrição do Bloco</label>
+                <input type="text" id="eq-bloco" placeholder="Ex: Bloco A, Prédio Central">
+              </div>
+              <div class="form-group">
+                <label>Descrição do Setor</label>
+                <input type="text" id="eq-setor" placeholder="Ex: Financeiro, TI, RH">
+              </div>
+              <div class="form-group">
+                <label>Nº Sala / LAB</label>
+                <input type="text" id="eq-sala" placeholder="Ex: Sala 102, Lab 03">
+              </div>
+              <div class="form-group">
+                <label>Instituição</label>
+                <input type="text" id="eq-instituicao" placeholder="Ex: Unidade Centro">
+              </div>
+              <div class="form-group">
+                <label>Validade / Garantia</label>
+                <input type="text" id="eq-validade" placeholder="Ex: 12/2027 ou Sem Garantia">
+              </div>
+              <div class="form-group">
+                <label>Nível de Criticidade</label>
+                <select id="eq-criticidade" class="form-input-style">
+                  <option value="Baixa">Baixa</option>
+                  <option value="Média" selected>Média</option>
+                  <option value="Alta">Alta</option>
+                </select>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button id="btn-salvar" class="btn-primary">+ Salvar equipamento</button>
+              <button id="btn-limpar" class="btn-secondary">Limpar</button>
+            </div>
+            <p id="msg-equipamento" class="msg-form"></p>
+          </div>
+
+          <div class="card">
+            <h3 class="card-title">Equipamentos cadastrados</h3>
+            <div class="table-wrap">
+              <table id="tabela-equipamentos">
+                <thead>
+                  <tr>
+                    <th>TAG</th>
+                    <th>Equipamento / Marca</th>
+                    <th>Localização (Bloco/Setor/Sala)</th>
+                    <th>Criticidade</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-equipamentos">
+                  <tr><td colspan="5" style="text-align:center;color:#999;">Carregando...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="section-fichas" class="app-section" style="display: none;">
+        <div class="topbar no-print">
+          <h2>Execução da Ficha PMOC</h2>
+        </div>
+
+        <div class="section-content">
+          <div class="card">
+            <h3 class="card-title">Nova Inspeção Periódica</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Equipamento (TAG)</label>
+                <select id="pmoc-equipamento" class="form-input-style">
+                  <option value="">-- Selecione o Equipamento (Tag) --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Nome do Técnico</label>
+                <input type="text" id="pmoc-tecnico" placeholder="Nome do responsável">
+              </div>
+              <div class="form-group">
+                <label>Foto da Inspeção (Opcional)</label>
+                <input type="file" id="pmoc-foto" accept="image/*" class="form-input-style">
+                <small style="color: #718096; font-size: 11px; margin-top: 2px;">Clique para tirar foto ou anexar da galeria</small>
+              </div>
+            </div>
+
+            <div class="pmoc-checklist-container">
+              <h4>Itens de Verificação (C: Conforme | NC: Não Conforme | NA: Não Aplicável)</h4>
+              
+              <div class="checklist-row">
+                <span>Filtro de Ar está limpo?</span>
+                <div class="radio-group">
+                  <label><input type="radio" name="filtro" value="C"> C</label>
+                  <label><input type="radio" name="filtro" value="NC"> NC</label>
+                  <label><input type="radio" name="filtro" value="NA"> NA</label>
+                </div>
+              </div>
+
+              <div class="checklist-row">
+                <span>Serpentina está limpa?</span>
+                <div class="radio-group">
+                  <label><input type="radio" name="serpentina" value="C"> C</label>
+                  <label><input type="radio" name="serpentina" value="NC"> NC</label>
+                  <label><input type="radio" name="serpentina" value="NA"> NA</label>
+                </div>
+              </div>
+
+              <div class="checklist-row">
+                <span>Bandeja de condensado limpa?</span>
+                <div class="radio-group">
+                  <label><input type="radio" name="bandeja" value="C"> C</label>
+                  <label><input type="radio" name="bandeja" value="NC"> NC</label>
+                  <label><input type="radio" name="bandeja" value="NA"> NA</label>
+                </div>
+              </div>
+
+              <div class="checklist-row">
+                <span>Ventilador/Rotor operando OK?</span>
+                <div class="radio-group">
+                  <label><input type="radio" name="ventilador" value="C"> C</label>
+                  <label><input type="radio" name="ventilador" value="NC"> NC</label>
+                  <label><input type="radio" name="ventilador" value="NA"> NA</label>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 14px;">
+              <label>Observações / Diagnóstico</label>
+              <textarea id="pmoc-obs" rows="3" placeholder="Digite observações técnicas adicionais aqui..."></textarea>
+            </div>
+
+            <div class="btn-row">
+              <button id="btn-salvar-ficha" class="btn-primary">✓ Salvar Ficha PMOC</button>
+            </div>
+            <p id="msg-ficha" class="msg-form"></p>
+          </div>
+        </div>
+      </div>
+
+      <div id="section-relatorios" class="app-section" style="display: none;">
+        <div class="topbar no-print">
+          <h2>Histórico de Inspeções / Emissão de PMOC</h2>
+        </div>
+
+        <div class="section-content">
+          <div class="card no-print">
+            <h3 class="card-title">Fichas de Manutenção Registradas</h3>
+            <div class="table-wrap">
+              <table id="tabela-fichas">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Equipamento (TAG)</th>
+                    <th>Técnico</th>
+                    <th>Status Geral</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-fichas">
+                  <tr><td colspan="5" style="text-align:center;color:#999;">Carregando histórico...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="area-laudo-impressao" class="print-only report-laudo-card">
+            </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
