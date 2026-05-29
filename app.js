@@ -21,11 +21,22 @@ const msgEq = document.getElementById('msg-equipamento');
 const selectEquipamento = document.getElementById('pmoc-equipamento');
 const selectFrequencia = document.getElementById('pmoc-frequencia');
 const selectTecnicoPMOC = document.getElementById('pmoc-tecnico');
+const inputDatePMOC = document.getElementById('pmoc-data');
 const btnSalvarFicha = document.getElementById('btn-salvar-ficha');
 const msgFicha = document.getElementById('msg-ficha');
 const fotoInput = document.getElementById('pmoc-foto');
 
-// ELEMENTOS DE RH (FUNÇÕES E COLABORADORES)
+// ELEMENTOS DO CADASTRO DE O.S.
+const selectOSEquipamento = document.getElementById('os-equipamento');
+const selectOSTecnico = document.getElementById('os-tecnico');
+const selectOSTipo = document.getElementById('os-tipo');
+const selectOSStatus = document.getElementById('os-status');
+const txtOSDefeito = document.getElementById('os-defeito');
+const txtOSLaudo = document.getElementById('os-laudo');
+const btnSalvarOS = document.getElementById('btn-salvar-os');
+const msgOS = document.getElementById('msg-os');
+
+// ELEMENTOS DE RH
 const btnSalvarFuncao = document.getElementById('btn-salvar-funcao');
 const msgFuncao = document.getElementById('msg-funcao');
 const btnSalvarColaborador = document.getElementById('btn-salvar-colaborador');
@@ -36,29 +47,37 @@ const selectFuncaoColab = document.getElementById('colab-funcao');
 const btnAtualizarSenha = document.getElementById('btn-atualizar-senha');
 const msgConta = document.getElementById('msg-conta');
 
-// LÓGICA DO FLUXOGRAMA DE CRITICIDADE AUTOMATIZADO
+// LÓGICA DO FLUXOGRAMA DE CRITICIDADE MATRIZ COMPLETADA (MAPPED FROM FLUXOGRAMA)
 function calcularCriticidadeFluxograma() {
-  const q1 = document.getElementById('crit-q1').value;
-  const q2 = document.getElementById('crit-q2').value;
-  const q3 = document.getElementById('crit-q3').value;
+  const interrupcao = document.getElementById('crit-interrupcao').value;
+  const seguranca = document.getElementById('crit-seguranca').value;
+  const operacao = document.getElementById('crit-operacao').value;
+  const reserva = document.getElementById('crit-reserva').value;
 
   let resultado = "Média (B)";
   
-  if (q1 === "sim" || q2 === "sim") {
-    if (q3 === "nao") {
+  // Rota 1: Se interrompe a produção ou afeta segurança diretamente
+  if (interrupcao === "sim" || seguranca === "sim") {
+    if (reserva === "nao") {
       resultado = "Alta (A)";
     } else {
       resultado = "Média (B)";
     }
-  } else {
-    if (q3 === "sim") {
-      resultado = "Baixa (C)";
+  } 
+  // Rota 2: Se não interrompe e não afeta segurança, mas avalia operação contínua
+  else {
+    if (operacao === "sim") {
+      if (reserva === "nao") {
+        resultado = "Média (B)";
+      } else {
+        resultado = "Baixa (C)";
+      }
     } else {
-      resultado = "Média (B)";
+      resultado = "Baixa (C)";
     }
   }
   
-  document.getElementById('label-criticidade-calculada').innerText = resultado;
+  document.getElementById('label-criticidade-calculada').innerText = "Classe " + resultado;
   return resultado.split(" ")[0]; 
 }
 
@@ -132,15 +151,21 @@ async function mostrarApp() {
     document.getElementById('user-display-email').innerText = user.email;
   }
 
+  // Preenche por padrão a data de inspeção com o dia atual do sistema (configuração inicial editável)
+  if (inputDatePMOC) {
+    inputDatePMOC.value = new Date().toISOString().split('T')[0];
+  }
+
   carregarEquipamentos();
   atualizarSelectEquipamentos();
   carregarHistoricoFichas();
   atualizarSelectColaboradores();
   atualizarSelectFuncoes();
+  carregarOrdensServico();
   toggleItemsPorFrequencia();
 }
 
-// CADASTRO DE FUNÇÃO / CARGO (SUPABASE INSERT)
+// CADASTRO DE FUNÇÃO
 btnSalvarFuncao.addEventListener('click', async () => {
   const nome = document.getElementById('func-nome').value.trim();
   const salario = parseFloat(document.getElementById('func-salario').value);
@@ -167,14 +192,14 @@ btnSalvarFuncao.addEventListener('click', async () => {
   }
 });
 
-// CADASTRO DE COLABORADOR (SUPABASE INSERT)
+// CADASTRO DE COLABORADOR
 btnSalvarColaborador.addEventListener('click', async () => {
   const nome = document.getElementById('colab-nome').value.trim();
-  const data_nascimento = document.getElementById('colab-nascimento').value ? document.getElementById('colab-nascimento').value : null;
+  const data_nascimento = document.getElementById('colab-nascimento').value || null;
   const cpf = document.getElementById('colab-cpf').value.trim();
-  const data_contratacao = document.getElementById('colab-contratacao').value ? document.getElementById('colab-contratacao').value : null;
+  const data_contratacao = document.getElementById('colab-contratacao').value || null;
   const funcao_id = selectFuncaoColab.value;
-  const data_promocao = document.getElementById('colab-promocao').value ? document.getElementById('colab-promocao').value : null;
+  const data_promocao = document.getElementById('colab-promocao').value || null;
 
   if (!nome || !cpf || !funcao_id) {
     msgColaborador.style.color = "red";
@@ -200,7 +225,7 @@ btnSalvarColaborador.addEventListener('click', async () => {
   }
 });
 
-// BUSCA DINÂMICA DE FUNÇÕES (SUPABASE SELECT)
+// BUSCA DINÂMICA DE FUNÇÕES
 async function atualizarSelectFuncoes() {
   if (!selectFuncaoColab) return;
   const { data, error } = await supabaseClient.from('funcoes').select('id, nome, nivel').order('nome', { ascending: true });
@@ -215,14 +240,13 @@ async function atualizarSelectFuncoes() {
   }
 }
 
-// BUSCA DINÂMICA DE COLABORADORES (SUPABASE SELECT)
+// BUSCA DINÂMICA DE COLABORADORES
 async function atualizarSelectColaboradores() {
   if (!selectTecnicoPMOC) return;
   const { data, error } = await supabaseClient.from('colaboradores').select('id, nome').order('nome', { ascending: true });
   
   selectTecnicoPMOC.innerHTML = '<option value="">-- Selecione o Colaborador Registrado --</option>';
-  const osTecnico = document.getElementById('os-tecnico');
-  if (osTecnico) osTecnico.innerHTML = '<option value="">-- Selecione o Técnico --</option>';
+  if (selectOSTecnico) selectOSTecnico.innerHTML = '<option value="">-- Selecione o Colaborador Registrado --</option>';
 
   if (!error && data) {
     data.forEach(c => {
@@ -231,17 +255,17 @@ async function atualizarSelectColaboradores() {
       opt.textContent = c.nome;
       selectTecnicoPMOC.appendChild(opt);
 
-      if (osTecnico) {
+      if (selectOSTecnico) {
         const optOS = document.createElement('option');
         optOS.value = c.id;
         optOS.textContent = c.nome;
-        osTecnico.appendChild(optOS);
+        selectOSTecnico.appendChild(optOS);
       }
     });
   }
 }
 
-// SALVAR EQUIPAMENTO COM CRITICIDADE DO FLUXOGRAMA
+// SALVAR EQUIPAMENTO WITH CRITICIDADE AUTOMÁTICA
 btnSalvar.addEventListener('click', async () => {
   const tag = document.getElementById('eq-tag').value.trim();
   const marca = document.getElementById('eq-marca').value.trim();
@@ -298,9 +322,10 @@ function limparFormulario() {
   document.getElementById('eq-sala').value = "";
   document.getElementById('eq-instituicao').value = "";
   document.getElementById('eq-validade').value = "";
-  document.getElementById('crit-q1').value = "nao";
-  document.getElementById('crit-q2').value = "nao";
-  document.getElementById('crit-q3').value = "nao";
+  document.getElementById('crit-interrupcao').value = "nao";
+  document.getElementById('crit-seguranca').value = "nao";
+  document.getElementById('crit-operacao').value = "nao";
+  document.getElementById('crit-reserva').value = "nao";
   calcularCriticidadeFluxograma();
   msgEq.innerText = "";
 }
@@ -352,8 +377,7 @@ async function atualizarSelectEquipamentos() {
     .select('id, tag, marca, produto');
 
   selectEquipamento.innerHTML = '<option value="">-- Selecione o Ativo (Tag) --</option>';
-  const osEq = document.getElementById('os-equipamento');
-  if (osEq) osEq.innerHTML = '<option value="">-- Selecione o Ativo --</option>';
+  if (selectOSEquipamento) selectOSEquipamento.innerHTML = '<option value="">-- Selecione o Ativo (Tag) --</option>';
 
   if (!error && data) {
     data.forEach(eq => {
@@ -362,21 +386,22 @@ async function atualizarSelectEquipamentos() {
       opt.textContent = `${eq.tag} - ${eq.produto || eq.marca}`;
       selectEquipamento.appendChild(opt);
 
-      if (osEq) {
+      if (selectOSEquipamento) {
         const optOS = document.createElement('option');
         optOS.value = eq.id;
         optOS.textContent = eq.tag;
-        osEq.appendChild(optOS);
+        selectOSEquipamento.appendChild(optOS);
       }
     });
   }
 }
 
-// SALVAR FORMULÁRIO PMOC HOSPITALAR
+// SALVAR FORMULÁRIO PMOC CONFORME DATA DO INPUT EDITÁVEL
 btnSalvarFicha.addEventListener('click', async () => {
   const equipamento_id = selectEquipamento.value;
   const tecnico_nome = selectTecnicoPMOC.value;
   const freq_inspecao = selectFrequencia.value;
+  const data_escolhida = inputDatePMOC.value; // Data customizada coletada do input editável
   const observacoes = document.getElementById('pmoc-obs').value.trim();
   const arquivoFoto = fotoInput.files[0]; 
 
@@ -390,9 +415,9 @@ btnSalvarFicha.addEventListener('click', async () => {
   const ele_01 = document.querySelector('input[name="ele_01"]:checked')?.value || 'NA';
   const ele_02 = document.querySelector('input[name="ele_02"]:checked')?.value || 'NA';
 
-  if (!equipamento_id || !tecnico_nome || !fil_01 || !bio_01 || !bio_02 || !mec_01) {
+  if (!equipamento_id || !tecnico_nome || !data_escolhida || !fil_01 || !bio_01 || !bio_02 || !mec_01) {
     msgFicha.style.color = "red";
-    msgFicha.innerText = "Por favor, preencha todos os itens mensais obrigatórios e escolha o técnico.";
+    msgFicha.innerText = "Por favor, preencha a data de inspeção, técnico e os itens mensais obrigatórios.";
     return;
   }
 
@@ -426,12 +451,13 @@ btnSalvarFicha.addEventListener('click', async () => {
 
   msgFicha.innerText = "Salvando formulário de manutenção...";
 
+  // Injetamos a tag de data customizada diretamente na string estruturada das observações para o laudo
   const { error } = await supabaseClient.from('fichas_pmoc').insert([
     {
       equipamento_id,
       user_id: user.id,
       tecnico_nome,
-      observacoes: `[Frequência: ${freq_inspecao === 'M' ? 'Mensal' : 'Trimestral'}] \nChecklist: FIL-01:${fil_01} | BIO-01:${bio_01} | BIO-02:${bio_02} | MEC-01:${mec_01} | FIL-02:${fil_02} | BIO-03:${bio_03} | ELE-01:${ele_01} | ELE-02:${ele_02}\n\nObservações: ${observacoes}`,
+      observacoes: `[Frequência: ${freq_inspecao === 'M' ? 'Mensal' : 'Trimestral'}] \n[DataInspecao: ${data_escolhida}] \nChecklist: FIL-01:${fil_01} | BIO-01:${bio_01} | BIO-02:${bio_02} | MEC-01:${mec_01} | FIL-02:${fil_02} | BIO-03:${bio_03} | ELE-01:${ele_01} | ELE-02:${ele_02}\n\nObservações: ${observacoes}`,
       foto_url: fotoUrl
     }
   ]);
@@ -454,6 +480,7 @@ function limparFormularioFicha() {
   selectTecnicoPMOC.value = "";
   document.getElementById('pmoc-obs').value = "";
   selectFrequencia.value = "M";
+  inputDatePMOC.value = new Date().toISOString().split('T')[0];
   if (fotoInput) fotoInput.value = ""; 
   document.querySelectorAll('input[type="radio"]').forEach(radio => radio.checked = false);
   toggleItemsPorFrequencia();
@@ -480,7 +507,12 @@ async function carregarHistoricoFichas() {
   }
 
   tbody.innerHTML = data.map(ficha => {
-    const dataFormatada = new Date(ficha.created_at).toLocaleDateString('pt-BR');
+    // Tenta ler a data editável customizada, senão usa a data de criação padrão do registro
+    const matchData = ficha.observacoes.match(/\[DataInspecao:\s*([\d-]+)\]/);
+    const dataFormatada = matchData 
+      ? new Date(matchData[1] + "T00:00:00").toLocaleDateString('pt-BR')
+      : new Date(ficha.created_at).toLocaleDateString('pt-BR');
+
     const eq = ficha.equipamentos || { tag: "N/A", marca: "Desconhecido" };
     const isTrimestral = ficha.observacoes.includes("Frequência: Trimestral");
     const labelFreq = isTrimestral ? "Trimestral" : "Mensal";
@@ -503,11 +535,17 @@ async function carregarHistoricoFichas() {
   }).join('');
 }
 
-// GERAR DOCUMENTO E IMPRIMIR
+// GERAR DOCUMENTO E IMPRIMIR (COM ASSINATURA DUPLA DO RESPONSÁVEL DA ÁREA)
 function emitirRelatorio(fichaBase64) {
   const ficha = JSON.parse(decodeURIComponent(escape(atob(fichaBase64))));
   const eq = ficha.equipamentos || {};
-  const dataInspecao = new Date(ficha.created_at).toLocaleDateString('pt-BR');
+  
+  // Resgata a data editada do formulário mapeada dentro da string
+  const matchData = ficha.observacoes.match(/\[DataInspecao:\s*([\d-]+)\]/);
+  const dataInspecao = matchData 
+    ? new Date(matchData[1] + "T00:00:00").toLocaleDateString('pt-BR')
+    : new Date(ficha.created_at).toLocaleDateString('pt-BR');
+
   const isTrimestral = ficha.observacoes.includes("Frequência: Trimestral");
 
   const extrairNota = (id) => {
@@ -576,15 +614,197 @@ function emitirRelatorio(fichaBase64) {
     </div>
     ` : ''}
 
-    <div class="laudo-footer">
-      <div class="linha-assinatura"></div>
-      <p>Assinatura do Técnico: ${ficha.tecnico_nome}</p>
-      <p style="font-size:10px; color:#a0aec0; margin-top:15px;">Documento gerado eletronicamente | Página 1 de 1</p>
+    <div class="laudo-footer" style="margin-top:60px; page-break-inside: avoid;">
+      <div style="display:flex; justify-content:space-around; gap:40px; margin-bottom: 20px;">
+        <div style="text-align:center;">
+          <div class="linha-assinatura" style="width:220px; margin: 0 auto 8px auto;"></div>
+          <p><strong>Assinatura do Técnico</strong></p>
+          <p style="font-size:11px; color:#4a5568;">${ficha.tecnico_nome}</p>
+        </div>
+        <div style="text-align:center;">
+          <div class="linha-assinatura" style="width:220px; margin: 0 auto 8px auto;"></div>
+          <p><strong>Responsável por Área</strong></p>
+          <p style="font-size:11px; color:#a0aec0;">Assinatura / Carimbo</p>
+        </div>
+      </div>
+      <p style="font-size:10px; color:#a0aec0; margin-top:30px; border-top: 1px solid #edf2f7; padding-top:10px;">Documento gerado eletronicamente | Controle de Climatização Hospitalar</p>
     </div>
   `;
 
   window.print();
 }
+
+// SALVAR ORDEM DE SERVIÇO
+btnSalvarOS.addEventListener('click', async () => {
+  const Black_eq_id = selectOSEquipamento.value;
+  const colaborador_id = selectOSTecnico.value; 
+  const tipo_os = selectOSTipo.value;
+  const status_os = selectOSStatus.value;
+  const descricao_defeito = txtOSDefeito.value.trim();
+  const laudo_tecnico = txtOSLaudo.value.trim();
+
+  if (!Black_eq_id || !colaborador_id || !descricao_defeito) {
+    msgOS.style.color = "red";
+    msgOS.innerText = "Os campos Ativo, Realizado por e Descrição do Defeito são obrigatórios.";
+    return;
+  }
+
+  msgOS.style.color = "blue";
+  msgOS.innerText = "Registrando Ordem de Serviço...";
+
+  const { data: { user } } = await supabaseClient.auth.getUser();
+
+  const { error } = await supabaseClient.from('ordens_servico').insert([
+    { equipamento_id: Black_eq_id, colaborador_id, tipo_os, status_os, descricao_defeito, laudo_tecnico, user_id: user.id }
+  ]);
+
+  if (error) {
+    msgOS.style.color = "red";
+    msgOS.innerText = "Erro ao salvar O.S.: " + error.message;
+  } else {
+    msgOS.style.color = "green";
+    msgOS.innerText = "Ordem de Serviço salva com sucesso!";
+    txtOSDefeito.value = "";
+    txtOSLaudo.value = "";
+    selectOSEquipamento.value = "";
+    selectOSTecnico.value = "";
+    carregarOrdensServico(); 
+  }
+});
+
+// CARREGAR ORDENS DE SERVIÇO NA TABELA
+async function carregarOrdensServico() {
+  const tbody = document.getElementById('tbody-os');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;">Carregando Ordens de Serviço...</td></tr>';
+
+  const { data, error } = await supabaseClient
+    .from('ordens_servico')
+    .select(`
+      id, created_at, tipo_os, status_os, descricao_defeito, laudo_tecnico,
+      equipamentos (tag, marca, produto, potencia, nr_serie, patrimonio, bloco, setor, sala, instituicao),
+      colaboradores (nome, cpf)
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error || !data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;">Nenhuma O.S. aberta no momento.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map((os, index) => {
+    const dataOS = new Date(os.created_at).toLocaleDateString('pt-BR');
+    const eq = os.equipamentos || { tag: "N/A" };
+    const colab = os.colaboradores || { nome: "Não Atribuído" };
+    const numOS = String(index + 1).padStart(4, '0');
+
+    const osStringificavel = btoa(unescape(encodeURIComponent(JSON.stringify(os))));
+
+    return `
+      <tr>
+        <td><strong>#${numOS}</strong></td>
+        <td>${dataOS}</td>
+        <td><span class="tag-badge">${eq.tag}</span></td>
+        <td>${colab.nome}</td>
+        <td>${os.tipo_os}</td>
+        <td><span class="tag-badge" style="background:#fef3c7; color:#d97706;">${os.status_os}</span></td>
+        <td>
+          <button class="btn-primary" style="padding:4px 10px; font-size:11px; background:#4b5563;" onclick="emitirLaudoOS('${osStringificavel}', '${numOS}')">
+            🖨 Imprimir O.S.
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// GERAR LAUDO TÉCNICO DA O.S
+function emitirLaudoOS(osBase64, numOS) {
+  const os = JSON.parse(decodeURIComponent(escape(atob(osBase64))));
+  const eq = os.equipamentos || {};
+  const colab = os.colaboradores || {};
+  const dataOS = new Date(os.created_at).toLocaleDateString('pt-BR');
+
+  const areaOSPrint = document.getElementById('area-os-impressao');
+
+  areaOSPrint.innerHTML = `
+    <div class="laudo-header" style="border-bottom: 2px solid #4a5568;">
+      <h2>ORDEM DE SERVIÇO DE MANUTENÇÃO TÉCNICA - Nº #${numOS}</h2>
+      <p>Controle Técnico Operacional Integrado PMOC</p>
+    </div>
+
+    <div class="laudo-section">
+      <h3>1. INFORMAÇÕES DE PROTOCOLO</h3>
+      <table class="table-laudo-dados">
+        <tr><td><strong>Data de Abertura:</strong></td><td>${dataOS}</td><td><strong>Tipo de O.S.:</strong></td><td>${os.tipo_os}</td></tr>
+        <tr><td><strong>Status Atual:</strong></td><td>${os.status_os}</td><td><strong>Realizado Por:</strong></td><td>${colab.nome || 'N/A'}</td></tr>
+      </table>
+    </div>
+
+    <div class="laudo-section">
+      <h3>2. ESPECIFICAÇÕES DO ATIVO CLIMATIZADOR</h3>
+      <table class="table-laudo-dados">
+        <tr><td><strong>TAG Identificação:</strong></td><td>${eq.tag || 'N/A'}</td><td><strong>Nº Série Fabricante:</strong></td><td>${eq.nr_serie || 'N/A'}</td></tr>
+        <tr><td><strong>Equipamento / Marca:</strong></td><td>${eq.produto || ''} ${eq.marca || ''}</td><td><strong>Capacidade Técnica:</strong></td><td>${eq.potencia || 'N/A'}</td></tr>
+        <tr><td><strong>Local de Instalação:</strong></td><td colspan="3">${eq.instituicao || ''} - Bloco: ${eq.bloco || ''} / Setor: ${eq.setor || ''} (${eq.sala || ''})</td></tr>
+      </table>
+    </div>
+
+    <div class="laudo-section">
+      <h3>3. DESCRIÇÃO DO DEFEITO / SOLICITAÇÃO INICIAL</h3>
+      <div style="border: 1px solid #cbd5e0; padding:12px; border-radius:4px; font-size:12px; background:#fafafa; min-height:50px; white-space: pre-wrap;">
+        ${os.descricao_defeito}
+      </div>
+    </div>
+
+    <div class="laudo-section">
+      <h3>4. LAUDO TÉCNICO COMPLETO / SERVIÇOS EXECUTADOS</h3>
+      <div style="border: 1px solid #cbd5e0; padding:12px; border-radius:4px; font-size:12px; background:#fafafa; min-height:100px; white-space: pre-wrap;">
+        ${os.laudo_tecnico ? os.laudo_tecnico : 'Nenhum laudo técnico descritivo foi registrado até o momento.'}
+      </div>
+    </div>
+
+    <div class="laudo-footer" style="margin-top:70px;">
+      <div style="display:flex; justify-content:space-around;">
+        <div>
+          <div class="linha-assinatura" style="width:200px;"></div>
+          <p>Assinatura do Técnico (Realizado Por)</p>
+        </div>
+        <div>
+          <div class="linha-assinatura" style="width:200px;"></div>
+          <p>Assinatura do Cliente / Supervisor</p>
+        </div>
+      </div>
+      <p style="font-size:10px; color:#a0aec0; margin-top:30px;">Comprovante de Execução de Atividade Técnica de Refrigeração</p>
+    </div>
+  `;
+
+  window.print();
+}
+
+// LOGICA DE TROCA DE SENHA
+btnAtualizarSenha.addEventListener('click', async () => {
+  const novaSenha = document.getElementById('account-new-password').value;
+  const confirmaSenha = document.getElementById('account-confirm-password').value;
+
+  if (!novaSenha || !confirmaSenha) {
+    msgConta.style.color = "red";
+    msgConta.innerText = "Por favor, preencha ambos os campos.";
+    return;
+  }
+
+  const { error } = await supabaseClient.auth.updateUser({ password: novaSenha });
+
+  if (error) {
+    msgConta.style.color = "red";
+    msgConta.innerText = "Erro ao atualizar: " + error.message;
+  } else {
+    msgConta.style.color = "green";
+    msgConta.innerText = "Senha alterada com sucesso!";
+    setTimeout(() => msgConta.innerText = "", 4000);
+  }
+});
 
 // NAVEGAÇÃO ENTRE AS SEÇÕES DO APP
 function showSection(name) {
@@ -595,7 +815,6 @@ function showSection(name) {
   const targetSection = document.getElementById('section-' + name);
   if (targetSection) targetSection.style.display = 'block';
 
-  if (name === 'relatorios') {
-    carregarHistoricoFichas();
-  }
+  if (name === 'relatorios') carregarHistoricoFichas();
+  if (name === 'ordens') carregarOrdensServico();
 }
