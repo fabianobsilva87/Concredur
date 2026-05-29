@@ -58,13 +58,13 @@
     <aside class="sidebar no-print">
       <div class="sidebar-header">
         <h3>Sistema PMOC</h3>
-        <p>Gestão de equipamentos</p>
+        <p>Gestão integrada</p>
         <div class="user-logged-badge">
           <span class="user-icon-dot">●</span> <span id="user-display-email">carregando...</span>
         </div>
       </div>
       <nav>
-        <div class="nav-label">Cadastros</div>
+        <div class="nav-label">Refrigeração</div>
         <div class="nav-item active" id="nav-equipamentos" onclick="showSection('equipamentos')">
           <span>🌡</span> Equipamentos
         </div>
@@ -74,6 +74,20 @@
         <div class="nav-item" id="nav-relatorios" onclick="showSection('relatorios')">
           <span>📊</span> Histórico / Relatórios
         </div>
+
+        <div class="nav-label">Manutenção</div>
+        <div class="nav-item" id="nav-ordens" onclick="showSection('ordens')">
+          <span>🛠</span> Ordem de Serviço
+        </div>
+
+        <div class="nav-label">RH / Colaboradores</div>
+        <div class="nav-item" id="nav-funcoes" onclick="showSection('funcoes')">
+          <span>🪪</span> Funções / Cargos
+        </div>
+        <div class="nav-item" id="nav-colaboradores" onclick="showSection('colaboradores')">
+          <span>👥</span> Colaboradores
+        </div>
+
         <div class="nav-label">Configurações</div>
         <div class="nav-item" id="nav-conta" onclick="showSection('conta')">
           <span>⚙️</span> Minha Conta
@@ -105,7 +119,7 @@
               </div>
               <div class="form-group">
                 <label>Potência / Capacidade</label>
-                <input type="text" id="eq-potencia" placeholder="Ex: 9000 BTU, 12000 BTU...">
+                <input type="text" id="eq-potencia" placeholder="Ex: 9000 BTU...">
               </div>
               <div class="form-group">
                 <label>Nº de Série</label>
@@ -117,7 +131,7 @@
               </div>
               <div class="form-group">
                 <label>Equipamento (Tipo/Produto)</label>
-                <input type="text" id="eq-produto" placeholder="Ex: Split Hi-Wall, Cassete...">
+                <input type="text" id="eq-produto" placeholder="Ex: Split Hi-Wall...">
               </div>
               <div class="form-group">
                 <label>Descrição do Bloco</label>
@@ -125,7 +139,7 @@
               </div>
               <div class="form-group">
                 <label>Descrição do Setor</label>
-                <input type="text" id="eq-setor" placeholder="Ex: ODONTO, UTI, TI">
+                <input type="text" id="eq-setor" placeholder="Ex: ODONTO, UTI">
               </div>
               <div class="form-group">
                 <label>Nº Sala / LAB</label>
@@ -133,7 +147,7 @@
               </div>
               <div class="form-group">
                 <label>Instituição</label>
-                <input type="text" id="eq-instituicao" placeholder="Ex: CAMPUS SEDE, Hospital Central">
+                <input type="text" id="eq-instituicao" placeholder="Ex: CAMPUS SEDE">
               </div>
               <div class="form-group">
                 <label>Validade / Garantia</label>
@@ -249,7 +263,7 @@
               </div>
 
               <div class="checklist-row freq-item-t" style="display: none;">
-                <div><strong>[FIL-02] Qualidade do Ar:</strong> Diferencial de pressão dos filtros (quando aplicável)</div>
+                <div><strong>[FIL-02] Qualidade do Ar:</strong> Diferencial de pressão dos filtros</div>
                 <div class="radio-group">
                   <label><input type="radio" name="fil_02" value="C"> C</label>
                   <label><input type="radio" name="fil_02" value="NC"> NC</label>
@@ -258,7 +272,7 @@
               </div>
 
               <div class="checklist-row freq-item-t" style="display: none;">
-                <div><strong>[BIO-03] Biocontrole:</strong> Limpeza química das serpentinas (Evaporadora/Condensadora)</div>
+                <div><strong>[BIO-03] Biocontrole:</strong> Limpeza química das serpentinas</div>
                 <div class="radio-group">
                   <label><input type="radio" name="bio_03" value="C"> C</label>
                   <label><input type="radio" name="bio_03" value="NC"> NC</label>
@@ -276,19 +290,18 @@
               </div>
 
               <div class="checklist-row freq-item-t" style="display: none;">
-                <div><strong>[ELE-02] Elétrica:</strong> Reaperto de contatos elétricos e verificação do painel</div>
+                <div><strong>[ELE-02] Elétrica:</strong> Reaperto de contatos elétricos e painel</div>
                 <div class="radio-group">
                   <label><input type="radio" name="ele_02" value="C"> C</label>
                   <label><input type="radio" name="ele_02" value="NC"> NC</label>
                   <label><input type="radio" name="ele_02" value="NA"> NA</label>
                 </div>
               </div>
-
             </div>
 
             <div class="form-group" style="margin-top: 14px;">
               <label>Observações Gerais / Pendências</label>
-              <textarea id="pmoc-obs" rows="3" placeholder="Insira dados de medições técnicas ou não conformidades encontradas..."></textarea>
+              <textarea id="pmoc-obs" rows="3" placeholder="Insira dados de medições técnicas adicionais aqui..."></textarea>
             </div>
 
             <div class="btn-row">
@@ -303,7 +316,6 @@
         <div class="topbar no-print">
           <h2>Histórico de Formulários / Emissão de Laudos</h2>
         </div>
-
         <div class="section-content">
           <div class="card no-print">
             <h3 class="card-title">Formulários Registrados no Sistema</h3>
@@ -324,9 +336,43 @@
               </table>
             </div>
           </div>
+          <div id="area-laudo-impressao" class="print-only report-laudo-card"></div>
+        </div>
+      </div>
 
-          <div id="area-laudo-impressao" class="print-only report-laudo-card">
-            </div>
+      <div id="section-ordens" class="app-section" style="display: none;">
+        <div class="topbar">
+          <h2>Ordens de Serviço (O.S.)</h2>
+        </div>
+        <div class="section-content">
+          <div class="card">
+            <h3 class="card-title">Nova Ordem de Serviço</h3>
+            <p style="font-size: 13px; color:#667085;">Área em desenvolvimento. Estrutura pronta para acoplamento do formulário de O.S.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="section-funcoes" class="app-section" style="display: none;">
+        <div class="topbar">
+          <h2>Cadastro de Funções e Cargos</h2>
+        </div>
+        <div class="section-content">
+          <div class="card">
+            <h3 class="card-title font-600">Nova Função</h3>
+            <p style="font-size: 13px; color:#667085;">Área em desenvolvimento. Estrutura pronta para acoplamento do formulário de Cargos/Funções.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="section-colaboradores" class="app-section" style="display: none;">
+        <div class="topbar">
+          <h2>Cadastro de Colaboradores</h2>
+        </div>
+        <div class="section-content">
+          <div class="card">
+            <h3 class="card-title">Novo Colaborador</h3>
+            <p style="font-size: 13px; color:#667085;">Área em desenvolvimento. Estrutura pronta para acoplamento do formulário de Funcionários/Técnicos.</p>
+          </div>
         </div>
       </div>
 
@@ -334,12 +380,10 @@
         <div class="topbar no-print">
           <h2>Gerenciamento da Conta</h2>
         </div>
-
         <div class="section-content">
           <div class="card" style="max-width: 500px;">
             <h3 class="card-title">Alterar Senha de Acesso</h3>
-            <p style="font-size: 13px; color:#667085; margin-bottom:16px;">Insira sua nova senha nos campos abaixo para atualizar suas credenciais.</p>
-            
+            <p style="font-size: 13px; color:#667085; margin-bottom:16px;">Insira sua nova senha nos campos abaixo.</p>
             <div style="display: flex; flex-direction: column; gap: 14px;">
               <div class="form-group">
                 <label>Nova Senha</label>
@@ -350,7 +394,6 @@
                 <input type="password" id="account-confirm-password" placeholder="Repita a nova senha">
               </div>
             </div>
-
             <div class="btn-row">
               <button id="btn-atualizar-senha" class="btn-primary">Atualizar Senha</button>
             </div>
