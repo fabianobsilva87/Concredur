@@ -149,3 +149,95 @@ function showSection(name) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   document.getElementById('nav-' + name)?.classList.add('active');
 }
+// --- NOVOS ELEMENTOS DA FICHA PMOC ---
+const selectEquipamento = document.getElementById('pmoc-equipamento');
+const btnSalvarFicha = document.getElementById('btn-salvar-ficha');
+const msgFicha = document.getElementById('msg-ficha');
+
+// Modificar a função mostrarApp para carregar também os equipamentos no formulário do PMOC
+function mostrarApp() {
+  loginBox.style.display = "none";
+  appBox.style.display = "flex";
+  carregarEquipamentos();
+  atualizarSelectEquipamentos(); // <--- Nova chamada
+}
+
+// Preenche o <select> do formulário PMOC com os equipamentos ativos
+async function atualizarSelectEquipamentos() {
+  const { data, error } = await supabaseClient
+    .from('equipamentos')
+    .select('id, tag, marca');
+
+  if (error || !data) return;
+
+  selectEquipamento.innerHTML = '<option value="">-- Selecione o Equipamento (Tag) --</option>';
+  data.forEach(eq => {
+    const opt = document.createElement('option');
+    opt.value = eq.id;
+    opt.textContent = `${eq.tag} - ${eq.marca}`;
+    selectEquipamento.appendChild(opt);
+  });
+}
+
+// Salvar a Ficha PMOC no Supabase
+btnSalvarFicha.addEventListener('click', async () => {
+  const equipamento_id = selectEquipamento.value;
+  const tecnico_nome = document.getElementById('pmoc-tecnico').value.trim();
+  const filtro_limpo = document.querySelector('input[name="filtro"]:checked')?.value;
+  const serpentina_limpa = document.querySelector('input[name="serpentina"]:checked')?.value;
+  const bandeja_limpa = document.querySelector('input[name="bandeja"]:checked')?.value;
+  const ventilador_ok = document.querySelector('input[name="ventilador"]:checked')?.value;
+  const observacoes = document.getElementById('pmoc-obs').value.trim();
+
+  // Validação básica
+  if (!equipamento_id || !tecnico_nome || !filtro_limpo || !serpentina_limpa || !bandeja_limpa || !ventilador_ok) {
+    msgFicha.style.color = "red";
+    msgFicha.innerText = "Por favor, preencha todos os campos e avaliações.";
+    return;
+  }
+
+  msgFicha.style.color = "blue";
+  msgFicha.innerText = "Salvando ficha técnica...";
+
+  const { data: { user } } = await supabaseClient.auth.getUser();
+
+  const { error } = await supabaseClient.from('fichas_pmoc').insert([
+    {
+      equipamento_id,
+      user_id: user.id,
+      tecnico_nome,
+      filtro_limpo,
+      serpentina_limpa,
+      bandeja_limpa,
+      ventilador_ok,
+      observacoes
+    }
+  ]);
+
+  if (error) {
+    msgFicha.style.color = "red";
+    msgFicha.innerText = "Erro ao salvar ficha: " + error.message;
+  } else {
+    msgFicha.style.color = "green";
+    msgFicha.innerText = "Ficha PMOC registrada com sucesso!";
+    limparFormularioFicha();
+    setTimeout(() => msgFicha.innerText = "", 4000);
+  }
+});
+
+// Limpar campos da Ficha PMOC
+function limparFormularioFicha() {
+  selectEquipamento.value = "";
+  document.getElementById('pmoc-tecnico').value = "";
+  document.getElementById('pmoc-obs').value = "";
+  
+  // Desmarcar os botões do tipo rádio (C, NC, NA)
+  document.querySelectorAll('input[type="radio"]').forEach(radio => radio.checked = false);
+}
+
+// Chame a atualização do select sempre que um novo equipamento for adicionado ou excluído
+const originalCarregarEquipamentos = carregarEquipamentos;
+carregarEquipamentos = async function() {
+  await originalCarregarEquipamentos();
+  atualizarSelectEquipamentos();
+}
