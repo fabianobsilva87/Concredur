@@ -9,15 +9,14 @@
 </head>
 <body>
 
+  <!-- TELA DE LOGIN -->
   <div class="login-page-wrapper" id="login-box">
     <div class="login-brand-logo">
       <div class="logo-placeholder-text">SISTEMA <span>PMOC</span></div>
     </div>
-
     <div class="login-card-panel">
       <h2>Acesso ao Sistema</h2>
       <p class="login-subtitle">Informe o usuário e senha para Login:</p>
-      
       <div class="login-form-inputs">
         <div class="login-field-group">
           <label for="email">Usuário</label>
@@ -26,7 +25,6 @@
             <input type="email" id="email" placeholder="Digite seu e-mail" required>
           </div>
         </div>
-
         <div class="login-field-group">
           <label for="password">Senha</label>
           <div class="input-with-icon">
@@ -35,26 +33,20 @@
           </div>
         </div>
       </div>
-
-      <button id="btn-login" class="btn-login-submit">
-        <span>➔</span> Entrar
-      </button>
-
+      <button id="btn-login" class="btn-login-submit"><span>➔</span> Entrar</button>
       <div class="login-card-links">
         <button id="btn-cadastro" class="btn-link-action">Cadastrar Nova Conta</button>
         <a href="#" class="forgot-password-link">Recuperar Senha?</a>
       </div>
-      
       <p id="mensagem" class="erro"></p>
     </div>
-
-    <div class="login-page-footer">
-      © 2026 Sistema PMOC - Todos os direitos reservados.
-    </div>
+    <div class="login-page-footer">© 2026 Sistema PMOC - Todos os direitos reservados.</div>
   </div>
 
+  <!-- SISTEMA PRINCIPAL -->
   <div class="app-container" id="app-box" style="display:none;">
-    
+
+    <!-- SIDEBAR -->
     <aside class="sidebar no-print">
       <div class="sidebar-header">
         <h3>Sistema PMOC</h3>
@@ -77,7 +69,10 @@
 
         <div class="nav-label">Manutenção</div>
         <div class="nav-item" id="nav-ordens" onclick="showSection('ordens')">
-          <span>🛠</span> Ordem de Serviço
+          <span>🛠</span> O.S. Ar Condicionado
+        </div>
+        <div class="nav-item" id="nav-os-geral" onclick="showSection('os-geral')">
+          <span>📝</span> O.S. Geral (Facilities)
         </div>
 
         <div class="nav-label">RH / Colaboradores</div>
@@ -98,13 +93,12 @@
       </div>
     </aside>
 
+    <!-- CONTEÚDO PRINCIPAL -->
     <main class="main-content">
-      
+
+      <!-- SEÇÃO: EQUIPAMENTOS -->
       <div id="section-equipamentos" class="app-section">
-        <div class="topbar no-print">
-          <h2>Cadastro de Equipamentos</h2>
-        </div>
-        
+        <div class="topbar no-print"><h2>Cadastro de Equipamentos</h2></div>
         <div class="section-content">
           <div class="card no-print">
             <h3 class="card-title">Novo equipamento</h3>
@@ -153,11 +147,9 @@
                 <label>Validade / Garantia</label>
                 <input type="text" id="eq-validade" placeholder="Ex: 12/2027">
               </div>
-              
               <div class="form-group alert-box-criticidade">
                 <label style="color:#004f9f; font-weight:700;">⚙️ Matriz de Criticidade (Fluxograma Completo)</label>
                 <div style="font-size:11px; margin-bottom:8px; color:#555;">Responda às etapas abaixo para determinar a classificação automática:</div>
-                
                 <div class="criticidade-question-row">
                   <span>1. A parada do equipamento paralisa a produção ou gera interrupção total das atividades da área?</span>
                   <select id="crit-interrupcao" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
@@ -165,7 +157,6 @@
                     <option value="nao" selected>Não</option>
                   </select>
                 </div>
-                
                 <div class="criticidade-question-row" style="margin-top:6px;">
                   <span>2. A falha do ativo compromete diretamente a Segurança do Trabalho ou descumpre normas de Meio Ambiente?</span>
                   <select id="crit-seguranca" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
@@ -173,7 +164,6 @@
                     <option value="nao" selected>Não</option>
                   </select>
                 </div>
-
                 <div class="criticidade-question-row" style="margin-top:6px;">
                   <span>3. O equipamento opera continuamente (24 horas) ou é indispensável para a conservação de insumos/vida?</span>
                   <select id="crit-operacao" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
@@ -181,7 +171,6 @@
                     <option value="nao" selected>Não</option>
                   </select>
                 </div>
-
                 <div class="criticidade-question-row" style="margin-top:6px;">
                   <span>4. Existe equipamento reserva imediato (Stand-by) configurado e operacional no ambiente?</span>
                   <select id="crit-reserva" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
@@ -189,7 +178,6 @@
                     <option value="nao" selected>Não</option>
                   </select>
                 </div>
-
                 <div style="margin-top:12px; font-weight:600; font-size:13px; display:flex; align-items:center; gap:8px;">
                   Classe Apurada: <span id="label-criticidade-calculada" style="color:#2b6cb0; background:#ebf4ff; padding:4px 10px; border-radius:4px; font-weight:700;">Classe Média (B)</span>
                 </div>
@@ -201,7 +189,6 @@
             </div>
             <p id="msg-equipamento" class="msg-form"></p>
           </div>
-
           <div class="card">
             <h3 class="card-title">Equipamentos cadastrados</h3>
             <div class="table-wrap">
@@ -224,11 +211,9 @@
         </div>
       </div>
 
-      <div id="section-fichas" class="app-section" style="display: none;">
-        <div class="topbar no-print">
-          <h2>Formulário de Manutenção PMOC</h2>
-        </div>
-
+      <!-- SEÇÃO: FORMULÁRIO PMOC -->
+      <div id="section-fichas" class="app-section" style="display:none;">
+        <div class="topbar no-print"><h2>Formulário de Manutenção PMOC</h2></div>
         <div class="section-content">
           <div class="card">
             <h3 class="card-title">Nova Inspeção Periódica Hospitalar</h3>
@@ -261,10 +246,8 @@
                 <input type="file" id="pmoc-foto" accept="image/*" class="form-input-style">
               </div>
             </div>
-
             <div class="pmoc-checklist-container">
               <h4>Rotinas Técnicas de Manutenção e Controle (C: Conforme | NC: Não Conforme | NA: Não Aplicável)</h4>
-              
               <div class="checklist-row freq-item-m">
                 <div><strong>[FIL-01] Qualidade do Ar:</strong> Filtros de Ar (G4/F7/F9)</div>
                 <div class="radio-group">
@@ -273,7 +256,6 @@
                   <label><input type="radio" name="fil_01" value="NA"> NA</label>
                 </div>
               </div>
-
               <div class="checklist-row freq-item-m">
                 <div><strong>[BIO-01] Biocontrole:</strong> Bandeja de condensado e aplicação de pastilha</div>
                 <div class="radio-group">
@@ -282,7 +264,6 @@
                   <label><input type="radio" name="bio_01" value="NA"> NA</label>
                 </div>
               </div>
-
               <div class="checklist-row freq-item-m">
                 <div><strong>[BIO-02] Biocontrole:</strong> Dreno e teste de escoamento de água</div>
                 <div class="radio-group">
@@ -291,7 +272,6 @@
                   <label><input type="radio" name="bio_02" value="NA"> NA</label>
                 </div>
               </div>
-
               <div class="checklist-row freq-item-m">
                 <div><strong>[MEC-01] Mecânica:</strong> Ruídos, vibrações e fixação do motoventilador</div>
                 <div class="radio-group">
@@ -300,8 +280,7 @@
                   <label><input type="radio" name="mec_01" value="NA"> NA</label>
                 </div>
               </div>
-
-              <div class="checklist-row freq-item-t" style="display: none;">
+              <div class="checklist-row freq-item-t" style="display:none;">
                 <div><strong>[FIL-02] Qualidade do Ar:</strong> Diferencial de pressão dos filtros</div>
                 <div class="radio-group">
                   <label><input type="radio" name="fil_02" value="C"> C</label>
@@ -309,8 +288,7 @@
                   <label><input type="radio" name="fil_02" value="NA"> NA</label>
                 </div>
               </div>
-
-              <div class="checklist-row freq-item-t" style="display: none;">
+              <div class="checklist-row freq-item-t" style="display:none;">
                 <div><strong>[BIO-03] Biocontrole:</strong> Limpeza química das serpentinas</div>
                 <div class="radio-group">
                   <label><input type="radio" name="bio_03" value="C"> C</label>
@@ -318,8 +296,7 @@
                   <label><input type="radio" name="bio_03" value="NA"> NA</label>
                 </div>
               </div>
-
-              <div class="checklist-row freq-item-t" style="display: none;">
+              <div class="checklist-row freq-item-t" style="display:none;">
                 <div><strong>[ELE-01] Elétrica:</strong> Medição elétrica (A) do compressor e motores</div>
                 <div class="radio-group">
                   <label><input type="radio" name="ele_01" value="C"> C</label>
@@ -327,8 +304,7 @@
                   <label><input type="radio" name="ele_01" value="NA"> NA</label>
                 </div>
               </div>
-
-              <div class="checklist-row freq-item-t" style="display: none;">
+              <div class="checklist-row freq-item-t" style="display:none;">
                 <div><strong>[ELE-02] Elétrica:</strong> Reaperto de contatos elétricos e painel</div>
                 <div class="radio-group">
                   <label><input type="radio" name="ele_02" value="C"> C</label>
@@ -337,12 +313,10 @@
                 </div>
               </div>
             </div>
-
-            <div class="form-group" style="margin-top: 14px;">
+            <div class="form-group" style="margin-top:14px;">
               <label>Observações Gerais / Pendências</label>
               <textarea id="pmoc-obs" rows="3" placeholder="Insira dados de medições técnicas adicionais aqui..."></textarea>
             </div>
-
             <div class="btn-row">
               <button id="btn-salvar-ficha" class="btn-primary">✓ Salvar Formulário PMOC</button>
             </div>
@@ -351,10 +325,9 @@
         </div>
       </div>
 
-      <div id="section-relatorios" class="app-section" style="display: none;">
-        <div class="topbar no-print">
-          <h2>Histórico de Formulários / Emissão de Laudos</h2>
-        </div>
+      <!-- SEÇÃO: HISTÓRICO / RELATÓRIOS -->
+      <div id="section-relatorios" class="app-section" style="display:none;">
+        <div class="topbar no-print"><h2>Histórico de Formulários / Emissão de Laudos</h2></div>
         <div class="section-content">
           <div class="card no-print">
             <h3 class="card-title">Formulários Registrados no Sistema</h3>
@@ -379,10 +352,9 @@
         </div>
       </div>
 
-      <div id="section-ordens" class="app-section" style="display: none;">
-        <div class="topbar no-print">
-          <h2>Ordens de Serviço (O.S.)</h2>
-        </div>
+      <!-- SEÇÃO: O.S. AR CONDICIONADO -->
+      <div id="section-ordens" class="app-section" style="display:none;">
+        <div class="topbar no-print"><h2>Ordens de Serviço — Ar Condicionado</h2></div>
         <div class="section-content">
           <div class="card no-print">
             <h3 class="card-title">Abertura / Registro de Ordem de Serviço</h3>
@@ -416,12 +388,12 @@
                   <option value="Concluída">Concluída</option>
                 </select>
               </div>
-              <div class="form-group" style="grid-column: span 2;">
+              <div class="form-group" style="grid-column:span 2;">
                 <label>Descrição do Defeito / Solicitação</label>
                 <textarea id="os-defeito" rows="2" placeholder="Descreva os sintomas apresentados pelo equipamento ou a queixa do cliente..."></textarea>
               </div>
-              <div class="form-group" style="grid-column: span 2;">
-                <label>Laudo Técnico Técnico / Atividades Executadas</label>
+              <div class="form-group" style="grid-column:span 2;">
+                <label>Laudo Técnico / Atividades Executadas</label>
                 <textarea id="os-laudo" rows="3" placeholder="Insira o detalhamento do serviço realizado, peças trocadas e testes de funcionamento executados..."></textarea>
               </div>
             </div>
@@ -430,7 +402,6 @@
             </div>
             <p id="msg-os" class="msg-form"></p>
           </div>
-
           <div class="card no-print">
             <h3 class="card-title">Ordens de Serviço Registradas</h3>
             <div class="table-wrap">
@@ -452,15 +423,126 @@
               </table>
             </div>
           </div>
-
           <div id="area-os-impressao" class="print-only report-laudo-card"></div>
         </div>
       </div>
 
-      <div id="section-funcoes" class="app-section" style="display: none;">
-        <div class="topbar">
-          <h2>Cadastro de Funções e Cargos</h2>
+      <!-- SEÇÃO: O.S. GERAL (FACILITIES) -->
+      <div id="section-os-geral" class="app-section" style="display:none;">
+        <div class="topbar no-print"><h2>Ordem de Serviço — Facilities / Geral</h2></div>
+        <div class="section-content">
+          <div class="card no-print">
+            <h3 class="card-title">Nova O.S. Geral</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Serviço Requisitado / Título</label>
+                <input type="text" id="osg-requisitado" placeholder="Ex: Reparo em tomada, Vazamento...">
+              </div>
+              <div class="form-group">
+                <label>Setor / Local</label>
+                <input type="text" id="osg-setor" placeholder="Ex: Bloco A - Sala 102, UTI...">
+              </div>
+              <div class="form-group" style="grid-column:span 2;">
+                <label>Tipo de Manutenção</label>
+                <div class="checkbox-group-os">
+                  <label><input type="radio" name="osg-tipo" value="Corretiva"> Manutenção Corretiva</label>
+                  <label><input type="radio" name="osg-tipo" value="Preventiva" checked> Manutenção Preventiva</label>
+                  <label><input type="radio" name="osg-tipo" value="Reforma"> Reforma</label>
+                  <label><input type="radio" name="osg-tipo" value="Nova Obra"> Nova Obra</label>
+                  <label><input type="radio" name="osg-tipo" value="Inspeção de Rota"> Inspeção de Rota</label>
+                  <label><input type="radio" name="osg-tipo" value="Projeto"> Projeto</label>
+                </div>
+              </div>
+              <div class="form-group" style="grid-column:span 2;">
+                <label>Área do Serviço (pode marcar mais de uma)</label>
+                <div class="checkbox-group-os">
+                  <label><input type="checkbox" name="osg-area" value="Ar Condicionado"> Ar Condicionado</label>
+                  <label><input type="checkbox" name="osg-area" value="Elétrica"> Elétrica</label>
+                  <label><input type="checkbox" name="osg-area" value="Hidráulica"> Hidráulica</label>
+                  <label><input type="checkbox" name="osg-area" value="Lógica e Telefonia"> Lógica e Telefonia</label>
+                  <label><input type="checkbox" name="osg-area" value="Impermeabilização"> Impermeabilização</label>
+                  <label><input type="checkbox" name="osg-area" value="Construção Civil"> Construção Civil</label>
+                  <label><input type="checkbox" name="osg-area" value="Marcenaria"> Marcenaria</label>
+                </div>
+              </div>
+              <div class="form-group" style="grid-column:span 2;">
+                <label>Falha Relatada / Serviço Solicitado</label>
+                <textarea id="osg-falha" rows="3" placeholder="Descreva o problema ou serviço solicitado..."></textarea>
+              </div>
+              <div class="form-group">
+                <label>Equipamento (opcional)</label>
+                <input type="text" id="osg-equipamento" placeholder="Ex: Quadro elétrico, Bomba...">
+              </div>
+              <div class="form-group">
+                <label>Marca (opcional)</label>
+                <input type="text" id="osg-marca" placeholder="Ex: WEG, Schneider...">
+              </div>
+              <div class="form-group">
+                <label>Data da Chamada</label>
+                <input type="date" id="osg-data-chamada">
+              </div>
+              <div class="form-group">
+                <label>Data de Entrega Prevista</label>
+                <input type="date" id="osg-data-entrega">
+              </div>
+              <div class="form-group">
+                <label>Realizado Por</label>
+                <select id="osg-tecnico" class="form-input-style">
+                  <option value="">-- Selecione o Colaborador --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Status da O.S.</label>
+                <select id="osg-status" class="form-input-style">
+                  <option value="Aberta">Aberta / Pendente</option>
+                  <option value="Em Andamento">Em Andamento</option>
+                  <option value="Concluída">Concluída</option>
+                </select>
+              </div>
+              <div class="form-group" style="grid-column:span 2;">
+                <label>Aceite do Serviço / Responsável pela Área</label>
+                <input type="text" id="osg-aceite" placeholder="Nome do responsável que aceitou o serviço...">
+              </div>
+              <div class="form-group" style="grid-column:span 2;">
+                <label>Observações</label>
+                <textarea id="osg-obs" rows="2" placeholder="Informações adicionais..."></textarea>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button id="btn-salvar-osg" class="btn-primary">✓ Salvar O.S. Geral</button>
+            </div>
+            <p id="msg-osg" class="msg-form"></p>
+          </div>
+
+          <div class="card no-print">
+            <h3 class="card-title">O.S. Gerais Registradas</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nº O.S.</th>
+                    <th>Data</th>
+                    <th>Setor</th>
+                    <th>Área(s)</th>
+                    <th>Tipo</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-osg">
+                  <tr><td colspan="7" style="text-align:center;color:#999;">Carregando...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="area-osg-impressao" class="print-only report-laudo-card"></div>
         </div>
+      </div>
+
+      <!-- SEÇÃO: FUNÇÕES -->
+      <div id="section-funcoes" class="app-section" style="display:none;">
+        <div class="topbar"><h2>Cadastro de Funções e Cargos</h2></div>
         <div class="section-content">
           <div class="card">
             <h3 class="card-title">Nova Função / Cargo</h3>
@@ -492,10 +574,9 @@
         </div>
       </div>
 
-      <div id="section-colaboradores" class="app-section" style="display: none;">
-        <div class="topbar">
-          <h2>Cadastro de Colaboradores</h2>
-        </div>
+      <!-- SEÇÃO: COLABORADORES -->
+      <div id="section-colaboradores" class="app-section" style="display:none;">
+        <div class="topbar"><h2>Cadastro de Colaboradores</h2></div>
         <div class="section-content">
           <div class="card">
             <h3 class="card-title">Novo Colaborador / Técnico</h3>
@@ -535,15 +616,14 @@
         </div>
       </div>
 
-      <div id="section-conta" class="app-section" style="display: none;">
-        <div class="topbar no-print">
-          <h2>Gerenciamento da Conta</h2>
-        </div>
+      <!-- SEÇÃO: MINHA CONTA -->
+      <div id="section-conta" class="app-section" style="display:none;">
+        <div class="topbar no-print"><h2>Gerenciamento da Conta</h2></div>
         <div class="section-content">
-          <div class="card" style="max-width: 500px;">
+          <div class="card" style="max-width:500px;">
             <h3 class="card-title">Alterar Senha de Acesso</h3>
-            <p style="font-size: 13px; color:#667085; margin-bottom:16px;">Insira sua nova senha nos campos abaixo.</p>
-            <div style="display: flex; flex-direction: column; gap: 14px;">
+            <p style="font-size:13px; color:#667085; margin-bottom:16px;">Insira sua nova senha nos campos abaixo.</p>
+            <div style="display:flex; flex-direction:column; gap:14px;">
               <div class="form-group">
                 <label>Nova Senha</label>
                 <input type="password" id="account-new-password" placeholder="Mínimo 6 caracteres">
