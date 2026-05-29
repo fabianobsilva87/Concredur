@@ -2,7 +2,7 @@ const SUPABASE_URL = "https://nweligwbglblbncaegir.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53ZWxpZ3diZ2xibGJuY2FlZ2lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwMzAzNTgsImV4cCI6MjA5NTYwNjM1OH0.6eKcn40QmcfvHKAxuDH3kB6vHBJUu5LUVzfr27dvbKk";
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Varáveis globais para instâncias de gráficos para evitar sobreposição de canvas
+// Variáveis globais para instâncias de gráficos para evitar sobreposição de canvas
 let instanceChartOS = null;
 let instanceChartCrit = null;
 
@@ -149,6 +149,7 @@ async function mostrarApp() {
   atualizarSelectFuncoes();
   carregarOrdensServico();
   carregarOSGeral();
+  carregarCentralUnificadaOS();
   toggleItemsPorFrequencia();
   renderizarGraficosDashboard();
 }
@@ -590,7 +591,7 @@ function limparFormularioFicha() {
 async function carregarHistoricoFichas() {
   const tbody = document.getElementById('tbody-fichas');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">Carregando histórico...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">Carregando histórico...</td></tr>';
 
   const { data, error } = await supabaseClient
     .from('fichas_pmoc')
@@ -599,7 +600,7 @@ async function carregarHistoricoFichas() {
     .order('created_at', { ascending: false });
 
   if (error || !data || !data.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">Nenhum formulário realizado ainda.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">Nenhum laudo PMOC localizado.</td></tr>';
     return;
   }
 
@@ -611,8 +612,11 @@ async function carregarHistoricoFichas() {
     const eq = ficha.equipamentos || { tag: "N/A", marca: "Desconhecido" };
     const isTrimestral = ficha.observacoes.includes("Frequência: Trimestral");
     const fichaB64 = btoa(unescape(encodeURIComponent(JSON.stringify(ficha))));
+    const laudoID = "L-PMOC-" + ficha.id.toString().slice(0, 6).toUpperCase();
+
     return `
       <tr>
+        <td><span class="tag-badge" style="background:#f3f4f6; color:#374151;">${laudoID}</span></td>
         <td>${dataFormatada}</td>
         <td><strong>${eq.tag}</strong> (${eq.produto || eq.marca})</td>
         <td>${ficha.tecnico_nome}</td>
@@ -639,13 +643,14 @@ function emitirRelatorio(fichaBase64) {
     const match = ficha.observacoes.match(regex);
     return match ? match[1] : 'NA';
   };
+  const laudoID = "L-PMOC-" + ficha.id.toString().slice(0, 6).toUpperCase();
 
   document.getElementById('area-laudo-impressao').innerHTML = `
     <div class="laudo-header">
       <h2>FORMULÁRIO DE MANUTENÇÃO PMOC - ÁREA HOSPITALAR</h2>
       <p>Conforme Portaria MS nº 3.523/98 e ABNT NBR 16.401</p>
-      <div style="margin-top:10px;font-weight:bold;color:#004f9f;text-transform:uppercase;">
-        MODALIDADE DA INSPEÇÃO: ${isTrimestral ? 'TRIMESTRAL' : 'MENSAL'}
+      <div style="margin-top:10px;font-weight:bold;color:#004f9f;text-transform:uppercase; font-size:13px;">
+        CÓDIGO DOCUMENTO: ${laudoID} | MODALIDADE: ${isTrimestral ? 'TRIMESTRAL' : 'MENSAL'}
       </div>
     </div>
     <div class="laudo-section">
@@ -715,7 +720,7 @@ btnSalvarOS.addEventListener('click', async () => {
   const descricao_defeito = txtOSDefeito.value.trim();
   const laudo_tecnico = txtOSLaudo.value.trim();
 
-  if (!equipment_id || !colaborador_id || !descricao_defeito) {
+  if (!equipamento_id || !colaborador_id || !descricao_defeito) {
     msgOS.style.color = "red";
     msgOS.innerText = "Os campos Ativo, Realizado por e Descrição do Defeito são obrigatórios.";
     return;
@@ -741,6 +746,7 @@ btnSalvarOS.addEventListener('click', async () => {
     selectOSEquipamento.value = "";
     selectOSTecnico.value = "";
     carregarOrdensServico();
+    carregarCentralUnificadaOS();
   }
 });
 
@@ -759,15 +765,16 @@ async function carregarOrdensServico() {
     return;
   }
 
-  tbody.innerHTML = data.map((os, index) => {
+  tbody.innerHTML = data.map((os) => {
     const dataOS = new Date(os.created_at).toLocaleDateString('pt-BR');
     const eq = os.equipamentos || { tag: "N/A" };
     const colab = os.colaboradores || { nome: "Não Atribuído" };
-    const numOS = String(index + 1).padStart(4, '0');
+    const numOS = "OS-AC-" + os.id.toString().slice(0, 5).toUpperCase();
     const osB64 = btoa(unescape(encodeURIComponent(JSON.stringify(os))));
+
     return `
       <tr>
-        <td><strong>#${numOS}</strong></td>
+        <td><strong>${numOS}</strong></td>
         <td>${dataOS}</td>
         <td><span class="tag-badge">${eq.tag}</span></td>
         <td>${colab.nome}</td>
@@ -790,7 +797,7 @@ function emitirLaudoOS(osBase64, numOS) {
 
   document.getElementById('area-os-impressao').innerHTML = `
     <div class="laudo-header" style="border-bottom:2px solid #4a5568;">
-      <h2>ORDEM DE SERVIÇO DE MANUTENÇÃO TÉCNICA - Nº #${numOS}</h2>
+      <h2>ORDEM DE SERVIÇO DE MANUTENÇÃO TÉCNICA - ${numOS}</h2>
       <p>Controle Técnico Operacional Integrado PMOC</p>
     </div>
     <div class="laudo-section">
@@ -845,9 +852,10 @@ btnSalvarOSG.addEventListener('click', async () => {
   const observacoes = document.getElementById('osg-obs').value.trim();
   const status_os = document.getElementById('osg-status').value;
 
+  // CORREÇÃO EFETUADA: servico_requisitado validado sem erro de digitação
   if (!setor || !servico_requisitado || !falha_relatada) {
     msgOSG.style.color = 'red';
-    msgOSG.innerText = 'Preencha: Serviço Requisitado, Setor e Falha Relatada.';
+    msgOSG.innerText = 'Preencha os campos obrigatórios: Serviço Requisitado, Setor e Falha Relatada.';
     return;
   }
 
@@ -866,12 +874,13 @@ btnSalvarOSG.addEventListener('click', async () => {
 
   if (error) {
     msgOSG.style.color = 'red';
-    msgOSG.innerText = 'Erro: ' + error.message;
+    msgOSG.innerText = 'Erro ao salvar: ' + error.message;
   } else {
     msgOSG.style.color = 'green';
-    msgOSG.innerText = 'O.S. registrada com sucesso!';
+    msgOSG.innerText = 'Ordem de Serviço Geral salva com sucesso!';
     limparFormOSG();
     carregarOSGeral();
+    carregarCentralUnificadaOS();
     setTimeout(() => msgOSG.innerText = '', 3000);
   }
 });
@@ -905,12 +914,12 @@ async function carregarOSGeral() {
     return;
   }
 
-  tbody.innerHTML = data.map((os, index) => {
+  tbody.innerHTML = data.map((os) => {
     const dataOS = os.data_chamada
       ? new Date(os.data_chamada + 'T00:00:00').toLocaleDateString('pt-BR')
       : new Date(os.created_at).toLocaleDateString('pt-BR');
     const areas = (os.areas_servico || []).join(', ') || '—';
-    const numOS = os.numero_os || String(index + 1).padStart(4, '0');
+    const numOS = os.numero_os || "OSG-" + os.id.toString().slice(0,5).toUpperCase();
     const osB64 = btoa(unescape(encodeURIComponent(JSON.stringify(os))));
     return `
       <tr>
@@ -931,7 +940,10 @@ async function carregarOSGeral() {
 async function excluirOSGeral(id) {
   if (!confirm('Confirma exclusão desta O.S.?')) return;
   const { error } = await supabaseClient.from('ordens_servico_geral').delete().eq('id', id);
-  if (!error) carregarOSGeral();
+  if (!error) {
+    carregarOSGeral();
+    carregarCentralUnificadaOS();
+  }
 }
 
 function imprimirOSGeral(osBase64) {
@@ -1042,6 +1054,42 @@ function imprimirOSGeral(osBase64) {
     </div>`;
 
   window.print();
+}
+
+// ===================== CENTRAL DE RELATÓRIOS UNIFICADOS =====================
+async function carregarCentralUnificadaOS() {
+  const tbody = document.getElementById('tbody-central-unificada-os');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">Consolidando histórico de laudos...</td></tr>';
+
+  const { data, error } = await supabaseClient
+    .from('relatorio_unificado_os')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error || !data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">Nenhuma O.S. emitida no histórico unificado.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(doc => {
+    const dataDoc = new Date(doc.created_at).toLocaleDateString('pt-BR');
+    const prefixo = doc.modulo_origem === 'Ar Condicionado' ? 'OS-AC-' : 'OS-GEN-';
+    const docID = prefixo + doc.id.toString().slice(0, 5).toUpperCase();
+    const badgeModulo = doc.modulo_origem === 'Ar Condicionado' 
+      ? `<span class="tag-badge" style="background:#e0f2fe; color:#0369a1;">${doc.modulo_origem}</span>` 
+      : `<span class="tag-badge" style="background:#f3f4f6; color:#4b5563;">${doc.modulo_origem}</span>`;
+
+    return `
+      <tr>
+        <td><strong>${docID}</strong></td>
+        <td>${dataDoc}</td>
+        <td>${badgeModulo}</td>
+        <td><small>${doc.categoria_servico}</small></td>
+        <td><span style="display:inline-block; max-width:260px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${doc.resumo_solicitacao || '—'}</span></td>
+        <td><span class="tag-badge" style="background:#def7ec; color:#03543f;">${doc.status_os}</span></td>
+      </tr>`;
+  }).join('');
 }
 
 // ===================== ALTERAR SENHA =====================
@@ -1163,5 +1211,6 @@ function showSection(name) {
   if (name === 'relatorios') carregarHistoricoFichas();
   if (name === 'ordens') carregarOrdensServico();
   if (name === 'os-grid') carregarOSGeral();
+  if (name === 'historico-os') carregarCentralUnificadaOS();
   if (name === 'usuarios') carregarUsuariosSistema();
 }
