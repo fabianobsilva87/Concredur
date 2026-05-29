@@ -1,6 +1,6 @@
 // Configuração de conexão com o Supabase
-const SUPABASE_URL = "https://nweligwbglblbncaegir.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53ZWxpZ3diZ2xibGJuY2FlZ2lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwMzAzNTgsImV4cCI6MjA5NTYwNjM1OH0.6eKcn40QmcfvHKAxuDH3kB6vHBJUu5LUVzfr27dvbKk";
+const SUPABASE_URL = "https://nweligwbgblblncaegir.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_kajKILpAjRorDNIA...";
 const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Pegando os elementos da tela
