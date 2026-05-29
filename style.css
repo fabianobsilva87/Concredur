@@ -125,3 +125,84 @@ tr:hover td { background: #f7fafc; }
   color: #a0aec0; font-size: 13px; padding: 2px 6px;
 }
 .btn-excluir:hover { color: #e53e3e; }
+
+.app-section {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.section-content {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.form-input-style {
+  padding: 8px 10px; 
+  border: 1px solid #cbd5e0;
+  border-radius: 4px; 
+  font-size: 13px; 
+  color: #2d3748;
+  background-color: white;
+  width: 100%;
+}
+
+.form-input-style:focus {
+  outline: none; 
+  border-color: #3182ce; 
+  box-shadow: 0 0 0 2px rgba(49,130,206,0.2);
+}
+
+textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #cbd5e0;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: Arial, sans-serif;
+  resize: vertical;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: #3182ce;
+}
+
+/* CHECKLIST PMOC */
+.pmoc-checklist-container {
+  margin-top: 20px;
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 15px;
+}
+
+.pmoc-checklist-container h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4a5568;
+  margin-bottom: 12px;
+}
+
+.checklist-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f4f8;
+  font-size: 13px;
+  color: #2d3748;
+}
+
+.radio-group {
+  display: flex;
+  gap: 14px;
+}
+
+.radio-group label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  cursor: pointer;
+}
