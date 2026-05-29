@@ -1,429 +1,788 @@
-* { box-sizing: border-box; margin: 0; padding: 0; }
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema PMOC</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
 
-body {
-  font-family: Arial, sans-serif;
-  background-color: #f4f6f9;
-  overflow: hidden;
-}
+  <div class="login-page-wrapper" id="login-box">
+    <div class="login-brand-logo">
+      <div class="logo-placeholder-text">SISTEMA <span>PMOC</span></div>
+    </div>
+    <div class="login-card-panel">
+      <h2>Acesso ao Sistema</h2>
+      <p class="login-subtitle">Informe o usuário e senha para Login:</p>
+      <div class="login-form-inputs">
+        <div class="login-field-group">
+          <label for="email">Usuário</label>
+          <div class="input-with-icon">
+            <span class="field-icon">👤</span>
+            <input type="email" id="email" placeholder="Digite seu e-mail" required>
+          </div>
+        </div>
+        <div class="login-field-group">
+          <label for="password">Senha</label>
+          <div class="input-with-icon">
+            <span class="field-icon">🔑</span>
+            <input type="password" id="password" placeholder="Digite sua senha" required>
+          </div>
+        </div>
+      </div>
+      <button id="btn-login" class="btn-login-submit"><span>➔</span> Entrar</button>
+      <div class="login-card-links" style="justify-content: center;">
+        <a href="#" class="forgot-password-link">Recuperar Senha?</a>
+      </div>
+      <p id="mensagem" class="erro"></p>
+    </div>
+    <div class="login-page-footer">© 2026 Sistema PMOC - Todos os direitos reservados.</div>
+  </div>
 
-/* ===================== DASHBOARD ===================== */
-.dash-cards-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-}
-.dash-card {
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-left: 4px solid #3182ce;
-  border-radius: 6px;
-  padding: 16px 20px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-}
-.dash-card-title {
-  font-size: 11px;
-  text-transform: uppercase;
-  color: #718096;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  margin-bottom: 6px;
-}
-.dash-card-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1a202c;
-}
-.dash-charts-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-@media (max-width: 768px) {
-  .dash-charts-grid { grid-template-columns: 1fr; }
-}
-.chart-container {
-  min-height: 280px;
-  display: flex;
-  flex-direction: column;
-}
-.chart-container canvas {
-  max-height: 240px;
-  width: 100% !important;
-}
+  <div class="app-container" id="app-box" style="display:none;">
 
-/* ===================== CONTROLE ADMINISTRATIVO DE ACESSOS ===================== */
-.card-header-admin {
-  background: linear-gradient(135deg, #1e3a8a, #3b82f6);
-  color: white;
-  padding: 16px 20px;
-  border-top-left-radius: 8px;
-  border-top-right-radius: 8px;
-}
-.card-header-admin h2 { font-size: 16px; font-weight: 700; }
-.card-header-admin p { font-size: 11px; margin-top: 2px; opacity: 0.9; }
-.card-body-admin { padding: 20px; }
-.admin-split-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-}
-@media (max-width: 850px) {
-  .admin-split-grid { grid-template-columns: 1fr; }
-}
-.admin-form-side {
-  border-right: 1px solid #e2e8f0;
-  padding-right: 20px;
-}
-@media (max-width: 850px) {
-  .admin-form-side { border-right: none; padding-right: 0; }
-}
-.admin-form-side h3, .admin-table-side h3 {
-  font-size: 14px;
-  color: #2d3748;
-  margin-bottom: 14px;
-  font-weight: 600;
-}
-.admin-permissions-box {
-  background: #f7fafc;
-  border: 1px solid #e2e8f0;
-  padding: 12px;
-  border-radius: 6px;
-  margin-top: 15px;
-}
-.admin-permissions-box strong {
-  font-size: 12px;
-  color: #4a5568;
-  display: block;
-  margin-bottom: 8px;
-}
-.admin-checkbox-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  font-size: 12px;
-}
-.admin-checkbox-grid label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #2d3748;
-  cursor: pointer;
-}
-.table-sistema {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-  font-size: 12px;
-}
-.table-sistema th {
-  background-color: #edf2f7;
-  color: #4a5568;
-  padding: 10px;
-  text-align: left;
-  border-bottom: 2px solid #cbd5e0;
-}
-.table-sistema td {
-  padding: 10px;
-  border-bottom: 1px solid #e2e8f0;
-  vertical-align: middle;
-}
-.badge-perfil {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-weight: bold;
-  font-size: 10px;
-  text-transform: uppercase;
-  display: inline-block;
-}
-.badge-modulo {
-  background: #edf2f7;
-  color: #4a5568;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 10px;
-  margin-right: 4px;
-  display: inline-block;
-  margin-bottom: 2px;
-}
+    <aside class="sidebar no-print">
+      <div class="sidebar-header">
+        <h3>Sistema PMOC</h3>
+        <p>Gestão integrada</p>
+        <div class="user-logged-badge">
+          <span class="user-icon-dot">●</span> <span id="user-display-email">carregando...</span>
+        </div>
+      </div>
+      <nav>
+        <div class="nav-label">Visão Geral</div>
+        <div class="nav-item active" id="nav-dashboard" onclick="showSection('dashboard')">
+          <span>📊</span> Dashboard Geral
+        </div>
 
-/* ===================== LOGIN ===================== */
-.login-page-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #072146 0%, #004f9f 100%);
-  background-image:
-    radial-gradient(rgba(255,255,255,0.08) 1px, transparent 0),
-    radial-gradient(rgba(255,255,255,0.05) 2px, transparent 0);
-  background-size: 30px 30px, 60px 60px;
-  background-position: 0 0, 15px 15px;
-  padding: 20px;
-}
-.login-brand-logo { margin-bottom: 25px; text-align: center; }
-.logo-placeholder-text {
-  font-size: 26px; color: #ffffff; font-weight: 700;
-  letter-spacing: 2px; text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-}
-.logo-placeholder-text span { color: #4da6ff; }
-.login-card-panel {
-  background: #ffffff; width: 100%; max-width: 440px;
-  padding: 40px 35px; border-radius: 6px;
-  box-shadow: 0 15px 35px rgba(0,0,0,0.35);
-}
-.login-card-panel h2 { color: #072146; font-size: 22px; font-weight: 600; margin-bottom: 6px; }
-.login-subtitle { color: #667085; font-size: 13px; margin-bottom: 30px; }
-.login-form-inputs { display: flex; flex-direction: column; gap: 22px; margin-bottom: 24px; }
-.login-field-group { position: relative; display: flex; flex-direction: column; }
-.login-field-group label {
-  position: absolute; top: -8px; left: 12px;
-  background: #ffffff; padding: 0 6px;
-  font-size: 11px; font-weight: 600; color: #004f9f; z-index: 2;
-}
-.input-with-icon {
-  display: flex; align-items: center;
-  border: 1px solid #d0d5dd; border-radius: 4px;
-  background-color: #fcfcfc; transition: all 0.2s ease;
-}
-.input-with-icon:focus-within {
-  border-color: #004f9f;
-  box-shadow: 0 0 0 3px rgba(0,79,159,0.15);
-  background-color: #ffffff;
-}
-.field-icon { padding-left: 12px; font-size: 14px; color: #98a2b3; user-select: none; }
-.input-with-icon input {
-  width: 100%; padding: 12px 12px 12px 8px;
-  border: none; background: transparent; outline: none;
-  font-size: 14px; color: #1d2939;
-}
-.btn-login-submit {
-  width: 100%; padding: 12px; background: #4c5cc4; color: #ffffff;
-  border: none; border-radius: 4px; font-size: 14px; font-weight: 600;
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
-  gap: 8px; transition: background 0.2s ease;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-.btn-login-submit:hover { background: #3b4aa7; }
-.btn-login-submit span { font-size: 15px; }
-.login-card-links {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-top: 20px; padding-top: 15px; border-top: 1px solid #f2f4f7;
-}
-.btn-link-action {
-  background: transparent; border: none; color: #4c5cc4;
-  font-size: 12px; font-weight: 600; cursor: pointer;
-}
-.btn-link-action:hover { text-decoration: underline; }
-.forgot-password-link { color: #004f9f; font-size: 12px; font-weight: 600; text-decoration: none; }
-.forgot-password-link:hover { text-decoration: underline; }
-.login-page-footer { margin-top: 25px; color: rgba(255,255,255,0.6); font-size: 11px; text-align: center; }
-.erro { color: red; font-size: 13px; margin-top: 10px; text-align: center; }
+        <div class="nav-label">Refrigeração</div>
+        <div class="nav-item" id="nav-equipamentos" onclick="showSection('equipamentos')">
+          <span>🌡</span> Equipamentos
+        </div>
+        <div class="nav-item" id="nav-fichas" onclick="showSection('fichas')">
+          <span>📋</span> Formulário PMOC
+        </div>
+        <div class="nav-item" id="nav-relatorios" onclick="showSection('relatorios')">
+          <span>📜</span> Histórico / Laudos PMOC
+        </div>
 
-/* ===================== APP LAYOUT ===================== */
-.app-container { display: flex; height: 100vh; overflow: hidden; }
+        <div class="nav-label">Manutenção</div>
+        <div class="nav-item" id="nav-ordens" onclick="showSection('ordens')">
+          <span>🛠</span> O.S. Ar Condicionado
+        </div>
+        <div class="nav-item" id="nav-os-grid" onclick="showSection('os-grid')">
+          <span>📝</span> O.S. Geral (Facilities)
+        </div>
+        <div class="nav-item" id="nav-historico-os" onclick="showSection('historico-os')">
+          <span>🗂️</span> Central Unificada de O.S.
+        </div>
 
-/* ===================== SIDEBAR ===================== */
-.sidebar {
-  width: 215px; flex-shrink: 0; background: white;
-  border-right: 1px solid #e2e8f0;
-  display: flex; flex-direction: column; overflow-y: auto;
-}
-.sidebar-header { padding: 18px 16px; border-bottom: 1px solid #e2e8f0; }
-.sidebar-header h3 { font-size: 15px; font-weight: 600; color: #1a202c; }
-.sidebar-header p { font-size: 11px; color: #a0aec0; margin-top: 2px; }
-.user-logged-badge {
-  background-color: #f8fafc; border: 1px solid #edf2f7;
-  padding: 6px 8px; border-radius: 4px; margin-top: 10px;
-  font-size: 11px; color: #4a5568;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  display: flex; align-items: center; gap: 6px;
-}
-.user-icon-dot { color: #2efd72; font-size: 10px; }
-.nav-label {
-  font-size: 10px; text-transform: uppercase;
-  letter-spacing: 0.06em; color: #a0aec0; padding: 14px 16px 4px;
-}
-.nav-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 9px 16px; cursor: pointer;
-  font-size: 13px; color: #4a5568;
-  border-left: 2px solid transparent;
-}
-.nav-item:hover { background: #f7fafc; color: #2d3748; }
-.nav-item.active {
-  background: #ebf4ff; color: #2b6cb0;
-  border-left-color: #3182ce; font-weight: 600;
-}
-.sidebar-footer { margin-top: auto; padding: 14px 16px; border-top: 1px solid #e2e8f0; }
-.btn-sair {
-  width: 100%; padding: 8px; background: transparent;
-  border: 1px solid #e2e8f0; border-radius: 4px;
-  color: #718096; cursor: pointer; font-size: 13px;
-}
-.btn-sair:hover { background: #fff5f5; color: #e53e3e; border-color: #fed7d7; }
+        <div class="nav-label">RH / Colaboradores</div>
+        <div class="nav-item" id="nav-funcoes" onclick="showSection('funcoes')">
+          <span>🪪</span> Funções / Cargos
+        </div>
+        <div class="nav-item" id="nav-colaboradores" onclick="showSection('colaboradores')">
+          <span>👥</span> Colaboradores
+        </div>
 
-/* ===================== MAIN CONTENT ===================== */
-.main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; height: 100vh; }
-.topbar {
-  padding: 14px 24px; background: white;
-  border-bottom: 1px solid #e2e8f0; flex-shrink: 0;
-}
-.topbar h2 { font-size: 17px; font-weight: 600; color: #1a202c; }
-.section-content {
-  padding: 20px 24px; overflow-y: auto;
-  flex: 1; height: calc(100vh - 50px);
-}
+        <div class="nav-label" id="label-admin" style="display:none;">Administração</div>
+        <div class="nav-item" id="nav-usuarios" onclick="showSection('usuarios')" style="display:none;">
+          <span>🔒</span> Controle de Usuários
+        </div>
 
-/* ===================== CARDS ===================== */
-.card {
-  background: white; border: 1px solid #e2e8f0;
-  border-radius: 8px; padding: 20px; margin-bottom: 18px;
-}
-.card-title { font-size: 14px; font-weight: 600; color: #2d3748; margin-bottom: 14px; }
+        <div class="nav-label">Configurações</div>
+        <div class="nav-item" id="nav-conta" onclick="showSection('conta')">
+          <span>⚙️</span> Minha Conta
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <button id="btn-logout" class="btn-sair">Sair do sistema</button>
+      </div>
+    </aside>
 
-/* ===================== FORMULÁRIOS ===================== */
-.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.form-group { display: flex; flex-direction: column; gap: 4px; }
-.form-group label { font-size: 12px; font-weight: 600; color: #4a5568; }
-.form-group input {
-  padding: 8px 10px; border: 1px solid #cbd5e0;
-  border-radius: 4px; font-size: 13px; color: #2d3748;
-}
-.form-group input:focus {
-  outline: none; border-color: #3182ce;
-  box-shadow: 0 0 0 2px rgba(49,130,206,0.2);
-}
-.form-input-style {
-  padding: 8px 10px; border: 1px solid #cbd5e0;
-  border-radius: 4px; font-size: 13px; color: #2d3748;
-  background-color: white; width: 100%;
-}
-textarea {
-  width: 100%; padding: 10px;
-  border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px;
-}
-.btn-row { display: flex; gap: 8px; margin-top: 14px; }
-.btn-primary {
-  padding: 8px 18px; background: #3182ce; color: white;
-  border: none; border-radius: 4px; cursor: pointer;
-  font-size: 13px; font-weight: 600;
-}
-.btn-secondary {
-  padding: 8px 14px; background: transparent; color: #718096;
-  border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; font-size: 13px;
-}
-.btn-primary:hover { background: #2b6cb0; }
-.btn-secondary:hover { background: #f7fafc; }
-.msg-form { font-size: 13px; margin-top: 10px; text-align: left; }
+    <main class="main-content" id="web-main-content">
 
-/* ===================== TABELAS ===================== */
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th {
-  text-align: left; padding: 8px 12px;
-  font-size: 11px; font-weight: 600; color: #718096;
-  border-bottom: 1px solid #e2e8f0;
-  text-transform: uppercase; letter-spacing: 0.04em;
-}
-td { padding: 10px 12px; border-bottom: 1px solid #f0f4f8; color: #2d3748; }
-tr:last-child td { border-bottom: none; }
-tr:hover td { background: #f7fafc; }
-.tag-badge {
-  display: inline-block; padding: 2px 8px;
-  background: #ebf4ff; color: #2b6cb0;
-  border-radius: 99px; font-size: 11px; font-weight: 600;
-}
-.btn-excluir {
-  background: none; border: none; cursor: pointer;
-  color: #a0aec0; font-size: 13px; padding: 2px 6px;
-}
-.btn-excluir:hover { color: #e53e3e; }
+      <div id="section-dashboard" class="app-section">
+        <div class="topbar no-print"><h2>Dashboard Operacional Gerencial</h2></div>
+        <div class="section-content">
+          
+          <div class="dash-cards-grid">
+            <div class="dash-card">
+              <p class="dash-card-title">Equipamentos Ativos</p>
+              <h3 id="dash-txt-ativos" class="dash-card-value">...</h3>
+            </div>
+            <div class="dash-card">
+              <p class="dash-card-title">Fichas PMOC (Mês)</p>
+              <h3 id="dash-txt-fichas" class="dash-card-value">...</h3>
+            </div>
+            <div class="dash-card" style="border-left-color: #d97706;">
+              <p class="dash-card-title">O.S. em Andamento</p>
+              <h3 id="dash-txt-os-abertas" class="dash-card-value">...</h3>
+            </div>
+            <div class="dash-card" style="border-left-color: #059669;">
+              <p class="dash-card-title">O.S. Concluídas</p>
+              <h3 id="dash-txt-os-fechadas" class="dash-card-value">...</h3>
+            </div>
+          </div>
 
-/* ===================== CRITICIDADE ===================== */
-.alert-box-criticidade {
-  background-color: #f8fafc; border: 1px solid #cbd5e0;
-  padding: 14px; border-radius: 6px; grid-column: span 2;
-}
-.criticidade-question-row {
-  display: flex; justify-content: space-between; align-items: center;
-  font-size: 12px; color: #2d3748;
-  padding: 5px 0; border-bottom: 1px dashed #edf2f7;
-}
+          <div class="dash-charts-grid">
+            <div class="card chart-container">
+              <h3 class="card-title">Status de Atendimento (O.S. Ar)</h3>
+              <canvas id="chartStatusOS"></canvas>
+            </div>
+            <div class="card chart-container">
+              <h3 class="card-title">Equipamentos por Criticidade</h3>
+              <canvas id="chartCriticidade"></canvas>
+            </div>
+          </div>
 
-/* ===================== CHECKLIST PMOC ===================== */
-.pmoc-checklist-container {
-  margin-top: 20px; border-top: 1px dashed #e2e8f0; padding-top: 15px;
-}
-.pmoc-checklist-container h4 {
-  font-size: 13px; font-weight: 600; color: #4a5568; margin-bottom: 12px;
-}
-.checklist-row {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 10px 0; border-bottom: 1px solid #f0f4f8;
-  font-size: 13px; color: #2d3748;
-}
-.radio-group { display: flex; gap: 14px; }
-.radio-group label {
-  display: flex; align-items: center; gap: 4px;
-  font-weight: 600; cursor: pointer;
-}
+        </div>
+      </div>
 
-/* ===================== O.S. GERAL — CHECKBOXES ===================== */
-.checkbox-group-os {
-  display: flex; flex-wrap: wrap; gap: 10px 20px;
-  padding: 10px; border: 1px solid #e2e8f0;
-  border-radius: 4px; background: #f8fafc; margin-top: 4px;
-}
-.checkbox-group-os label {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 13px; font-weight: 400; color: #2d3748; cursor: pointer;
-}
-.checkbox-group-os input[type="checkbox"],
-.checkbox-group-os input[type="radio"] {
-  width: 14px; height: 14px; cursor: pointer;
-}
+      <div id="section-equipamentos" class="app-section" style="display:none;">
+        <div class="topbar no-print"><h2>Cadastro de Equipamentos</h2></div>
+        <div class="section-content">
+          <div class="card no-print">
+            <h3 class="card-title">Novo equipamento</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>TAG Consolidada</label>
+                <input type="text" id="eq-tag" placeholder="Ex: AR-01, EQ-023...">
+              </div>
+              <div class="form-group">
+                <label>Marca Fabricante</label>
+                <input type="text" id="eq-marca" placeholder="Ex: Carrier, Springer...">
+              </div>
+              <div class="form-group">
+                <label>Potência / Capacidade</label>
+                <input type="text" id="eq-potencia" placeholder="Ex: 9000 BTU...">
+              </div>
+              <div class="form-group">
+                <label>Nº de Série</label>
+                <input type="text" id="eq-serie" placeholder="Ex: 123456789XX">
+              </div>
+              <div class="form-group">
+                <label>Plaqueta / Patrimônio</label>
+                <input type="text" id="eq-patrimonio" placeholder="Ex: 33957...">
+              </div>
+              <div class="form-group">
+                <label>Equipamento (Tipo/Produto)</label>
+                <input type="text" id="eq-produto" placeholder="Ex: Split Hi-Wall...">
+              </div>
+              <div class="form-group">
+                <label>Descrição do Bloco</label>
+                <input type="text" id="eq-bloco" placeholder="Ex: CLINICA, Bloco A">
+              </div>
+              <div class="form-group">
+                <label>Descrição do Setor</label>
+                <input type="text" id="eq-setor" placeholder="Ex: ODONTO, UTI">
+              </div>
+              <div class="form-group">
+                <label>Nº Sala / LAB</label>
+                <input type="text" id="eq-sala" placeholder="Ex: AZUL, Sala 102">
+              </div>
+              <div class="form-group">
+                <label>Instituição</label>
+                <input type="text" id="eq-instituicao" placeholder="Ex: CAMPUS SEDE">
+              </div>
+              <div class="form-group">
+                <label>Validade / Garantia</label>
+                <input type="text" id="eq-validade" placeholder="Ex: 12/2027">
+              </div>
+              <div class="form-group alert-box-criticidade">
+                <label style="color:#004f9f; font-weight:700;">⚙️ Matriz de Criticidade (Fluxograma Completo)</label>
+                <div style="font-size:11px; margin-bottom:8px; color:#555;">Responda às etapas abaixo para determinar a classificação automática:</div>
+                <div class="criticidade-question-row">
+                  <span>1. A parada do equipamento paralisa a produção ou gera interrupção total das atividades da área?</span>
+                  <select id="crit-interrupcao" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
+                    <option value="sim">Sim</option>
+                    <option value="nao" selected>Não</option>
+                  </select>
+                </div>
+                <div class="criticidade-question-row" style="margin-top:6px;">
+                  <span>2. A falha do ativo compromete diretamente a Segurança do Trabalho ou descumpre normas de Meio Ambiente?</span>
+                  <select id="crit-seguranca" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
+                    <option value="sim">Sim</option>
+                    <option value="nao" selected>Não</option>
+                  </select>
+                </div>
+                <div class="criticidade-question-row" style="margin-top:6px;">
+                  <span>3. O equipamento opera continuamente (24 horas) ou é indispensável para a conservação de insumos/vida?</span>
+                  <select id="crit-operacao" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
+                    <option value="sim">Sim</option>
+                    <option value="nao" selected>Não</option>
+                  </select>
+                </div>
+                <div class="criticidade-question-row" style="margin-top:6px;">
+                  <span>4. Existe equipamento reserva imediato (Stand-by) configurado e operacional no ambiente?</span>
+                  <select id="crit-reserva" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
+                    <option value="sim">Sim</option>
+                    <option value="nao" selected>Não</option>
+                  </select>
+                </div>
+                <div style="margin-top:12px; font-weight:600; font-size:13px; display:flex; align-items:center; gap:8px;">
+                  Classe Apurada: <span id="label-criticidade-calculada" style="color:#2b6cb0; background:#ebf4ff; padding:4px 10px; border-radius:4px; font-weight:700;">Classe Média (B)</span>
+                </div>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button id="btn-salvar" class="btn-primary">+ Salvar equipamento</button>
+              <button id="btn-limpar" class="btn-secondary">Limpar</button>
+            </div>
+            <p id="msg-equipamento" class="msg-form"></p>
+          </div>
+          <div class="card">
+            <h3 class="card-title">Equipamentos cadastrados</h3>
+            <div class="table-wrap">
+              <table id="tabela-equipamentos">
+                <thead>
+                  <tr>
+                    <th>TAG</th>
+                    <th>Equipamento / Marca</th>
+                    <th>Localização (Bloco/Setor/Sala)</th>
+                    <th>Criticidade</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-equipamentos">
+                  <tr><td colspan="5" style="text-align:center;color:#999;">Carregando...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
 
-/* ===================== IMPRESSÃO / LAUDOS ===================== */
-.print-only { display: none; }
-.report-laudo-card {
-  background: white; padding: 30px;
-  border: 1px solid #cbd5e0; border-radius: 8px; margin-top: 15px;
-}
-.laudo-header {
-  text-align: center; border-bottom: 2px solid #1a202c;
-  padding-bottom: 12px; margin-bottom: 20px;
-}
-.laudo-header h2 { font-size: 16px; color: #1a202c; font-weight: 700; letter-spacing: 0.5px; }
-.laudo-header p { font-size: 12px; color: #718096; margin-top: 4px; }
-.laudo-section { margin-bottom: 22px; }
-.laudo-section h3 {
-  font-size: 12px; background: #004f9f; color: white;
-  padding: 6px 10px; margin-bottom: 10px; font-weight: 700;
-}
-.table-laudo-dados { width: 100%; font-size: 12px; }
-.table-laudo-dados td { padding: 6px 4px; border-bottom: none; }
-.table-laudo-checklist { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 5px; }
-.table-laudo-checklist th {
-  background: #4a5568; color: white;
-  padding: 6px 10px; text-transform: none; font-size: 12px;
-}
-.table-laudo-checklist td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
-.laudo-img-preview { max-width: 280px; max-height: 200px; border: 1px solid #cbd5e0; object-fit: contain; }
-.laudo-footer { text-align: center; margin-top: 40px; font-size: 12px; }
-.linha-assinatura { width: 220px; height: 1px; background: #4a5568; margin: 0 auto 8px auto; }
+      <div id="section-fichas" class="app-section" style="display:none;">
+        <div class="topbar no-print"><h2>Formulário de Manutenção PMOC</h2></div>
+        <div class="section-content">
+          <div class="card">
+            <h3 class="card-title">Nova Inspeção Periódica Hospitalar</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Equipamento (TAG)</label>
+                <select id="pmoc-equipamento" class="form-input-style">
+                  <option value="">-- Selecione o Ativo (Tag) --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Técnico Responsável</label>
+                <select id="pmoc-tecnico" class="form-input-style">
+                  <option value="">-- Selecione o Colaborador Registrado --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Data da Inspeção (Editável)</label>
+                <input type="date" id="pmoc-data" class="form-input-style">
+              </div>
+              <div class="form-group">
+                <label>Frequência da Inspeção</label>
+                <select id="pmoc-frequencia" class="form-input-style" onchange="toggleItemsPorFrequencia()">
+                  <option value="M" selected>Mensal</option>
+                  <option value="T">Trimestral</option>
+                </select>
+              </div>
+              <div class="form-group" style="grid-column: span 2;">
+                <label>Foto da Inspeção (Opcional)</label>
+                <input type="file" id="pmoc-foto" accept="image/*" class="form-input-style">
+              </div>
+            </div>
+            <div class="pmoc-checklist-container">
+              <h4>Rotinas Técnicas de Manutenção e Controle (C: Conforme | NC: Não Conforme | NA: Não Aplicável)</h4>
+              <div class="checklist-row freq-item-m">
+                <div><strong>[FIL-01] Qualidade do Ar:</strong> Filtros de Ar (G4/F7/F9)</div>
+                <div class="radio-group">
+                  <label><input type="radio" name="fil_01" value="C"> C</label>
+                  <label><input type="radio" name="fil_01" value="NC"> NC</label>
+                  <label><input type="radio" name="fil_01" value="NA"> NA</label>
+                </div>
+              </div>
+              <div class="checklist-row freq-item-m">
+                <div><strong>[BIO-01] Biocontrole:</strong> Bandeja de condensado e aplicação de pastilha</div>
+                <div class="radio-group">
+                  <label><input type="radio" name="bio_01" value="C"> C</label>
+                  <label><input type="radio" name="bio_01" value="NC"> NC</label>
+                  <label><input type="radio" name="bio_01" value="NA"> NA</label>
+                </div>
+              </div>
+              <div class="checklist-row freq-item-m">
+                <div><strong>[BIO-02] Biocontrole:</strong> Dreno e teste de escoamento de água</div>
+                <div class="radio-group">
+                  <label><input type="radio" name="bio_02" value="C"> C</label>
+                  <label><input type="radio" name="bio_02" value="NC"> NC</label>
+                  <label><input type="radio" name="bio_02" value="NA"> NA</label>
+                </div>
+              </div>
+              <div class="checklist-row freq-item-m">
+                <div><strong>[MEC-01] Mecânica:</strong> Ruídos, vibrações e fixação do motoventilador</div>
+                <div class="radio-group">
+                  <label><input type="radio" name="mec_01" value="C"> C</label>
+                  <label><input type="radio" name="mec_01" value="NC"> NC</label>
+                  <label><input type="radio" name="mec_01" value="NA"> NA</label>
+                </div>
+              </div>
+              <div class="checklist-row freq-item-t" style="display:none;">
+                <div><strong>[FIL-02] Qualidade do Ar:</strong> Diferencial de pressão dos filtros</div>
+                <div class="radio-group">
+                  <label><input type="radio" name="fil_02" value="C"> C</label>
+                  <label><input type="radio" name="fil_02" value="NC"> NC</label>
+                  <label><input type="radio" name="fil_02" value="NA"> NA</label>
+                </div>
+              </div>
+              <div class="checklist-row freq-item-t" style="display:none;">
+                <div><strong>[BIO-03] Biocontrole:</strong> Limpeza química das serpentinas</div>
+                <div class="radio-group">
+                  <label><input type="radio" name="bio_03" value="C"> C</label>
+                  <label><input type="radio" name="bio_03" value="NC"> NC</label>
+                  <label><input type="radio" name="bio_03" value="NA"> NA</label>
+                </div>
+              </div>
+              <div class="checklist-row freq-item-t" style="display:none;">
+                <div><strong>[ELE-01] Elétrica:</strong> Medição elétrica (A) do compressor e motores</div>
+                <div class="radio-group">
+                  <label><input type="radio" name="ele_01" value="C"> C</label>
+                  <label><input type="radio" name="ele_01" value="NC"> NC</label>
+                  <label><input type="radio" name="ele_01" value="NA"> NA</label>
+                </div>
+              </div>
+              <div class="checklist-row freq-item-t" style="display:none;">
+                <div><strong>[ELE-02] Elétrica:</strong> Reaperto de contatos elétricos e painel</div>
+                <div class="radio-group">
+                  <label><input type="radio" name="ele_02" value="C"> C</label>
+                  <label><input type="radio" name="ele_02" value="NC"> NC</label>
+                  <label><input type="radio" name="ele_02" value="NA"> NA</label>
+                </div>
+              </div>
+            </div>
+            <div class="form-group" style="margin-top:14px;">
+              <label>Observações Gerais / Pendências</label>
+              <textarea id="pmoc-obs" rows="3" placeholder="Insira dados de medições técnicas adicionais aqui..."></textarea>
+            </div>
+            <div class="btn-row">
+              <button id="btn-salvar-ficha" class="btn-primary">✓ Salvar Formulário PMOC</button>
+            </div>
+            <p id="msg-ficha" class="msg-form"></p>
+          </div>
+        </div>
+      </div>
 
-/* ===================== MEDIA PRINT ===================== */
-@media print {
-  body { background: white; color: black; overflow: visible; }
-  .no-print { display: none !important; }
-  .app-container { display: block !important; height: auto !important; }
-  .main-content { overflow: visible !important; display: block !important; }
-  #section-relatorios,
-  #section-ordens,
-  #section-os-grid { padding: 0 !important; display: block !important; }
-  .section-content { padding: 0 !important; overflow: visible !important; }
-  .print-only { display: block !important; }
-  .report-laudo-card { border: none !important; padding: 0 !important; }
-}
+      <div id="section-relatorios" class="app-section" style="display:none;">
+        <div class="topbar no-print"><h2>Histórico de Formulários PMOC</h2></div>
+        <div class="section-content">
+          <div class="card no-print">
+            <h3 class="card-title">Laudos PMOC Gerados</h3>
+            <div class="table-wrap">
+              <table id="tabela-fichas">
+                <thead>
+                  <tr>
+                    <th>Código Laudo</th>
+                    <th>Data</th>
+                    <th>Equipamento (TAG)</th>
+                    <th>Responsável</th>
+                    <th>Frequência</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-fichas">
+                  <tr><td colspan="6" style="text-align:center;color:#999;">Carregando registros do banco...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div id="area-laudo-impressao" class="print-container-view report-laudo-card"></div>
+        </div>
+      </div>
+
+      <div id="section-ordens" class="app-section" style="display:none;">
+        <div class="topbar no-print"><h2>Ordens de Serviço — Ar Condicionado</h2></div>
+        <div class="section-content">
+          <div class="card no-print">
+            <h3 class="card-title">Abertura / Registro de Ordem de Serviço</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Equipamento Vinculado (TAG)</label>
+                <select id="os-equipamento" class="form-input-style">
+                  <option value="">-- Selecione o Ativo --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Realizado por (Nome do Colaborador)</label>
+                <select id="os-tecnico" class="form-input-style">
+                  <option value="">-- Selecione o Colaborador Registrado --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Tipo de Manutenção</label>
+                <select id="os-tipo" class="form-input-style">
+                  <option value="Corretiva">Corretiva</option>
+                  <option value="Preventiva">Preventiva</option>
+                  <option value="Instalação">Instalação / Start-Up</option>
+                  <option value="Emergencial">Emergencial</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Status Atual da O.S.</label>
+                <select id="os-status" class="form-input-style">
+                  <option value="Aberta">Aberta / Pendente</option>
+                  <option value="Em Andamento">Em Andamento</option>
+                  <option value="Concluída">Concluída</option>
+                </select>
+              </div>
+              <div class="form-group" style="grid-column:span 2;">
+                <label>Descrição do Defeito / Solicitação</label>
+                <textarea id="os-defeito" rows="2" placeholder="Descreva os sintomas apresentados pelo equipamento..."></textarea>
+              </div>
+              <div class="form-group" style="grid-column:span 2;">
+                <label>Laudo Técnico / Atividades Executadas</label>
+                <textarea id="os-laudo" rows="3" placeholder="Insira o detalhamento do serviço realizado..."></textarea>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button id="btn-salvar-os" class="btn-primary">✓ Salvar Ordem de Serviço</button>
+            </div>
+            <p id="msg-os" class="msg-form"></p>
+          </div>
+          <div class="card no-print">
+            <h3 class="card-title">Últimas Movimentações (Módulo Climatização)</h3>
+            <div class="table-wrap">
+              <table id="tabela-os">
+                <thead>
+                  <tr>
+                    <th>Código O.S</th>
+                    <th>Data</th>
+                    <th>TAG Ativo</th>
+                    <th>Realizado Por</th>
+                    <th>Tipo</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-os">
+                  <tr><td colspan="7" style="text-align:center;color:#999;">Carregando Ordens de Serviço...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div id="area-os-impressao" class="print-container-view report-laudo-card"></div>
+        </div>
+      </div>
+
+      <div id="section-os-grid" class="app-section" style="display:none;">
+        <div class="topbar no-print"><h2>Ordem de Serviço — Facilities / Geral</h2></div>
+        <div class="section-content">
+          <div class="card no-print">
+            <h3 class="card-title">Nova O.S. Geral</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Serviço Requisitado / Título</label>
+                <input type="text" id="osg-requisitado" placeholder="Ex: Reparo em tomada, Vazamento...">
+              </div>
+              <div class="form-group">
+                <label>Setor / Local</label>
+                <input type="text" id="osg-setor" placeholder="Ex: Bloco A - Sala 102, UTI...">
+              </div>
+              <div class="form-group" style="grid-column:span 2;">
+                <label>Tipo de Manutenção</label>
+                <div class="checkbox-group-os">
+                  <label><input type="radio" name="osg-tipo" value="Corretiva"> Manutenção Corretiva</label>
+                  <label><input type="radio" name="osg-tipo" value="Preventiva" checked> Manutenção Preventiva</label>
+                  <label><input type="radio" name="osg-tipo" value="Reforma"> Reforma</label>
+                  <label><input type="radio" name="osg-tipo" value="Nova Obra"> Nova Obra</label>
+                  <label><input type="radio" name="osg-tipo" value="Inspeção de Rota"> Inspeção de Rota</label>
+                  <label><input type="radio" name="osg-tipo" value="Projeto"> Projeto</label>
+                </div>
+              </div>
+              <div class="form-group" style="grid-column:span 2;">
+                <label>Área do Serviço (pode marcar mais de uma)</label>
+                <div class="checkbox-group-os">
+                  <label><input type="checkbox" name="osg-area" value="Ar Condicionado"> Ar Condicionado</label>
+                  <label><input type="checkbox" name="osg-area" value="Elétrica"> Elétrica</label>
+                  <label><input type="checkbox" name="osg-area" value="Hidráulica"> Hidráulica</label>
+                  <label><input type="checkbox" name="osg-area" value="Lógica e Telefonia"> Lógica e Telefonia</label>
+                  <label><input type="checkbox" name="osg-area" value="Impermeabilização"> Impermeabilização</label>
+                  <label><input type="checkbox" name="osg-area" value="Construção Civil"> Construção Civil</label>
+                  <label><input type="checkbox" name="osg-area" value="Marcenaria"> Marcenaria</label>
+                </div>
+              </div>
+              <div class="form-group" style="grid-column:span 2;">
+                <label>Falha Relatada / Serviço Solicitado</label>
+                <textarea id="osg-falha" rows="3" placeholder="Descreva o problema ou serviço solicitado..."></textarea>
+              </div>
+              <div class="form-group">
+                <label>Equipamento (opcional)</label>
+                <input type="text" id="osg-equipamento" placeholder="Ex: Quadro elétrico, Bomba...">
+              </div>
+              <div class="form-group">
+                <label>Marca (opcional)</label>
+                <input type="text" id="osg-marca" placeholder="Ex: WEG, Schneider...">
+              </div>
+              <div class="form-group">
+                <label>Data da Chamada</label>
+                <input type="date" id="osg-data-chamada">
+              </div>
+              <div class="form-group">
+                <label>Data de Entrega Prevista</label>
+                <input type="date" id="osg-data-entrega">
+              </div>
+              <div class="form-group">
+                <label>Realizado Por</label>
+                <select id="osg-tecnico" class="form-input-style">
+                  <option value="">-- Selecione o Colaborador --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Status da O.S.</label>
+                <select id="osg-status" class="form-input-style">
+                  <option value="Aberta">Aberta / Pendente</option>
+                  <option value="Em Andamento">Em Andamento</option>
+                  <option value="Concluída">Concluída</option>
+                </select>
+              </div>
+              <div class="form-group" style="grid-column:span 2;">
+                <label>Aceite do Serviço / Responsável pela Área</label>
+                <input type="text" id="osg-aceite" placeholder="Nome do responsável que aceitou o serviço...">
+              </div>
+              <div class="form-group" style="grid-column:span 2;">
+                <label>Observações</label>
+                <textarea id="osg-obs" rows="2" placeholder="Informações adicionais..."></textarea>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button id="btn-salvar-osg" class="btn-primary">✓ Salvar O.S. Geral</button>
+            </div>
+            <p id="msg-osg" class="msg-form"></p>
+          </div>
+
+          <div class="card no-print">
+            <h3 class="card-title">O.S. Gerais Registradas (Facilities)</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Código O.S.</th>
+                    <th>Data</th>
+                    <th>Setor</th>
+                    <th>Área(s)</th>
+                    <th>Tipo</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-osg">
+                  <tr><td colspan="7" style="text-align:center;color:#999;">Carregando...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="area-osg-impressao" class="print-container-view report-laudo-card"></div>
+        </div>
+      </div>
+
+      <div id="section-historico-os" class="app-section" style="display:none;">
+        <div class="topbar no-print"><h2>Central Unificada de Ordens de Serviço (Laudos Integrados)</h2></div>
+        <div class="section-content">
+          <div class="card no-print">
+            <h3 class="card-title">Histórico Consolidado de Manutenções (Climatização e Facilities)</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID Documento</th>
+                    <th>Data de Cadastro</th>
+                    <th>Módulo / Origem</th>
+                    <th>Categoria / Tipo</th>
+                    <th>Descrição do Chamado</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-central-unificada-os">
+                  <tr><td colspan="6" style="text-align:center;color:#999;">Carregando laudos integrados...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="section-funcoes" class="app-section" style="display:none;">
+        <div class="topbar"><h2>Cadastro de Funções e Cargos</h2></div>
+        <div class="section-content">
+          <div class="card">
+            <h3 class="card-title">Nova Função / Cargo</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Nome da Função</label>
+                <input type="text" id="func-nome" placeholder="Ex: Mecânico de Refrigeração, Supervisor">
+              </div>
+              <div class="form-group">
+                <label>Salário Base (R$)</label>
+                <input type="number" id="func-salario" placeholder="Ex: 2800">
+              </div>
+              <div class="form-group">
+                <label>Nível da Função</label>
+                <select id="func-nivel" class="form-input-style">
+                  <option value="Auxiliar">Auxiliar / Trainee</option>
+                  <option value="Junior">Júnior</option>
+                  <option value="Pleno" selected>Pleno</option>
+                  <option value="Senior">Sênior</option>
+                  <option value="Master">Master / Supervisor</option>
+                </select>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button id="btn-salvar-funcao" class="btn-primary">Salvar Função</button>
+            </div>
+            <p id="msg-funcao" class="msg-form"></p>
+          </div>
+        </div>
+      </div>
+
+      <div id="section-colaboradores" class="app-section" style="display:none;">
+        <div class="topbar"><h2>Cadastro de Colaboradores</h2></div>
+        <div class="section-content">
+          <div class="card">
+            <h3 class="card-title">Novo Colaborador / Técnico</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Nome Completo</label>
+                <input type="text" id="colab-nome" placeholder="Nome do colaborador">
+              </div>
+              <div class="form-group">
+                <label>Data de Nascimento</label>
+                <input type="date" id="colab-nascimento">
+              </div>
+              <div class="form-group">
+                <label>CPF</label>
+                <input type="text" id="colab-cpf" placeholder="000.000.000-00">
+              </div>
+              <div class="form-group">
+                <label>Data de Contratação</label>
+                <input type="date" id="colab-contratacao">
+              </div>
+              <div class="form-group">
+                <label>Função / Cargo Vinculado</label>
+                <select id="colab-funcao" class="form-input-style">
+                  <option value="">-- Selecione uma Função cadastrada --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Data de Última Promoção</label>
+                <input type="date" id="colab-promocao">
+              </div>
+            </div>
+            <div class="btn-row">
+              <button id="btn-salvar-colaborador" class="btn-primary">Salvar Colaborador</button>
+            </div>
+            <p id="msg-colaborador" class="msg-form"></p>
+          </div>
+        </div>
+      </div>
+
+      <div id="section-usuarios" class="app-section" style="display:none;">
+        <div class="card">
+          <div class="card-header-admin">
+            <h2>🛡️ Painel de Controle de Acessos & Perfis</h2>
+            <p>Apenas administradores homologados possuem acesso a este módulo.</p>
+          </div>
+          
+          <div class="card-body-admin">
+            <div class="admin-split-grid">
+              
+              <div class="admin-form-side">
+                <h3>Criar Novo Operador</h3>
+                
+                <div class="form-group">
+                  <label>E-mail Corporativo:</label>
+                  <input type="email" id="adm-user-email" placeholder="exemplo@empresa.com">
+                </div>
+                
+                <div class="form-group">
+                  <label>Senha Provisória (Mín. 6 dígitos):</label>
+                  <input type="password" id="adm-user-password" placeholder="••••••••">
+                </div>
+                
+                <div class="form-group">
+                  <label>Perfil de Função (Role):</label>
+                  <select id="adm-user-role" class="form-input-style">
+                    <option value="tecnico">🔬 Técnico de Campo (Acesso Básico)</option>
+                    <option value="master">👨‍💻 Técnico Master (Supervisor)</option>
+                    <option value="admin">🛡️ Administrador Geral (Acesso Total)</option>
+                    <option value="auditor">👁️ Visualizador / Auditor (Apenas Leitura)</option>
+                  </select>
+                </div>
+
+                <div class="admin-permissions-box">
+                  <strong>🔑 Definir Módulos Permitidos:</strong>
+                  <div class="admin-checkbox-grid">
+                    <label><input type="checkbox" class="chk-acesso" value="dashboard" checked> 📈 Dashboard</label>
+                    <label><input type="checkbox" class="chk-acesso" value="equipamentos" checked> ❄️ Cadastro de Ativos</label>
+                    <label><input type="checkbox" class="chk-acesso" value="pmoc" checked> 📋 Fichas PMOC</label>
+                    <label><input type="checkbox" class="chk-acesso" value="ordens" checked> 🛠️ Ordens de Serviço</label>
+                    <label><input type="checkbox" class="chk-acesso" value="rh"> 👥 Gestão de RH</label>
+                  </div>
+                </div>
+
+                <button id="btn-admin-salvar-usuario" class="btn-primary" style="margin-top: 20px; width: 100%; background: #10b981;">
+                  🚀 Cadastrar Usuário e Liberar Perfil
+                </button>
+                <p id="msg-admin-usuario" class="msg-form" style="font-weight: bold;"></p>
+              </div>
+
+              <div class="admin-table-side">
+                <h3>Usuários com Acesso Ativo</h3>
+                <div class="table-wrap" style="max-height: 400px;">
+                  <table class="table-sistema">
+                    <thead>
+                      <tr>
+                        <th>E-mail</th>
+                        <th>Perfil</th>
+                        <th>Módulos Ativos</th>
+                        <th>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbody-usuarios-sistema">
+                      <tr><td colspan="4" style="text-align:center;color:#999;">Carregando operadores...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="section-conta" class="app-section" style="display:none;">
+        <div class="topbar no-print"><h2>Gerenciamento da Conta</h2></div>
+        <div class="section-content">
+          <div class="card" style="max-width:500px;">
+            <h3 class="card-title">Alterar Senha de Acesso</h3>
+            <p style="font-size:13px; color:#667085; margin-bottom:16px;">Insira sua nova senha nos campos abaixo.</p>
+            <div style="display:flex; flex-direction:column; gap:14px;">
+              <div class="form-group">
+                <label>Nova Senha</label>
+                <input type="password" id="account-new-password" placeholder="Mínimo 6 caracteres">
+              </div>
+              <div class="form-group">
+                <label>Confirme a Nova Senha</label>
+                <input type="password" id="account-confirm-password" placeholder="Repita a nova senha">
+              </div>
+            </div>
+            <div class="btn-row">
+              <button id="btn-atualizar-senha" class="btn-primary">Atualizar Senha</button>
+            </div>
+            <p id="msg-conta" class="msg-form"></p>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
