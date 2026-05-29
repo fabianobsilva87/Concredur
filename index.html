@@ -474,7 +474,7 @@
             <div class="form-grid">
               <div class="form-group">
                 <label>Serviço Requisitado / Título</label>
-                <input type="text" id="osg-requisitado" placeholder="Ex: Reparo em tomada, Vazamento...">
+                <input type="text" id="osg-requinisitado" placeholder="Ex: Reparo em tomada, Vazamento...">
               </div>
               <div class="form-group">
                 <label>Setor / Local</label>
@@ -653,49 +653,74 @@
       </div>
 
       <div id="section-usuarios" class="app-section" style="display:none;">
-        <div class="topbar"><h2>Controle de Usuários do Sistema</h2></div>
-        <div class="section-content">
-          <div class="card">
-            <h3 class="card-title">Cadastrar Novo Operador Interno</h3>
-            <div class="form-grid">
-              <div class="form-group">
-                <label>E-mail de Login</label>
-                <input type="email" id="adm-user-email" placeholder="operador@sistema.com">
-              </div>
-              <div class="form-group">
-                <label>Senha Inicial</label>
-                <input type="password" id="adm-user-password" placeholder="Mínimo 6 caracteres">
-              </div>
-              <div class="form-group">
-                <label>Nível de Permissão</label>
-                <select id="adm-user-role" class="form-input-style">
-                  <option value="operador" selected>Operador Técnico / Facilities</option>
-                  <option value="admin">Administrador Geral</option>
-                </select>
-              </div>
-            </div>
-            <div class="btn-row">
-              <button id="btn-admin-salvar-usuario" class="btn-primary">✓ Cadastrar Usuário</button>
-            </div>
-            <p id="msg-admin-usuario" class="msg-form"></p>
+        <div class="card">
+          <div class="card-header-admin">
+            <h2>🛡️ Painel de Controle de Acessos & Perfis</h2>
+            <p>Apenas administradores homologados possuem acesso a este módulo.</p>
           </div>
+          
+          <div class="card-body-admin">
+            <div class="admin-split-grid">
+              
+              <div class="admin-form-side">
+                <h3>Criar Novo Operador</h3>
+                
+                <div class="form-group">
+                  <label>E-mail Corporativo:</label>
+                  <input type="email" id="adm-user-email" placeholder="exemplo@empresa.com">
+                </div>
+                
+                <div class="form-group">
+                  <label>Senha Provisória (Mín. 6 dígitos):</label>
+                  <input type="password" id="adm-user-password" placeholder="••••••••">
+                </div>
+                
+                <div class="form-group">
+                  <label>Perfil de Função (Role):</label>
+                  <select id="adm-user-role" class="form-input-style">
+                    <option value="tecnico">🔬 Técnico de Campo (Acesso Básico)</option>
+                    <option value="master">👨‍💻 Técnico Master (Supervisor)</option>
+                    <option value="admin">🛡️ Administrador Geral (Acesso Total)</option>
+                    <option value="auditor">👁️ Visualizador / Auditor (Apenas Leitura)</option>
+                  </select>
+                </div>
 
-          <div class="card">
-            <h3 class="card-title">Usuários Cadastrados com Acesso</h3>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>E-mail</th>
-                    <th>Perfil / Função</th>
-                    <th>Data de Cadastro</th>
-                    <th>Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="tbody-usuarios-sistema">
-                  <tr><td colspan="4" style="text-align:center;color:#999;">Carregando usuários...</td></tr>
-                </tbody>
-              </table>
+                <div class="admin-permissions-box">
+                  <strong>🔑 Definir Módulos Permitidos:</strong>
+                  <div class="admin-checkbox-grid">
+                    <label><input type="checkbox" class="chk-acesso" value="dashboard" checked> 📈 Dashboard</label>
+                    <label><input type="checkbox" class="chk-acesso" value="equipamentos" checked> ❄️ Cadastro de Ativos</label>
+                    <label><input type="checkbox" class="chk-acesso" value="pmoc" checked> 📋 Fichas PMOC</label>
+                    <label><input type="checkbox" class="chk-acesso" value="ordens" checked> 🛠️ Ordens de Serviço</label>
+                    <label><input type="checkbox" class="chk-acesso" value="rh"> 👥 Gestão de RH</label>
+                  </div>
+                </div>
+
+                <button id="btn-admin-salvar-usuario" class="btn-primary" style="margin-top: 20px; width: 100%; background: #10b981;">
+                  🚀 Cadastrar Usuário e Liberar Perfil
+                </button>
+                <p id="msg-admin-usuario" class="msg-form" style="font-weight: bold;"></p>
+              </div>
+
+              <div class="admin-table-side">
+                <h3>Usuários com Acesso Ativo</h3>
+                <div class="table-wrap" style="max-height: 400px;">
+                  <table class="table-sistema">
+                    <thead>
+                      <tr>
+                        <th>E-mail</th>
+                        <th>Perfil</th>
+                        <th>Módulos Ativos</th>
+                        <th>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbody-usuarios-sistema">
+                      <tr><td colspan="4" style="text-align:center;color:#999;">Carregando operadores...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
