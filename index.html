@@ -59,6 +59,9 @@
       <div class="sidebar-header">
         <h3>Sistema PMOC</h3>
         <p>Gestão de equipamentos</p>
+        <div class="user-logged-badge">
+          <span class="user-icon-dot">●</span> <span id="user-display-email">carregando...</span>
+        </div>
       </div>
       <nav>
         <div class="nav-label">Cadastros</div>
@@ -70,6 +73,10 @@
         </div>
         <div class="nav-item" id="nav-relatorios" onclick="showSection('relatorios')">
           <span>📊</span> Histórico / Relatórios
+        </div>
+        <div class="nav-label">Configurações</div>
+        <div class="nav-item" id="nav-conta" onclick="showSection('conta')">
+          <span>⚙️</span> Minha Conta
         </div>
       </nav>
       <div class="sidebar-footer">
@@ -277,6 +284,35 @@
 
           <div id="area-laudo-impressao" class="print-only report-laudo-card">
             </div>
+        </div>
+      </div>
+
+      <div id="section-conta" class="app-section" style="display: none;">
+        <div class="topbar no-print">
+          <h2>Gerenciamento da Conta</h2>
+        </div>
+
+        <div class="section-content">
+          <div class="card" style="max-width: 500px;">
+            <h3 class="card-title">Alterar Senha de Acesso</h3>
+            <p style="font-size: 13px; color:#667085; margin-bottom:16px;">Insira sua nova senha nos campos abaixo para atualizar suas credenciais.</p>
+            
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+              <div class="form-group">
+                <label>Nova Senha</label>
+                <input type="password" id="account-new-password" placeholder="Mínimo 6 caracteres">
+              </div>
+              <div class="form-group">
+                <label>Confirme a Nova Senha</label>
+                <input type="password" id="account-confirm-password" placeholder="Repita a nova senha">
+              </div>
+            </div>
+
+            <div class="btn-row">
+              <button id="btn-atualizar-senha" class="btn-primary">Atualizar Senha</button>
+            </div>
+            <p id="msg-conta" class="msg-form"></p>
+          </div>
         </div>
       </div>
 
