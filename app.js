@@ -17,6 +17,11 @@ const btnSalvar = document.getElementById('btn-salvar');
 const btnLimpar = document.getElementById('btn-limpar');
 const msgEq = document.getElementById('msg-equipamento');
 
+// Elementos da Ficha PMOC
+const selectEquipamento = document.getElementById('pmoc-equipamento');
+const btnSalvarFicha = document.getElementById('btn-salvar-ficha');
+const msgFicha = document.getElementById('msg-ficha');
+
 // Verificar sessão ao carregar
 supabaseClient.auth.getSession().then(({ data }) => {
   if (data.session) mostrarApp();
@@ -63,11 +68,12 @@ btnLogout.addEventListener('click', async () => {
   passwordInput.value = "";
 });
 
-// Mostrar app e carregar dados
+// Mostrar app e carregar dados (Unificada e Corrigida)
 function mostrarApp() {
   loginBox.style.display = "none";
   appBox.style.display = "flex";
   carregarEquipamentos();
+  atualizarSelectEquipamentos();
 }
 
 // Salvar equipamento
@@ -101,7 +107,7 @@ btnSalvar.addEventListener('click', async () => {
   }
 });
 
-// Limpar formulário
+// Limpar formulário de equipamentos
 btnLimpar.addEventListener('click', limparFormulario);
 function limparFormulario() {
   document.getElementById('eq-marca').value = "";
@@ -111,9 +117,11 @@ function limparFormulario() {
   msgEq.innerText = "";
 }
 
-// Carregar equipamentos
+// Carregar equipamentos do banco
 async function carregarEquipamentos() {
   const tbody = document.getElementById('tbody-equipamentos');
+  if (!tbody) return;
+  
   tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">Carregando...</td></tr>';
 
   const { data, error } = await supabaseClient
@@ -121,8 +129,9 @@ async function carregarEquipamentos() {
     .select('*')
     .order('created_at', { ascending: false });
 
-  if (error || !data.length) {
+  if (error || !data || !data.length) {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">Nenhum equipamento cadastrado.</td></tr>';
+    atualizarSelectEquipamentos(); // Atualiza o select mesmo se vazio
     return;
   }
 
@@ -135,6 +144,8 @@ async function carregarEquipamentos() {
       <td><button class="btn-excluir" onclick="excluirEquipamento('${eq.id}')">✕ Excluir</button></td>
     </tr>
   `).join('');
+
+  atualizarSelectEquipamentos();
 }
 
 // Excluir equipamento
@@ -144,26 +155,10 @@ async function excluirEquipamento(id) {
   if (!error) carregarEquipamentos();
 }
 
-// Navegação
-function showSection(name) {
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  document.getElementById('nav-' + name)?.classList.add('active');
-}
-// --- NOVOS ELEMENTOS DA FICHA PMOC ---
-const selectEquipamento = document.getElementById('pmoc-equipamento');
-const btnSalvarFicha = document.getElementById('btn-salvar-ficha');
-const msgFicha = document.getElementById('msg-ficha');
-
-// Modificar a função mostrarApp para carregar também os equipamentos no formulário do PMOC
-function mostrarApp() {
-  loginBox.style.display = "none";
-  appBox.style.display = "flex";
-  carregarEquipamentos();
-  atualizarSelectEquipamentos(); // <--- Nova chamada
-}
-
 // Preenche o <select> do formulário PMOC com os equipamentos ativos
 async function atualizarSelectEquipamentos() {
+  if (!selectEquipamento) return;
+
   const { data, error } = await supabaseClient
     .from('equipamentos')
     .select('id, tag, marca');
@@ -189,7 +184,6 @@ btnSalvarFicha.addEventListener('click', async () => {
   const ventilador_ok = document.querySelector('input[name="ventilador"]:checked')?.value;
   const observacoes = document.getElementById('pmoc-obs').value.trim();
 
-  // Validação básica
   if (!equipamento_id || !tecnico_nome || !filtro_limpo || !serpentina_limpa || !bandeja_limpa || !ventilador_ok) {
     msgFicha.style.color = "red";
     msgFicha.innerText = "Por favor, preencha todos os campos e avaliações.";
@@ -230,14 +224,16 @@ function limparFormularioFicha() {
   selectEquipamento.value = "";
   document.getElementById('pmoc-tecnico').value = "";
   document.getElementById('pmoc-obs').value = "";
-  
-  // Desmarcar os botões do tipo rádio (C, NC, NA)
   document.querySelectorAll('input[type="radio"]').forEach(radio => radio.checked = false);
 }
 
-// Chame a atualização do select sempre que um novo equipamento for adicionado ou excluído
-const originalCarregarEquipamentos = carregarEquipamentos;
-carregarEquipamentos = async function() {
-  await originalCarregarEquipamentos();
-  atualizarSelectEquipamentos();
+// Navegação entre seções do App
+function showSection(name) {
+  // Altera classe ativa na sidebar
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('nav-' + name)?.classList.add('active');
+
+  // Oculta todas as seções e mostra a correta
+  document.querySelectorAll('.app-section').forEach(el => el.style.display = 'none');
+  document.getElementById('section-' + name).style.display = 'block';
 }
