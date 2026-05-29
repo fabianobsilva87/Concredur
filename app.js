@@ -75,6 +75,7 @@ function mostrarApp() {
   appBox.style.display = "flex";
   carregarEquipamentos();
   atualizarSelectEquipamentos();
+  carregarHistoricoFichas();
 }
 
 // SALVAR NOVO EQUIPAMENTO
@@ -146,7 +147,6 @@ async function carregarEquipamentos() {
     </tr>
   `).join('');
 
-  // Sincroniza o select da ficha técnica com os dados mais recentes
   atualizarSelectEquipamentos();
 }
 
@@ -187,7 +187,6 @@ btnSalvarFicha.addEventListener('click', async () => {
   const observacoes = document.getElementById('pmoc-obs').value.trim();
   const arquivoFoto = fotoInput.files[0]; 
 
-  // Validação dos campos obrigatórios em texto/rádio
   if (!equipamento_id || !tecnico_nome || !filtro_limpo || !serpentina_limpa || !bandeja_limpa || !ventilador_ok) {
     msgFicha.style.color = "red";
     msgFicha.innerText = "Por favor, preencha todos os campos e avaliações.";
@@ -200,7 +199,6 @@ btnSalvarFicha.addEventListener('click', async () => {
   const { data: { user } } = await supabaseClient.auth.getUser();
   let fotoUrl = null;
 
-  // Se houver uma foto anexada, processa o upload primeiro
   if (arquivoFoto) {
     msgFicha.innerText = "Enviando imagem técnica...";
     
@@ -213,11 +211,14 @@ btnSalvarFicha.addEventListener('click', async () => {
 
     if (uploadError) {
       msgFicha.style.color = "red";
-      msgFicha.innerText = "Erro ao enviar foto: " + uploadError.message;
+      if (uploadError.message.includes("row-level security")) {
+        msgFicha.innerText = "Erro no Storage: Ative as Políticas de Inserção (RLS) para o bucket 'fotos-pmoc' no painel do Supabase.";
+      } else {
+        msgFicha.innerText = "Erro ao enviar foto: " + uploadError.message;
+      }
       return; 
     }
 
-    // Captura a URL pública definitiva da imagem hospedada
     const { data: publicUrlData } = supabaseClient.storage
       .from('fotos-pmoc')
       .getPublicUrl(nomeArquivo);
@@ -225,7 +226,6 @@ btnSalvarFicha.addEventListener('click', async () => {
     fotoUrl = publicUrlData.publicUrl;
   }
 
-  // Insere os dados textuais da ficha junto com o link da foto na tabela do banco
   msgFicha.innerText = "Salvando ficha técnica...";
 
   const { error } = await supabaseClient.from('fichas_pmoc').insert([
@@ -244,11 +244,16 @@ btnSalvarFicha.addEventListener('click', async () => {
 
   if (error) {
     msgFicha.style.color = "red";
-    msgFicha.innerText = "Erro ao salvar ficha: " + error.message;
+    if (error.message.includes("row-level security")) {
+      msgFicha.innerText = "Erro na Tabela: Ative a política de Inserção (RLS) para a tabela 'fichas_pmoc' no Supabase.";
+    } else {
+      msgFicha.innerText = "Erro ao salvar ficha: " + error.message;
+    }
   } else {
     msgFicha.style.color = "green";
     msgFicha.innerText = "Ficha PMOC registrada com sucesso!";
     limparFormularioFicha();
+    carregarHistoricoFichas(); // Sincroniza a aba de histórico
     setTimeout(() => msgFicha.innerText = "", 4000);
   }
 });
@@ -262,7 +267,140 @@ function limparFormularioFicha() {
   document.querySelectorAll('input[type="radio"]').forEach(radio => radio.checked = false);
 }
 
-// NAVEGAÇÃO ENTRE AS SEÇÕES DO APP (EQUIPAMENTOS / FICHAS)
+// CARREGAR HISTÓRICO DE FICHAS PMOC (COM JOIN DE EQUIPAMENTOS)
+async function carregarHistoricoFichas() {
+  const tbody = document.getElementById('tbody-fichas');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">Carregando histórico...</td></tr>';
+
+  // Faz a requisição buscando os dados da ficha e as colunas linkadas da tabela equipamentos
+  const { data, error } = await supabaseClient
+    .from('fichas_pmoc')
+    .select(`
+      id,
+      created_at,
+      tecnico_nome,
+      filtro_limpo,
+      serpentina_limpa,
+      bandeja_limpa,
+      ventilador_ok,
+      observacoes,
+      foto_url,
+      equipamentos (tag, marca, potencia, patrimonio)
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error || !data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">Nenhuma inspeção realizada ainda.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(ficha => {
+    const dataFormatada = new Date(ficha.created_at).toLocaleDateString('pt-BR');
+    const eq = ficha.equipamentos || { tag: "N/A", marca: "Desconhecido" };
+    
+    // Verifica se há alguma não conformidade (NC) listada nos checklists
+    const temProblema = [ficha.filtro_limpo, ficha.serpentina_limpa, ficha.bandeja_limpa, ficha.ventilador_ok].includes("NC");
+    const statusBadge = temProblema 
+      ? '<span class="tag-badge" style="background:#fff5f5; color:#c53030;">Não Conforme</span>' 
+      : '<span class="tag-badge" style="background:#f0fff4; color:#22543d;">Conforme</span>';
+
+    // Guardar os dados convertidos em JSON para injetar de forma direta no escopo do botão de impressão
+    const ficha Stringificável = btoa(unescape(encodeURIComponent(JSON.stringify(ficha))));
+
+    return `
+      <tr>
+        <td>${dataFormatada}</td>
+        <td><strong>${eq.tag}</strong> (${eq.marca})</td>
+        <td>${ficha.tecnico_nome}</td>
+        <td>${statusBadge}</td>
+        <td>
+          <button class="btn-primary" style="padding:4px 10px; font-size:11px;" onclick="emitirRelatorio('${fichaStringificável}')">
+            🖨 Emitir Relatório
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// GERAR DOCUMENTO E CHAMAR IMPRESSÃO/SALVAMENTO EM PDF
+function emitirRelatorio(fichaBase64) {
+  // Decodifica o objeto da ficha que enviamos por parâmetro
+  const ficha = JSON.parse(decodeURIComponent(escape(atob(fichaBase64))));
+  const eq = ficha.equipamentos || {};
+  const dataInspeção = new Date(ficha.created_at).toLocaleDateString('pt-BR');
+  
+  const areaLaudo = document.getElementById('area-laudo-impressao');
+  
+  // Estrutura HTML formal do documento de Laudo de PMOC
+  areaLaudo.innerHTML = `
+    <div class="laudo-header">
+      <h2>RELATÓRIO TÉCNICO DE INSPEÇÃO PERIÓDICA - PMOC</h2>
+      <p>Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</p>
+    </div>
+    
+    <div class="laudo-section">
+      <h3>1. DADOS COMPLEMENTARES DO EQUIPAMENTO</h3>
+      <table class="table-laudo-dados">
+        <tr><td><strong>TAG Identificação:</strong></td><td>${eq.tag || 'N/A'}</td><td><strong>Patrimônio:</strong></td><td>${eq.patrimonio || 'N/A'}</td></tr>
+        <tr><td><strong>Marca Fabricante:</strong></td><td>${eq.marca || 'N/A'}</td><td><strong>Capacidade/Potência:</strong></td><td>${eq.potencia || 'N/A'}</td></tr>
+      </table>
+    </div>
+
+    <div class="laudo-section">
+      <h3>2. HISTÓRICO DA INSPEÇÃO</h3>
+      <table class="table-laudo-dados">
+        <tr><td><strong>Data da Execução:</strong></td><td>${dataInspeção}</td></tr>
+        <tr><td><strong>Responsável Técnico:</strong></td><td>${ficha.tecnico_nome}</td></tr>
+      </table>
+    </div>
+
+    <div class="laudo-section">
+      <h3>3. ITENS AVALIADOS E CHECKLIST OPERACIONAL</h3>
+      <table class="table-laudo-checklist">
+        <thead>
+          <tr><th>Item de Controle</th><th style="text-align:center; width:120px;">Avaliação</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Condições e Limpeza do Filtro de Ar</td><td style="text-align:center;"><strong>${ficha.filtro_limpo}</strong></td></tr>
+          <tr><td>Condições e Limpeza da Serpentina</td><td style="text-align:center;"><strong>${ficha.serpentina_limpa}</strong></td></tr>
+          <tr><td>Higienização e Dreno da Bandeja de Condensado</td><td style="text-align:center;"><strong>${ficha.bandeja_limpa}</strong></td></tr>
+          <tr><td>Estado Geral do Conjunto Ventilador/Rotor</td><td style="text-align:center;"><strong>${ficha.ventilador_ok}</strong></td></tr>
+        </tbody>
+      </table>
+      <small style="color:#555; font-size:10px; margin-top:5px; display:block;">Legenda: C = Conforme | NC = Não Conforme | NA = Não Aplicável</small>
+    </div>
+
+    <div class="laudo-section">
+      <h3>4. PARECER TÉCNICO / OBSERVAÇÕES</h3>
+      <div style="border: 1px solid #cbd5e0; padding:10px; border-radius:4px; font-size:12px; background:#fafafa; min-height:50px;">
+        ${ficha.observacoes ? ficha.observacoes : 'Nenhuma observação extra relatada pelo técnico.'}
+      </div>
+    </div>
+
+    ${ficha.foto_url ? `
+    <div class="laudo-section" style="page-break-inside: avoid;">
+      <h3>5. EVIDÊNCIA FOTOGRÁFICA REGISTRADA</h3>
+      <div style="text-align:center; margin-top:10px;">
+        <img src="${ficha.foto_url}" alt="Foto da Inspeção Técnica" class="laudo-img-preview" />
+      </div>
+    </div>
+    ` : ''}
+
+    <div class="laudo-footer">
+      <div class="linha-assinatura"></div>
+      <p>Assinatura do Técnico Responsável</p>
+      <p style="font-size:10px; color:#a0aec0; margin-top:20px;">Documento gerado pelo Sistema de Gestão PMOC Automatizado</p>
+    </div>
+  `;
+
+  // Dispara a janela de impressão do Navegador (O CSS cuidará do resto ocultando o painel do app)
+  window.print();
+}
+
+// NAVEGAÇÃO ENTRE AS SEÇÕES DO APP (EQUIPAMENTOS / FICHAS / RELATORIOS)
 function showSection(name) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   document.getElementById('nav-' + name)?.classList.add('active');
@@ -270,4 +408,9 @@ function showSection(name) {
   document.querySelectorAll('.app-section').forEach(el => el.style.display = 'none');
   const targetSection = document.getElementById('section-' + name);
   if (targetSection) targetSection.style.display = 'block';
+
+  // Se o usuário clicar na aba de histórico, atualiza os registros do banco automaticamente
+  if (name === 'relatorios') {
+    carregarHistoricoFichas();
+  }
 }
