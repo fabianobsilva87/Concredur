@@ -36,11 +36,11 @@ const selectFuncaoColab = document.getElementById('colab-funcao');
 const btnAtualizarSenha = document.getElementById('btn-atualizar-senha');
 const msgConta = document.getElementById('msg-conta');
 
-// LÓGICA DO FLUXOGRAMA DE CRITICIDADE (BASEADO NA MATRIZ DE CRITICIDADE)
+// LÓGICA DO FLUXOGRAMA DE CRITICIDADE AUTOMATIZADO
 function calcularCriticidadeFluxograma() {
-  const q1 = document.getElementById('crit-q1').value; // Interrompe produção
-  const q2 = document.getElementById('crit-q2').value; // Risco segurança/meio ambiente
-  const q3 = document.getElementById('crit-q3').value; // Tem reserva?
+  const q1 = document.getElementById('crit-q1').value;
+  const q2 = document.getElementById('crit-q2').value;
+  const q3 = document.getElementById('crit-q3').value;
 
   let resultado = "Média (B)";
   
@@ -59,7 +59,7 @@ function calcularCriticidadeFluxograma() {
   }
   
   document.getElementById('label-criticidade-calculada').innerText = resultado;
-  return resultado.split(" ")[0]; // Retorna "Alta", "Média" ou "Baixa"
+  return resultado.split(" ")[0]; 
 }
 
 function toggleItemsPorFrequencia() {
@@ -122,7 +122,7 @@ btnLogout.addEventListener('click', async () => {
   passwordInput.value = "";
 });
 
-// MOSTRAR APP E CARREGAR INTERFACES SINCRO-DEDICADAS
+// MOSTRAR APP E CARREGAR INTERFACES
 async function mostrarApp() {
   loginBox.style.display = "none";
   appBox.style.display = "flex";
@@ -140,15 +140,15 @@ async function mostrarApp() {
   toggleItemsPorFrequencia();
 }
 
-// CADASTRO DE FUNÇÃO / CARGO
+// CADASTRO DE FUNÇÃO / CARGO (SUPABASE INSERT)
 btnSalvarFuncao.addEventListener('click', async () => {
   const nome = document.getElementById('func-nome').value.trim();
-  const salario = document.getElementById('func-salario').value.trim();
+  const salario = parseFloat(document.getElementById('func-salario').value);
   const nivel = document.getElementById('func-nivel').value;
 
-  if (!nome || !salario) {
+  if (!nome || isNaN(salario)) {
     msgFuncao.style.color = "red";
-    msgFuncao.innerText = "Preencha o nome da função e o salário base.";
+    msgFuncao.innerText = "Preencha o nome da função e um salário válido.";
     return;
   }
 
@@ -157,7 +157,7 @@ btnSalvarFuncao.addEventListener('click', async () => {
 
   if (error) {
     msgFuncao.style.color = "red";
-    msgFuncao.innerText = "Erro: " + error.message;
+    msgFuncao.innerText = "Erro ao salvar no Supabase: " + error.message;
   } else {
     msgFuncao.style.color = "green";
     msgFuncao.innerText = "Função cadastrada com sucesso!";
@@ -167,14 +167,14 @@ btnSalvarFuncao.addEventListener('click', async () => {
   }
 });
 
-// CADASTRO DE COLABORADOR
+// CADASTRO DE COLABORADOR (SUPABASE INSERT)
 btnSalvarColaborador.addEventListener('click', async () => {
   const nome = document.getElementById('colab-nome').value.trim();
-  const data_nascimento = document.getElementById('colab-nascimento').value;
+  const data_nascimento = document.getElementById('colab-nascimento').value ? document.getElementById('colab-nascimento').value : null;
   const cpf = document.getElementById('colab-cpf').value.trim();
-  const data_contratacao = document.getElementById('colab-contratacao').value;
+  const data_contratacao = document.getElementById('colab-contratacao').value ? document.getElementById('colab-contratacao').value : null;
   const funcao_id = selectFuncaoColab.value;
-  const data_promocao = document.getElementById('colab-promocao').value;
+  const data_promocao = document.getElementById('colab-promocao').value ? document.getElementById('colab-promocao').value : null;
 
   if (!nome || !cpf || !funcao_id) {
     msgColaborador.style.color = "red";
@@ -189,7 +189,7 @@ btnSalvarColaborador.addEventListener('click', async () => {
 
   if (error) {
     msgColaborador.style.color = "red";
-    msgColaborador.innerText = "Erro: " + error.message;
+    msgColaborador.innerText = "Erro ao salvar no Supabase: " + error.message;
   } else {
     msgColaborador.style.color = "green";
     msgColaborador.innerText = "Colaborador cadastrado com sucesso!";
@@ -200,10 +200,10 @@ btnSalvarColaborador.addEventListener('click', async () => {
   }
 });
 
-// BUSCA DINÂMICA DE FUNÇÕES PARA O RH
+// BUSCA DINÂMICA DE FUNÇÕES (SUPABASE SELECT)
 async function atualizarSelectFuncoes() {
   if (!selectFuncaoColab) return;
-  const { data, error } = await supabaseClient.from('funcoes').select('id, nome, nivel');
+  const { data, error } = await supabaseClient.from('funcoes').select('id, nome, nivel').order('nome', { ascending: true });
   selectFuncaoColab.innerHTML = '<option value="">-- Selecione uma Função cadastrada --</option>';
   if (!error && data) {
     data.forEach(f => {
@@ -215,10 +215,10 @@ async function atualizarSelectFuncoes() {
   }
 }
 
-// BUSCA DINÂMICA DE COLABORADORES PARA MANUTENÇÃO / PMOC
+// BUSCA DINÂMICA DE COLABORADORES (SUPABASE SELECT)
 async function atualizarSelectColaboradores() {
   if (!selectTecnicoPMOC) return;
-  const { data, error } = await supabaseClient.from('colaboradores').select('id, nome');
+  const { data, error } = await supabaseClient.from('colaboradores').select('id, nome').order('nome', { ascending: true });
   
   selectTecnicoPMOC.innerHTML = '<option value="">-- Selecione o Colaborador Registrado --</option>';
   const osTecnico = document.getElementById('os-tecnico');
@@ -227,7 +227,7 @@ async function atualizarSelectColaboradores() {
   if (!error && data) {
     data.forEach(c => {
       const opt = document.createElement('option');
-      opt.value = c.nome; // Injeta o nome diretamente para rastreabilidade de laudos
+      opt.value = c.nome; 
       opt.textContent = c.nome;
       selectTecnicoPMOC.appendChild(opt);
 
@@ -254,7 +254,7 @@ btnSalvar.addEventListener('click', async () => {
   const sala = document.getElementById('eq-sala').value.trim();
   const instituicao = document.getElementById('eq-instituicao').value.trim();
   const validade = document.getElementById('eq-validade').value.trim();
-  const criticidade = calcularCriticidadeFluxograma(); // Executa o fluxograma em tempo real
+  const criticidade = calcularCriticidadeFluxograma(); 
 
   if (!tag || !marca || !produto) {
     msgEq.style.color = "red";
@@ -585,46 +585,6 @@ function emitirRelatorio(fichaBase64) {
 
   window.print();
 }
-
-// LOGICA DE TROCA DE SENHA
-btnAtualizarSenha.addEventListener('click', async () => {
-  const novaSenha = document.getElementById('account-new-password').value;
-  const confirmaSenha = document.getElementById('account-confirm-password').value;
-
-  if (!novaSenha || !confirmaSenha) {
-    msgConta.style.color = "red";
-    msgConta.innerText = "Por favor, preencha ambos os campos.";
-    return;
-  }
-
-  if (novaSenha.length < 6) {
-    msgConta.style.color = "red";
-    msgConta.innerText = "A senha deve conter no mínimo 6 caracteres.";
-    return;
-  }
-
-  if (novaSenha !== confirmaSenha) {
-    msgConta.style.color = "red";
-    msgConta.innerText = "As senhas informadas não coincidem.";
-    return;
-  }
-
-  msgConta.style.color = "blue";
-  msgConta.innerText = "Processando atualização de credenciais...";
-
-  const { error } = await supabaseClient.auth.updateUser({ password: novaSenha });
-
-  if (error) {
-    msgConta.style.color = "red";
-    msgConta.innerText = "Erro ao atualizar: " + error.message;
-  } else {
-    msgConta.style.color = "green";
-    msgConta.innerText = "Senha alterada com sucesso!";
-    document.getElementById('account-new-password').value = "";
-    document.getElementById('account-confirm-password').value = "";
-    setTimeout(() => msgConta.innerText = "", 4000);
-  }
-});
 
 // NAVEGAÇÃO ENTRE AS SEÇÕES DO APP
 function showSection(name) {
