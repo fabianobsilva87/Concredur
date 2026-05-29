@@ -6,6 +6,52 @@ body {
   overflow: hidden;
 }
 
+/* ===================== DASHBOARD ===================== */
+.dash-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.dash-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #3182ce;
+  border-radius: 6px;
+  padding: 16px 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.dash-card-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #718096;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.dash-card-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a202c;
+}
+.dash-charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 768px) {
+  .dash-charts-grid { grid-template-columns: 1fr; }
+}
+.chart-container {
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+}
+.chart-container canvas {
+  max-height: 240px;
+  width: 100% !important;
+}
+
 /* ===================== LOGIN ===================== */
 .login-page-wrapper {
   display: flex;
