@@ -2,7 +2,7 @@ const SUPABASE_URL = "https://nweligwbglblbncaegir.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53ZWxpZ3diZ2xibGJuY2FlZ2lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwMzAzNTgsImV4cCI6MjA5NTYwNjM1OH0.6eKcn40QmcfvHKAxuDH3kB6vHBJUu5LUVzfr27dvbKk";
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Elementos de login
+// ELEMENTOS DE LOGIN
 const emailInput = document.getElementById('email');
 const passwordInput = document.getElementById('password');
 const btnLogin = document.getElementById('btn-login');
@@ -12,22 +12,23 @@ const msg = document.getElementById('mensagem');
 const loginBox = document.getElementById('login-box');
 const appBox = document.getElementById('app-box');
 
-// Elementos de equipamento
+// ELEMENTOS DE EQUIPAMENTO
 const btnSalvar = document.getElementById('btn-salvar');
 const btnLimpar = document.getElementById('btn-limpar');
 const msgEq = document.getElementById('msg-equipamento');
 
-// Elementos da Ficha PMOC
+// ELEMENTOS DA FICHA PMOC
 const selectEquipamento = document.getElementById('pmoc-equipamento');
 const btnSalvarFicha = document.getElementById('btn-salvar-ficha');
 const msgFicha = document.getElementById('msg-ficha');
+const fotoInput = document.getElementById('pmoc-foto');
 
-// Verificar sessão ao carregar
+// VERIFICAR SESSÃO AO CARREGAR O APP
 supabaseClient.auth.getSession().then(({ data }) => {
   if (data.session) mostrarApp();
 });
 
-// Login
+// LOGIN
 btnLogin.addEventListener('click', async () => {
   msg.style.color = "blue";
   msg.innerText = "Verificando acesso...";
@@ -43,7 +44,7 @@ btnLogin.addEventListener('click', async () => {
   }
 });
 
-// Cadastro
+// CADASTRO DE USUÁRIO
 btnCadastro.addEventListener('click', async () => {
   msg.style.color = "blue";
   msg.innerText = "Processando cadastro...";
@@ -59,7 +60,7 @@ btnCadastro.addEventListener('click', async () => {
   }
 });
 
-// Logout
+// LOGOUT
 btnLogout.addEventListener('click', async () => {
   await supabaseClient.auth.signOut();
   appBox.style.display = "none";
@@ -68,7 +69,7 @@ btnLogout.addEventListener('click', async () => {
   passwordInput.value = "";
 });
 
-// Mostrar app e carregar dados (Unificada e Corrigida)
+// MOSTRAR APP E CARREGAR INTERFACES (FUNÇÃO UNIFICADA)
 function mostrarApp() {
   loginBox.style.display = "none";
   appBox.style.display = "flex";
@@ -76,7 +77,7 @@ function mostrarApp() {
   atualizarSelectEquipamentos();
 }
 
-// Salvar equipamento
+// SALVAR NOVO EQUIPAMENTO
 btnSalvar.addEventListener('click', async () => {
   const marca = document.getElementById('eq-marca').value.trim();
   const potencia = document.getElementById('eq-potencia').value.trim();
@@ -107,7 +108,7 @@ btnSalvar.addEventListener('click', async () => {
   }
 });
 
-// Limpar formulário de equipamentos
+// LIMPAR FORMULÁRIO DE EQUIPAMENTOS
 btnLimpar.addEventListener('click', limparFormulario);
 function limparFormulario() {
   document.getElementById('eq-marca').value = "";
@@ -117,11 +118,11 @@ function limparFormulario() {
   msgEq.innerText = "";
 }
 
-// Carregar equipamentos do banco
+// CARREGAR EQUIPAMENTOS NA TABELA
 async function carregarEquipamentos() {
   const tbody = document.getElementById('tbody-equipamentos');
   if (!tbody) return;
-  
+
   tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">Carregando...</td></tr>';
 
   const { data, error } = await supabaseClient
@@ -131,7 +132,7 @@ async function carregarEquipamentos() {
 
   if (error || !data || !data.length) {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">Nenhum equipamento cadastrado.</td></tr>';
-    atualizarSelectEquipamentos(); // Atualiza o select mesmo se vazio
+    atualizarSelectEquipamentos(); 
     return;
   }
 
@@ -145,17 +146,18 @@ async function carregarEquipamentos() {
     </tr>
   `).join('');
 
+  // Sincroniza o select da ficha técnica com os dados mais recentes
   atualizarSelectEquipamentos();
 }
 
-// Excluir equipamento
+// EXCLUIR EQUIPAMENTO
 async function excluirEquipamento(id) {
   if (!confirm("Confirma exclusão deste equipamento?")) return;
   const { error } = await supabaseClient.from('equipamentos').delete().eq('id', id);
   if (!error) carregarEquipamentos();
 }
 
-// Preenche o <select> do formulário PMOC com os equipamentos ativos
+// ATUALIZAR SELECT DE EQUIPAMENTOS NA FICHA PMOC
 async function atualizarSelectEquipamentos() {
   if (!selectEquipamento) return;
 
@@ -174,7 +176,7 @@ async function atualizarSelectEquipamentos() {
   });
 }
 
-// Salvar a Ficha PMOC no Supabase
+// SALVAR FICHA PMOC COM POLÍTICA DE ARQUIVOS (FOTO)
 btnSalvarFicha.addEventListener('click', async () => {
   const equipamento_id = selectEquipamento.value;
   const tecnico_nome = document.getElementById('pmoc-tecnico').value.trim();
@@ -183,7 +185,9 @@ btnSalvarFicha.addEventListener('click', async () => {
   const bandeja_limpa = document.querySelector('input[name="bandeja"]:checked')?.value;
   const ventilador_ok = document.querySelector('input[name="ventilador"]:checked')?.value;
   const observacoes = document.getElementById('pmoc-obs').value.trim();
+  const arquivoFoto = fotoInput.files[0]; 
 
+  // Validação dos campos obrigatórios em texto/rádio
   if (!equipamento_id || !tecnico_nome || !filtro_limpo || !serpentina_limpa || !bandeja_limpa || !ventilador_ok) {
     msgFicha.style.color = "red";
     msgFicha.innerText = "Por favor, preencha todos os campos e avaliações.";
@@ -191,9 +195,38 @@ btnSalvarFicha.addEventListener('click', async () => {
   }
 
   msgFicha.style.color = "blue";
-  msgFicha.innerText = "Salvando ficha técnica...";
+  msgFicha.innerText = "Processando informações...";
 
   const { data: { user } } = await supabaseClient.auth.getUser();
+  let fotoUrl = null;
+
+  // Se houver uma foto anexada, processa o upload primeiro
+  if (arquivoFoto) {
+    msgFicha.innerText = "Enviando imagem técnica...";
+    
+    const extensao = arquivoFoto.name.split('.').pop();
+    const nomeArquivo = `${user.id}/${Date.now()}.${extensao}`;
+
+    const { data: uploadData, error: uploadError } = await supabaseClient.storage
+      .from('fotos-pmoc')
+      .upload(nomeArquivo, arquivoFoto);
+
+    if (uploadError) {
+      msgFicha.style.color = "red";
+      msgFicha.innerText = "Erro ao enviar foto: " + uploadError.message;
+      return; 
+    }
+
+    // Captura a URL pública definitiva da imagem hospedada
+    const { data: publicUrlData } = supabaseClient.storage
+      .from('fotos-pmoc')
+      .getPublicUrl(nomeArquivo);
+      
+    fotoUrl = publicUrlData.publicUrl;
+  }
+
+  // Insere os dados textuais da ficha junto com o link da foto na tabela do banco
+  msgFicha.innerText = "Salvando ficha técnica...";
 
   const { error } = await supabaseClient.from('fichas_pmoc').insert([
     {
@@ -204,7 +237,8 @@ btnSalvarFicha.addEventListener('click', async () => {
       serpentina_limpa,
       bandeja_limpa,
       ventilador_ok,
-      observacoes
+      observacoes,
+      foto_url: fotoUrl 
     }
   ]);
 
@@ -219,21 +253,21 @@ btnSalvarFicha.addEventListener('click', async () => {
   }
 });
 
-// Limpar campos da Ficha PMOC
+// LIMPAR CAMPOS DA FICHA PMOC
 function limparFormularioFicha() {
   selectEquipamento.value = "";
   document.getElementById('pmoc-tecnico').value = "";
   document.getElementById('pmoc-obs').value = "";
+  if (fotoInput) fotoInput.value = ""; 
   document.querySelectorAll('input[type="radio"]').forEach(radio => radio.checked = false);
 }
 
-// Navegação entre seções do App
+// NAVEGAÇÃO ENTRE AS SEÇÕES DO APP (EQUIPAMENTOS / FICHAS)
 function showSection(name) {
-  // Altera classe ativa na sidebar
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   document.getElementById('nav-' + name)?.classList.add('active');
 
-  // Oculta todas as seções e mostra a correta
   document.querySelectorAll('.app-section').forEach(el => el.style.display = 'none');
-  document.getElementById('section-' + name).style.display = 'block';
+  const targetSection = document.getElementById('section-' + name);
+  if (targetSection) targetSection.style.display = 'block';
 }
