@@ -66,7 +66,7 @@
           <span>📋</span> Formulário PMOC
         </div>
         <div class="nav-item" id="nav-relatorios" onclick="showSection('relatorios')">
-          <span>📜</span> Histórico / Relatórios
+          <span>📜</span> Histórico / Laudos PMOC
         </div>
 
         <div class="nav-label">Manutenção</div>
@@ -75,6 +75,9 @@
         </div>
         <div class="nav-item" id="nav-os-grid" onclick="showSection('os-grid')">
           <span>📝</span> O.S. Geral (Facilities)
+        </div>
+        <div class="nav-item" id="nav-historico-os" onclick="showSection('historico-os')">
+          <span>🗂️</span> Central Unificada de O.S.
         </div>
 
         <div class="nav-label">RH / Colaboradores</div>
@@ -367,14 +370,15 @@
       </div>
 
       <div id="section-relatorios" class="app-section" style="display:none;">
-        <div class="topbar no-print"><h2>Histórico de Formulários / Emissão de Laudos</h2></div>
+        <div class="topbar no-print"><h2>Histórico de Formulários PMOC</h2></div>
         <div class="section-content">
           <div class="card no-print">
-            <h3 class="card-title">Formulários Registrados no Sistema</h3>
+            <h3 class="card-title">Laudos PMOC Gerados</h3>
             <div class="table-wrap">
               <table id="tabela-fichas">
                 <thead>
                   <tr>
+                    <th>Código Laudo</th>
                     <th>Data</th>
                     <th>Equipamento (TAG)</th>
                     <th>Responsável</th>
@@ -383,7 +387,7 @@
                   </tr>
                 </thead>
                 <tbody id="tbody-fichas">
-                  <tr><td colspan="5" style="text-align:center;color:#999;">Carregando registros do banco...</td></tr>
+                  <tr><td colspan="6" style="text-align:center;color:#999;">Carregando registros do banco...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -429,11 +433,11 @@
               </div>
               <div class="form-group" style="grid-column:span 2;">
                 <label>Descrição do Defeito / Solicitação</label>
-                <textarea id="os-defeito" rows="2" placeholder="Descreva os sintomas apresentados pelo equipamento ou a queixa do cliente..."></textarea>
+                <textarea id="os-defeito" rows="2" placeholder="Descreva os sintomas apresentados pelo equipamento..."></textarea>
               </div>
               <div class="form-group" style="grid-column:span 2;">
                 <label>Laudo Técnico / Atividades Executadas</label>
-                <textarea id="os-laudo" rows="3" placeholder="Insira o detalhamento do serviço realizado, peças trocadas e testes de funcionamento executados..."></textarea>
+                <textarea id="os-laudo" rows="3" placeholder="Insira o detalhamento do serviço realizado..."></textarea>
               </div>
             </div>
             <div class="btn-row">
@@ -442,12 +446,12 @@
             <p id="msg-os" class="msg-form"></p>
           </div>
           <div class="card no-print">
-            <h3 class="card-title">Ordens de Serviço Registradas</h3>
+            <h3 class="card-title">Últimas Movimentações (Módulo Climatização)</h3>
             <div class="table-wrap">
               <table id="tabela-os">
                 <thead>
                   <tr>
-                    <th>Nº O.S</th>
+                    <th>Código O.S</th>
                     <th>Data</th>
                     <th>TAG Ativo</th>
                     <th>Realizado Por</th>
@@ -474,7 +478,7 @@
             <div class="form-grid">
               <div class="form-group">
                 <label>Serviço Requisitado / Título</label>
-                <input type="text" id="osg-requinisitado" placeholder="Ex: Reparo em tomada, Vazamento...">
+                <input type="text" id="osg-requisitado" placeholder="Ex: Reparo em tomada, Vazamento...">
               </div>
               <div class="form-group">
                 <label>Setor / Local</label>
@@ -553,12 +557,12 @@
           </div>
 
           <div class="card no-print">
-            <h3 class="card-title">O.S. Gerais Registradas</h3>
+            <h3 class="card-title">O.S. Gerais Registradas (Facilities)</h3>
             <div class="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Nº O.S.</th>
+                    <th>Código O.S.</th>
                     <th>Data</th>
                     <th>Setor</th>
                     <th>Área(s)</th>
@@ -575,6 +579,32 @@
           </div>
 
           <div id="area-osg-impressao" class="print-only report-laudo-card"></div>
+        </div>
+      </div>
+
+      <div id="section-historico-os" class="app-section" style="display:none;">
+        <div class="topbar no-print"><h2>Central Unificada de Ordens de Serviço (Laudos Integrados)</h2></div>
+        <div class="section-content">
+          <div class="card no-print">
+            <h3 class="card-title">Histórico Consolidado de Manutenções (Climatização e Facilities)</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID Documento</th>
+                    <th>Data de Cadastro</th>
+                    <th>Módulo / Origem</th>
+                    <th>Categoria / Tipo</th>
+                    <th>Descrição do Chamado</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-central-unificada-os">
+                  <tr><td colspan="6" style="text-align:center;color:#999;">Carregando laudos integrados...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
 
