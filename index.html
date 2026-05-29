@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protótipo PMOC</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="login-container" id="login-box">
+        <h2>Acesso ao Sistema PMOC</h2>
+        <input type="email" id="email" placeholder="Seu e-mail" required>
+        <input type="password" id="password" placeholder="Sua senha" required>
+        <button id="btn-login">Entrar</button>
+        <button id="btn-cadastro" class="secondary">Cadastrar Nova Conta</button>
+        <p id="mensagem" class="erro"></p>
+    </div>
+
+    <div class="dashboard-container" id="dashboard-box" style="display: none;">
+        <h2>Painel do PMOC</h2>
+        <p>Bem-vindo ao sistema! Você está logado com sucesso.</p>
+        <button id="btn-logout">Sair do Sistema</button>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
