@@ -127,7 +127,7 @@
               </div>
               <div class="form-group">
                 <label>Plaqueta / Patrimônio</label>
-                <input type="text" id="eq-patrimonio" placeholder="Ex: 00123456...">
+                <input type="text" id="eq-patrimonio" placeholder="Ex: 33957...">
               </div>
               <div class="form-group">
                 <label>Equipamento (Tipo/Produto)</label>
@@ -153,14 +153,40 @@
                 <label>Validade / Garantia</label>
                 <input type="text" id="eq-validade" placeholder="Ex: 12/2027">
               </div>
-              <div class="form-group">
-                <label>Nível de Criticidade</label>
-                <select id="eq-criticidade" class="form-input-style">
-                  <option value="Baixa">Baixa</option>
-                  <option value="Média" selected>Média</option>
-                  <option value="Alta">Alta</option>
-                </select>
+              
+              <div class="form-group alert-box-criticidade">
+                <label style="color:#004f9f;">⚙️ Fluxograma de Criticidade Automatizado</label>
+                <div style="font-size:11px; margin-bottom:6px; color:#555;">Responda para calcular o Nível ABC:</div>
+                
+                <div class="criticidade-question-row">
+                  <span>1. A parada deste ativo interrompe a produção/operação principal?</span>
+                  <select id="crit-q1" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
+                    <option value="sim">Sim</option>
+                    <option value="nao" selected>Não</option>
+                  </select>
+                </div>
+                
+                <div class="criticidade-question-row" style="margin-top:4px;">
+                  <span>2. A falha causa riscos imediatos à Segurança ou Meio Ambiente?</span>
+                  <select id="crit-q2" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
+                    <option value="sim">Sim</option>
+                    <option value="nao" selected>Não</option>
+                  </select>
+                </div>
+
+                <div class="criticidade-question-row" style="margin-top:4px;">
+                  <span>3. Existe equipamento reserva imediato (Stand-by) instalado no local?</span>
+                  <select id="crit-q3" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
+                    <option value="sim">Sim</option>
+                    <option value="nao" selected>Não</option>
+                  </select>
+                </div>
+
+                <div style="margin-top:10px; font-weight:600; font-size:12px;">
+                  Nível Calculado: <span id="label-criticidade-calculada" style="color:#2b6cb0; background:#ebf4ff; padding:2px 8px; border-radius:4px;">Média (B)</span>
+                </div>
               </div>
+
             </div>
             <div class="btn-row">
               <button id="btn-salvar" class="btn-primary">+ Salvar equipamento</button>
@@ -207,8 +233,10 @@
                 </select>
               </div>
               <div class="form-group">
-                <label>Nome do Técnico</label>
-                <input type="text" id="pmoc-tecnico" placeholder="Nome do responsável técnico">
+                <label>Técnico Responsável</label>
+                <select id="pmoc-tecnico" class="form-input-style">
+                  <option value="">-- Selecione o Colaborador Registrado --</option>
+                </select>
               </div>
               <div class="form-group">
                 <label>Frequência da Inspeção</label>
@@ -347,7 +375,17 @@
         <div class="section-content">
           <div class="card">
             <h3 class="card-title">Nova Ordem de Serviço</h3>
-            <p style="font-size: 13px; color:#667085;">Área em desenvolvimento. Estrutura pronta para acoplamento do formulário de O.S.</p>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Ativo Vinculado (TAG)</label>
+                <select id="os-equipamento" class="form-input-style"></select>
+              </div>
+              <div class="form-group">
+                <label>Técnico Designado</label>
+                <select id="os-tecnico" class="form-input-style"></select>
+              </div>
+            </div>
+            <p style="font-size: 13px; color:#667085; margin-top:10px;">Estrutura pronta e amarrada ao banco para as próximas expansões.</p>
           </div>
         </div>
       </div>
@@ -358,8 +396,31 @@
         </div>
         <div class="section-content">
           <div class="card">
-            <h3 class="card-title font-600">Nova Função</h3>
-            <p style="font-size: 13px; color:#667085;">Área em desenvolvimento. Estrutura pronta para acoplamento do formulário de Cargos/Funções.</p>
+            <h3 class="card-title">Nova Função / Cargo</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Nome da Função</label>
+                <input type="text" id="func-nome" placeholder="Ex: Mecânico de Refrigeração, Supervisor">
+              </div>
+              <div class="form-group">
+                <label>Salário Base (R$)</label>
+                <input type="number" id="func-salario" placeholder="Ex: 2800">
+              </div>
+              <div class="form-group">
+                <label>Nível da Função</label>
+                <select id="func-nivel" class="form-input-style">
+                  <option value="Auxiliar">Auxiliar / Trainee</option>
+                  <option value="Junior">Júnior</option>
+                  <option value="Pleno" selected>Pleno</option>
+                  <option value="Senior">Sênior</option>
+                  <option value="Master">Master / Supervisor</option>
+                </select>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button id="btn-salvar-funcao" class="btn-primary">Salvar Função</button>
+            </div>
+            <p id="msg-funcao" class="msg-form"></p>
           </div>
         </div>
       </div>
@@ -370,8 +431,39 @@
         </div>
         <div class="section-content">
           <div class="card">
-            <h3 class="card-title">Novo Colaborador</h3>
-            <p style="font-size: 13px; color:#667085;">Área em desenvolvimento. Estrutura pronta para acoplamento do formulário de Funcionários/Técnicos.</p>
+            <h3 class="card-title">Novo Colaborador / Técnico</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Nome Completo</label>
+                <input type="text" id="colab-nome" placeholder="Nome do colaborador">
+              </div>
+              <div class="form-group">
+                <label>Data de Nascimento</label>
+                <input type="date" id="colab-nascimento">
+              </div>
+              <div class="form-group">
+                <label>CPF</label>
+                <input type="text" id="colab-cpf" placeholder="000.000.000-00">
+              </div>
+              <div class="form-group">
+                <label>Data de Contratação</label>
+                <input type="date" id="colab-contratacao">
+              </div>
+              <div class="form-group">
+                <label>Função / Cargo Vinculado</label>
+                <select id="colab-funcao" class="form-input-style">
+                  <option value="">-- Selecione uma Função cadastrada --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Data de Última Promoção</label>
+                <input type="date" id="colab-promocao">
+              </div>
+            </div>
+            <div class="btn-row">
+              <button id="btn-salvar-colaborador" class="btn-primary">Salvar Colaborador</button>
+            </div>
+            <p id="msg-colaborador" class="msg-form"></p>
           </div>
         </div>
       </div>
