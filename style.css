@@ -82,7 +82,7 @@ body {
   font-size: 11px;
   font-weight: 600;
   color: #004f9f;
-  z-index: 2;
+ z-index: 2;
 }
 
 .input-with-icon {
@@ -249,7 +249,7 @@ body {
 }
 .topbar h2 { font-size: 17px; font-weight: 600; color: #1a202c; }
 
-#section-equipamentos { padding: 20px 24px; overflow-y: auto; }
+.section-content { padding: 20px 24px; overflow-y: auto; flex: 1; }
 
 /* CARDS */
 .card {
@@ -279,7 +279,6 @@ body {
 .btn-primary:hover { background: #2b6cb0; }
 .btn-secondary:hover { background: #f7fafc; }
 .msg-form { font-size: 13px; margin-top: 10px; text-align: left; }
-.erro { color: #ff4d4d; font-size: 13px; margin-top: 12px; text-align: center; font-weight: 600; }
 
 /* TABELA */
 .table-wrap { overflow-x: auto; }
@@ -304,20 +303,6 @@ tr:hover td { background: #f7fafc; }
 }
 .btn-excluir:hover { color: #e53e3e; }
 
-/* OUTROS COMPONENTES GERAIS */
-.app-section {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
-
-.section-content {
-  padding: 20px 24px;
-  overflow-y: auto;
-  flex: 1;
-}
-
 .form-input-style {
   padding: 8px 10px; 
   border: 1px solid #cbd5e0;
@@ -328,25 +313,12 @@ tr:hover td { background: #f7fafc; }
   width: 100%;
 }
 
-.form-input-style:focus {
-  outline: none; 
-  border-color: #3182ce; 
-  box-shadow: 0 0 0 2px rgba(49,130,206,0.2);
-}
-
 textarea {
   width: 100%;
   padding: 10px;
   border: 1px solid #cbd5e0;
   border-radius: 4px;
   font-size: 13px;
-  font-family: Arial, sans-serif;
-  resize: vertical;
-}
-
-textarea:focus {
-  outline: none;
-  border-color: #3182ce;
 }
 
 /* CHECKLIST PMOC */
@@ -386,129 +358,46 @@ textarea:focus {
   cursor: pointer;
 }
 
-/* ESTILIZAÇÃO DO LAUDO DO RELATÓRIO */
-.print-only {
-  display: none;
-}
+/* LAUDO DO RELATÓRIO HOSPITALAR */
+.print-only { display: none; }
 
 .report-laudo-card {
-  background: white;
-  padding: 30px;
-  border: 1px solid #cbd5e0;
-  border-radius: 8px;
-  margin-top: 15px;
+  background: white; padding: 30px;
+  border: 1px solid #cbd5e0; border-radius: 8px; margin-top: 15px;
 }
 
 .laudo-header {
-  text-align: center;
-  border-bottom: 2px solid #1a202c;
-  padding-bottom: 12px;
-  margin-bottom: 20px;
+  text-align: center; border-bottom: 2px solid #1a202c;
+  padding-bottom: 12px; margin-bottom: 20px;
 }
 
-.laudo-header h2 {
-  font-size: 18px;
-  color: #1a202c;
-}
+.laudo-header h2 { font-size: 16px; color: #1a202c; font-weight: 700; letter-spacing: 0.5px; }
+.laudo-header p { font-size: 12px; color: #718096; margin-top: 4px; }
 
-.laudo-header p {
-  font-size: 12px;
-  color: #718096;
-  margin-top: 4px;
-}
-
-.laudo-section {
-  margin-bottom: 22px;
-}
-
+.laudo-section { margin-bottom: 22px; }
 .laudo-section h3 {
-  font-size: 13px;
-  background: #edf2f7;
-  color: #2d3748;
-  padding: 6px 10px;
-  margin-bottom: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
+  font-size: 12px; background: #004f9f; color: white;
+  padding: 6px 10px; margin-bottom: 10px; font-weight: 700;
 }
 
-.table-laudo-dados {
-  width: 100%;
-  font-size: 13px;
-}
+.table-laudo-dados { width: 100%; font-size: 12px; }
+.table-laudo-dados td { padding: 6px 4px; border-bottom: none; }
 
-.table-laudo-dados td {
-  padding: 6px 4px;
-  border-bottom: none;
-}
+.table-laudo-checklist { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 5px; }
+.table-laudo-checklist th { background: #4a5568; color: white; padding: 6px 10px; text-transform: none; font-size: 12px;}
+.table-laudo-checklist td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
 
-.table-laudo-checklist {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-  margin-top: 5px;
-}
+.laudo-img-preview { max-width: 280px; max-height: 200px; border: 1px solid #cbd5e0; object-fit: contain; }
+.laudo-footer { text-align: center; margin-top: 40px; font-size: 12px; }
+.linha-assinatura { width: 220px; height: 1px; background: #4a5568; margin: 0 auto 8px auto; }
 
-.table-laudo-checklist th {
-  background: #4a5568;
-  color: white;
-  padding: 6px 10px;
-}
-
-.table-laudo-checklist td {
-  padding: 8px 10px;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.laudo-img-preview {
-  max-width: 320px;
-  max-height: 240px;
-  border: 2px solid #cbd5e0;
-  border-radius: 4px;
-  object-fit: contain;
-}
-
-.laudo-footer {
-  text-align: center;
-  margin-top: 50px;
-}
-
-.linha-assinatura {
-  width: 250px;
-  height: 1px;
-  background: #4a5568;
-  margin: 0 auto 8px auto;
-}
-
-/* REGRAS DE IMPRESSÃO VIA IMPRESSORA OU SALVAMENTO PDF */
 @media print {
-  body {
-    background: white;
-    color: black;
-  }
-  .no-print {
-    display: none !important;
-  }
-  .app-container {
-    display: block !important;
-    height: auto !important;
-  }
-  .main-content {
-    overflow: visible !important;
-    display: block !important;
-  }
-  #section-relatorios {
-    padding: 0 !important;
-    display: block !important;
-  }
-  .section-content {
-    padding: 0 !important;
-    overflow: visible !important;
-  }
-  .print-only {
-    display: block !important;
-  }
-  .report-laudo-card {
-    border: none !important;
-    padding: 0 !important;
-  }
+  body { background: white; color: black; }
+  .no-print { display: none !important; }
+  .app-container { display: block !important; height: auto !important; }
+  .main-content { overflow: visible !important; display: block !important; }
+  #section-relatorios { padding: 0 !important; display: block !important; }
+  .section-content { padding: 0 !important; overflow: visible !important; }
+  .print-only { display: block !important; }
+  .report-laudo-card { border: none !important; padding: 0 !important; }
 }
