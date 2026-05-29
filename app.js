@@ -20,15 +20,48 @@ const msgEq = document.getElementById('msg-equipamento');
 // ELEMENTOS DO FORMULÁRIO PMOC
 const selectEquipamento = document.getElementById('pmoc-equipamento');
 const selectFrequencia = document.getElementById('pmoc-frequencia');
+const selectTecnicoPMOC = document.getElementById('pmoc-tecnico');
 const btnSalvarFicha = document.getElementById('btn-salvar-ficha');
 const msgFicha = document.getElementById('msg-ficha');
 const fotoInput = document.getElementById('pmoc-foto');
+
+// ELEMENTOS DE RH (FUNÇÕES E COLABORADORES)
+const btnSalvarFuncao = document.getElementById('btn-salvar-funcao');
+const msgFuncao = document.getElementById('msg-funcao');
+const btnSalvarColaborador = document.getElementById('btn-salvar-colaborador');
+const msgColaborador = document.getElementById('msg-colaborador');
+const selectFuncaoColab = document.getElementById('colab-funcao');
 
 // ELEMENTOS DE CONFIGURAÇÃO DA CONTA
 const btnAtualizarSenha = document.getElementById('btn-atualizar-senha');
 const msgConta = document.getElementById('msg-conta');
 
-// FILTRO DE ITENS POR FREQUÊNCIA (MENSAL EXCLUSIVO VS ACUMULADO TRIMESTRAL)
+// LÓGICA DO FLUXOGRAMA DE CRITICIDADE (BASEADO NA MATRIZ DE CRITICIDADE)
+function calcularCriticidadeFluxograma() {
+  const q1 = document.getElementById('crit-q1').value; // Interrompe produção
+  const q2 = document.getElementById('crit-q2').value; // Risco segurança/meio ambiente
+  const q3 = document.getElementById('crit-q3').value; // Tem reserva?
+
+  let resultado = "Média (B)";
+  
+  if (q1 === "sim" || q2 === "sim") {
+    if (q3 === "nao") {
+      resultado = "Alta (A)";
+    } else {
+      resultado = "Média (B)";
+    }
+  } else {
+    if (q3 === "sim") {
+      resultado = "Baixa (C)";
+    } else {
+      resultado = "Média (B)";
+    }
+  }
+  
+  document.getElementById('label-criticidade-calculada').innerText = resultado;
+  return resultado.split(" ")[0]; // Retorna "Alta", "Média" ou "Baixa"
+}
+
 function toggleItemsPorFrequencia() {
   const freq = selectFrequencia.value;
   const itensTrimestrais = document.querySelectorAll('.freq-item-t');
@@ -85,17 +118,11 @@ btnLogout.addEventListener('click', async () => {
   await supabaseClient.auth.signOut();
   appBox.style.display = "none";
   loginBox.style.display = "flex";
-  
   emailInput.value = "";
   passwordInput.value = "";
-  msg.innerText = "";
-  
-  document.getElementById('account-new-password').value = "";
-  document.getElementById('account-confirm-password').value = "";
-  if (msgConta) msgConta.innerText = "";
 });
 
-// MOSTRAR APP E CARREGAR INTERFACES
+// MOSTRAR APP E CARREGAR INTERFACES SINCRO-DEDICADAS
 async function mostrarApp() {
   loginBox.style.display = "none";
   appBox.style.display = "flex";
@@ -108,10 +135,113 @@ async function mostrarApp() {
   carregarEquipamentos();
   atualizarSelectEquipamentos();
   carregarHistoricoFichas();
+  atualizarSelectColaboradores();
+  atualizarSelectFuncoes();
   toggleItemsPorFrequencia();
 }
 
-// SALVAR NOVO EQUIPAMENTO
+// CADASTRO DE FUNÇÃO / CARGO
+btnSalvarFuncao.addEventListener('click', async () => {
+  const nome = document.getElementById('func-nome').value.trim();
+  const salario = document.getElementById('func-salario').value.trim();
+  const nivel = document.getElementById('func-nivel').value;
+
+  if (!nome || !salario) {
+    msgFuncao.style.color = "red";
+    msgFuncao.innerText = "Preencha o nome da função e o salário base.";
+    return;
+  }
+
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  const { error } = await supabaseClient.from('funcoes').insert([{ nome, salario, nivel, user_id: user.id }]);
+
+  if (error) {
+    msgFuncao.style.color = "red";
+    msgFuncao.innerText = "Erro: " + error.message;
+  } else {
+    msgFuncao.style.color = "green";
+    msgFuncao.innerText = "Função cadastrada com sucesso!";
+    document.getElementById('func-nome').value = "";
+    document.getElementById('func-salario').value = "";
+    atualizarSelectFuncoes();
+  }
+});
+
+// CADASTRO DE COLABORADOR
+btnSalvarColaborador.addEventListener('click', async () => {
+  const nome = document.getElementById('colab-nome').value.trim();
+  const data_nascimento = document.getElementById('colab-nascimento').value;
+  const cpf = document.getElementById('colab-cpf').value.trim();
+  const data_contratacao = document.getElementById('colab-contratacao').value;
+  const funcao_id = selectFuncaoColab.value;
+  const data_promocao = document.getElementById('colab-promocao').value;
+
+  if (!nome || !cpf || !funcao_id) {
+    msgColaborador.style.color = "red";
+    msgColaborador.innerText = "Nome, CPF e Função vinculada são obrigatórios.";
+    return;
+  }
+
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  const { error } = await supabaseClient.from('colaboradores').insert([{
+    nome, data_nascimento, cpf, data_contratacao, funcao_id, data_promocao, user_id: user.id
+  }]);
+
+  if (error) {
+    msgColaborador.style.color = "red";
+    msgColaborador.innerText = "Erro: " + error.message;
+  } else {
+    msgColaborador.style.color = "green";
+    msgColaborador.innerText = "Colaborador cadastrado com sucesso!";
+    document.getElementById('colab-nome').value = "";
+    document.getElementById('colab-cpf').value = "";
+    selectFuncaoColab.value = "";
+    atualizarSelectColaboradores();
+  }
+});
+
+// BUSCA DINÂMICA DE FUNÇÕES PARA O RH
+async function atualizarSelectFuncoes() {
+  if (!selectFuncaoColab) return;
+  const { data, error } = await supabaseClient.from('funcoes').select('id, nome, nivel');
+  selectFuncaoColab.innerHTML = '<option value="">-- Selecione uma Função cadastrada --</option>';
+  if (!error && data) {
+    data.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.id;
+      opt.textContent = `${f.nome} (${f.nivel})`;
+      selectFuncaoColab.appendChild(opt);
+    });
+  }
+}
+
+// BUSCA DINÂMICA DE COLABORADORES PARA MANUTENÇÃO / PMOC
+async function atualizarSelectColaboradores() {
+  if (!selectTecnicoPMOC) return;
+  const { data, error } = await supabaseClient.from('colaboradores').select('id, nome');
+  
+  selectTecnicoPMOC.innerHTML = '<option value="">-- Selecione o Colaborador Registrado --</option>';
+  const osTecnico = document.getElementById('os-tecnico');
+  if (osTecnico) osTecnico.innerHTML = '<option value="">-- Selecione o Técnico --</option>';
+
+  if (!error && data) {
+    data.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.nome; // Injeta o nome diretamente para rastreabilidade de laudos
+      opt.textContent = c.nome;
+      selectTecnicoPMOC.appendChild(opt);
+
+      if (osTecnico) {
+        const optOS = document.createElement('option');
+        optOS.value = c.id;
+        optOS.textContent = c.nome;
+        osTecnico.appendChild(optOS);
+      }
+    });
+  }
+}
+
+// SALVAR EQUIPAMENTO COM CRITICIDADE DO FLUXOGRAMA
 btnSalvar.addEventListener('click', async () => {
   const tag = document.getElementById('eq-tag').value.trim();
   const marca = document.getElementById('eq-marca').value.trim();
@@ -124,7 +254,7 @@ btnSalvar.addEventListener('click', async () => {
   const sala = document.getElementById('eq-sala').value.trim();
   const instituicao = document.getElementById('eq-instituicao').value.trim();
   const validade = document.getElementById('eq-validade').value.trim();
-  const criticidade = document.getElementById('eq-criticidade').value;
+  const criticidade = calcularCriticidadeFluxograma(); // Executa o fluxograma em tempo real
 
   if (!tag || !marca || !produto) {
     msgEq.style.color = "red";
@@ -168,7 +298,10 @@ function limparFormulario() {
   document.getElementById('eq-sala').value = "";
   document.getElementById('eq-instituicao').value = "";
   document.getElementById('eq-validade').value = "";
-  document.getElementById('eq-criticidade').value = "Média";
+  document.getElementById('crit-q1').value = "nao";
+  document.getElementById('crit-q2').value = "nao";
+  document.getElementById('crit-q3').value = "nao";
+  calcularCriticidadeFluxograma();
   msgEq.innerText = "";
 }
 
@@ -195,7 +328,7 @@ async function carregarEquipamentos() {
       <td><span class="tag-badge">${eq.tag}</span></td>
       <td><strong>${eq.produto || 'N/A'}</strong><br><small style="color:#718096">${eq.marca || 'N/A'}</small></td>
       <td>${eq.bloco || '-'} / ${eq.setor || '-'} <br> <small style="color:#718096">${eq.sala || '-'}</small></td>
-      <td><span class="tag-badge" style="background:#edf2f7; color:#2d3748">${eq.criticidade || 'Média'}</span></td>
+      <td><span class="tag-badge" style="background:#ebf4ff; color:#2b6cb0">${eq.criticidade || 'Média'}</span></td>
       <td><button class="btn-excluir" onclick="excluirEquipamento('${eq.id}')">✕ Excluir</button></td>
     </tr>
   `).join('');
@@ -219,12 +352,22 @@ async function atualizarSelectEquipamentos() {
     .select('id, tag, marca, produto');
 
   selectEquipamento.innerHTML = '<option value="">-- Selecione o Ativo (Tag) --</option>';
+  const osEq = document.getElementById('os-equipamento');
+  if (osEq) osEq.innerHTML = '<option value="">-- Selecione o Ativo --</option>';
+
   if (!error && data) {
     data.forEach(eq => {
       const opt = document.createElement('option');
       opt.value = eq.id;
       opt.textContent = `${eq.tag} - ${eq.produto || eq.marca}`;
       selectEquipamento.appendChild(opt);
+
+      if (osEq) {
+        const optOS = document.createElement('option');
+        optOS.value = eq.id;
+        optOS.textContent = eq.tag;
+        osEq.appendChild(optOS);
+      }
     });
   }
 }
@@ -232,7 +375,7 @@ async function atualizarSelectEquipamentos() {
 // SALVAR FORMULÁRIO PMOC HOSPITALAR
 btnSalvarFicha.addEventListener('click', async () => {
   const equipamento_id = selectEquipamento.value;
-  const tecnico_nome = document.getElementById('pmoc-tecnico').value.trim();
+  const tecnico_nome = selectTecnicoPMOC.value;
   const freq_inspecao = selectFrequencia.value;
   const observacoes = document.getElementById('pmoc-obs').value.trim();
   const arquivoFoto = fotoInput.files[0]; 
@@ -249,13 +392,7 @@ btnSalvarFicha.addEventListener('click', async () => {
 
   if (!equipamento_id || !tecnico_nome || !fil_01 || !bio_01 || !bio_02 || !mec_01) {
     msgFicha.style.color = "red";
-    msgFicha.innerText = "Por favor, preencha os dados básicos e os itens mensais obrigatórios.";
-    return;
-  }
-
-  if (freq_inspecao === 'T' && (!document.querySelector('input[name="fil_02"]:checked') || !document.querySelector('input[name="bio_03"]:checked') || !document.querySelector('input[name="ele_01"]:checked') || !document.querySelector('input[name="ele_02"]:checked'))) {
-    msgFicha.style.color = "red";
-    msgFicha.innerText = "Por favor, preencha todos os itens trimestrais para esta frequência.";
+    msgFicha.innerText = "Por favor, preencha todos os itens mensais obrigatórios e escolha o técnico.";
     return;
   }
 
@@ -314,7 +451,7 @@ btnSalvarFicha.addEventListener('click', async () => {
 // LIMPAR CAMPOS DO FORMULÁRIO PMOC
 function limparFormularioFicha() {
   selectEquipamento.value = "";
-  document.getElementById('pmoc-tecnico').value = "";
+  selectTecnicoPMOC.value = "";
   document.getElementById('pmoc-obs').value = "";
   selectFrequencia.value = "M";
   if (fotoInput) fotoInput.value = ""; 
@@ -345,7 +482,6 @@ async function carregarHistoricoFichas() {
   tbody.innerHTML = data.map(ficha => {
     const dataFormatada = new Date(ficha.created_at).toLocaleDateString('pt-BR');
     const eq = ficha.equipamentos || { tag: "N/A", marca: "Desconhecido" };
-    
     const isTrimestral = ficha.observacoes.includes("Frequência: Trimestral");
     const labelFreq = isTrimestral ? "Trimestral" : "Mensal";
 
@@ -372,7 +508,6 @@ function emitirRelatorio(fichaBase64) {
   const ficha = JSON.parse(decodeURIComponent(escape(atob(fichaBase64))));
   const eq = ficha.equipamentos || {};
   const dataInspecao = new Date(ficha.created_at).toLocaleDateString('pt-BR');
-  
   const isTrimestral = ficha.observacoes.includes("Frequência: Trimestral");
 
   const extrairNota = (id) => {
@@ -451,7 +586,47 @@ function emitirRelatorio(fichaBase64) {
   window.print();
 }
 
-// NAVEGAÇÃO ENTRE AS SEÇÕES DO APP (EXPANDIDA PARA INCLUIR OS NOVOS MÓDULOS)
+// LOGICA DE TROCA DE SENHA
+btnAtualizarSenha.addEventListener('click', async () => {
+  const novaSenha = document.getElementById('account-new-password').value;
+  const confirmaSenha = document.getElementById('account-confirm-password').value;
+
+  if (!novaSenha || !confirmaSenha) {
+    msgConta.style.color = "red";
+    msgConta.innerText = "Por favor, preencha ambos os campos.";
+    return;
+  }
+
+  if (novaSenha.length < 6) {
+    msgConta.style.color = "red";
+    msgConta.innerText = "A senha deve conter no mínimo 6 caracteres.";
+    return;
+  }
+
+  if (novaSenha !== confirmaSenha) {
+    msgConta.style.color = "red";
+    msgConta.innerText = "As senhas informadas não coincidem.";
+    return;
+  }
+
+  msgConta.style.color = "blue";
+  msgConta.innerText = "Processando atualização de credenciais...";
+
+  const { error } = await supabaseClient.auth.updateUser({ password: novaSenha });
+
+  if (error) {
+    msgConta.style.color = "red";
+    msgConta.innerText = "Erro ao atualizar: " + error.message;
+  } else {
+    msgConta.style.color = "green";
+    msgConta.innerText = "Senha alterada com sucesso!";
+    document.getElementById('account-new-password').value = "";
+    document.getElementById('account-confirm-password').value = "";
+    setTimeout(() => msgConta.innerText = "", 4000);
+  }
+});
+
+// NAVEGAÇÃO ENTRE AS SEÇÕES DO APP
 function showSection(name) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   document.getElementById('nav-' + name)?.classList.add('active');
