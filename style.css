@@ -3,6 +3,7 @@
 body {
   font-family: Arial, sans-serif;
   background-color: #f4f6f9;
+  overflow: hidden; /* Evita rolagem dupla bizarra no body inteiro */
 }
 
 /* TELA DE LOGIN ESTILIZADA (DESIGN MODERNO) */
@@ -184,7 +185,7 @@ body {
 }
 
 /* APP LAYOUT */
-.app-container { display: flex; height: 100vh; }
+.app-container { display: flex; height: 100vh; overflow: hidden; }
 
 /* SIDEBAR & BADGE DE IDENTIFICAÇÃO */
 .sidebar {
@@ -242,15 +243,22 @@ body {
 }
 .btn-sair:hover { background: #fff5f5; color: #e53e3e; border-color: #fed7d7; }
 
-/* MAIN */
-.main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+/* MAIN & SISTEMA DE ROLAGEM INDEPENDENTE EXCLUSIVO POR TELA */
+.main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; height: 100vh; }
 .topbar {
   padding: 14px 24px; background: white;
   border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
 }
 .topbar h2 { font-size: 17px; font-weight: 600; color: #1a202c; }
 
-.section-content { padding: 20px 24px; overflow-y: auto; flex: 1; }
+/* BARRA DE ROLAGEM DEDICADA ATIVADA PARA TODAS AS SEÇÕES INTERNAS */
+.section-content { 
+  padding: 20px 24px; 
+  overflow-y: auto; /* Força scroll individual quando os dados estouram o tamanho da tela */
+  flex: 1; 
+  height: calc(100vh - 50px);
+}
 
 /* CARDS */
 .card {
@@ -326,9 +334,9 @@ textarea {
 .alert-box-criticidade {
   background-color: #f8fafc;
   border: 1px solid #cbd5e0;
-  padding: 12px;
+  padding: 14px;
   border-radius: 6px;
-  grid-column: span 2; /* Ocupa as duas colunas do formulário */
+  grid-column: span 2; 
 }
 
 .criticidade-question-row {
@@ -337,7 +345,7 @@ textarea {
   align-items: center;
   font-size: 12px;
   color: #2d3748;
-  padding: 4px 0;
+  padding: 5px 0;
   border-bottom: 1px dashed #edf2f7;
 }
 
@@ -378,7 +386,7 @@ textarea {
   cursor: pointer;
 }
 
-/* LAUDO DO RELATÓRIO HOSPITALAR */
+/* LAUDO DO RELATÓRIO HOSPITALAR & O.S. */
 .print-only { display: none; }
 
 .report-laudo-card {
@@ -412,11 +420,11 @@ textarea {
 .linha-assinatura { width: 220px; height: 1px; background: #4a5568; margin: 0 auto 8px auto; }
 
 @media print {
-  body { background: white; color: black; }
+  body { background: white; color: black; overflow: visible; }
   .no-print { display: none !important; }
   .app-container { display: block !important; height: auto !important; }
   .main-content { overflow: visible !important; display: block !important; }
-  #section-relatorios { padding: 0 !important; display: block !important; }
+  #section-relatorios, #section-ordens { padding: 0 !important; display: block !important; }
   .section-content { padding: 0 !important; overflow: visible !important; }
   .print-only { display: block !important; }
   .report-laudo-card { border: none !important; padding: 0 !important; }
