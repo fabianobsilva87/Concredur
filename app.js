@@ -23,6 +23,10 @@ const btnSalvarFicha = document.getElementById('btn-salvar-ficha');
 const msgFicha = document.getElementById('msg-ficha');
 const fotoInput = document.getElementById('pmoc-foto');
 
+// ELEMENTOS DE CONFIGURAÇÃO DA CONTA
+const btnAtualizarSenha = document.getElementById('btn-atualizar-senha');
+const msgConta = document.getElementById('msg-conta');
+
 // VERIFICAR SESSÃO AO CARREGAR O APP
 supabaseClient.auth.getSession().then(({ data }) => {
   if (data.session) mostrarApp();
@@ -60,19 +64,34 @@ btnCadastro.addEventListener('click', async () => {
   }
 });
 
-// LOGOUT
+// LOGOFF (SISTEMA DE DESCONEXÃO COMPLETO)
 btnLogout.addEventListener('click', async () => {
   await supabaseClient.auth.signOut();
   appBox.style.display = "none";
   loginBox.style.display = "flex";
+  
+  // Limpa credenciais de login informadas anteriormente
   emailInput.value = "";
   passwordInput.value = "";
+  msg.innerText = "";
+  
+  // Limpa campos de alteração de senha por segurança
+  document.getElementById('account-new-password').value = "";
+  document.getElementById('account-confirm-password').value = "";
+  if (msgConta) msgConta.innerText = "";
 });
 
-// MOSTRAR APP E CARREGAR INTERFACES (FUNÇÃO UNIFICADA)
-function mostrarApp() {
+// MOSTRAR APP E CARREGAR INTERFACES COM IDENTIFICAÇÃO DO USUÁRIO
+async function mostrarApp() {
   loginBox.style.display = "none";
   appBox.style.display = "flex";
+  
+  // Resgata o usuário atual logado e injeta o e-mail na barra lateral
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if (user) {
+    document.getElementById('user-display-email').innerText = user.email;
+  }
+
   carregarEquipamentos();
   atualizarSelectEquipamentos();
   carregarHistoricoFichas();
@@ -415,6 +434,48 @@ function emitirRelatorio(fichaBase64) {
 
   window.print();
 }
+
+// LOGICA DE TROCA DE SENHA (INTEGRAÇÃO SUPABASE AUTH)
+btnAtualizarSenha.addEventListener('click', async () => {
+  const novaSenha = document.getElementById('account-new-password').value;
+  const confirmaSenha = document.getElementById('account-confirm-password').value;
+
+  if (!novaSenha || !confirmaSenha) {
+    msgConta.style.color = "red";
+    msgConta.innerText = "Por favor, preencha ambos os campos.";
+    return;
+  }
+
+  if (novaSenha.length < 6) {
+    msgConta.style.color = "red";
+    msgConta.innerText = "A senha deve conter no mínimo 6 caracteres.";
+    return;
+  }
+
+  if (novaSenha !== confirmaSenha) {
+    msgConta.style.color = "red";
+    msgConta.innerText = "As senhas informadas não coincidem.";
+    return;
+  }
+
+  msgConta.style.color = "blue";
+  msgConta.innerText = "Processando atualização de credenciais...";
+
+  const { error } = await supabaseClient.auth.updateUser({
+    password: novaSenha
+  });
+
+  if (error) {
+    msgConta.style.color = "red";
+    msgConta.innerText = "Erro ao atualizar: " + error.message;
+  } else {
+    msgConta.style.color = "green";
+    msgConta.innerText = "Senha atualizada com sucesso!";
+    document.getElementById('account-new-password').value = "";
+    document.getElementById('account-confirm-password').value = "";
+    setTimeout(() => msgConta.innerText = "", 4000);
+  }
+});
 
 // NAVEGAÇÃO ENTRE AS SEÇÕES DO APP
 function showSection(name) {
