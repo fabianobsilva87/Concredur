@@ -9,7 +9,6 @@
 </head>
 <body>
 
-  <!-- TELA DE LOGIN -->
   <div class="login-page-wrapper" id="login-box">
     <div class="login-brand-logo">
       <div class="logo-placeholder-text">SISTEMA <span>PMOC</span></div>
@@ -34,8 +33,7 @@
         </div>
       </div>
       <button id="btn-login" class="btn-login-submit"><span>➔</span> Entrar</button>
-      <div class="login-card-links">
-        <button id="btn-cadastro" class="btn-link-action">Cadastrar Nova Conta</button>
+      <div class="login-card-links" style="justify-content: center;">
         <a href="#" class="forgot-password-link">Recuperar Senha?</a>
       </div>
       <p id="mensagem" class="erro"></p>
@@ -43,10 +41,8 @@
     <div class="login-page-footer">© 2026 Sistema PMOC - Todos os direitos reservados.</div>
   </div>
 
-  <!-- SISTEMA PRINCIPAL -->
   <div class="app-container" id="app-box" style="display:none;">
 
-    <!-- SIDEBAR -->
     <aside class="sidebar no-print">
       <div class="sidebar-header">
         <h3>Sistema PMOC</h3>
@@ -71,8 +67,7 @@
         <div class="nav-item" id="nav-ordens" onclick="showSection('ordens')">
           <span>🛠</span> O.S. Ar Condicionado
         </div>
-        <div class="nav-item" id="nav-os-geral" onclick="showSection('os-geral')">
-          <span>📝</span> O.S. Geral (Facilities)
+        <div class="nav-item" id="nav-os-geral" onclick="showSection('os-grid')"> <span>📝</span> O.S. Geral (Facilities)
         </div>
 
         <div class="nav-label">RH / Colaboradores</div>
@@ -81,6 +76,11 @@
         </div>
         <div class="nav-item" id="nav-colaboradores" onclick="showSection('colaboradores')">
           <span>👥</span> Colaboradores
+        </div>
+
+        <div class="nav-label" id="label-admin" style="display:none;">Administração</div>
+        <div class="nav-item" id="nav-usuarios" onclick="showSection('usuarios')" style="display:none;">
+          <span>🔒</span> Controle de Usuários
         </div>
 
         <div class="nav-label">Configurações</div>
@@ -93,10 +93,8 @@
       </div>
     </aside>
 
-    <!-- CONTEÚDO PRINCIPAL -->
     <main class="main-content">
 
-      <!-- SEÇÃO: EQUIPAMENTOS -->
       <div id="section-equipamentos" class="app-section">
         <div class="topbar no-print"><h2>Cadastro de Equipamentos</h2></div>
         <div class="section-content">
@@ -211,7 +209,6 @@
         </div>
       </div>
 
-      <!-- SEÇÃO: FORMULÁRIO PMOC -->
       <div id="section-fichas" class="app-section" style="display:none;">
         <div class="topbar no-print"><h2>Formulário de Manutenção PMOC</h2></div>
         <div class="section-content">
@@ -325,7 +322,6 @@
         </div>
       </div>
 
-      <!-- SEÇÃO: HISTÓRICO / RELATÓRIOS -->
       <div id="section-relatorios" class="app-section" style="display:none;">
         <div class="topbar no-print"><h2>Histórico de Formulários / Emissão de Laudos</h2></div>
         <div class="section-content">
@@ -352,7 +348,6 @@
         </div>
       </div>
 
-      <!-- SEÇÃO: O.S. AR CONDICIONADO -->
       <div id="section-ordens" class="app-section" style="display:none;">
         <div class="topbar no-print"><h2>Ordens de Serviço — Ar Condicionado</h2></div>
         <div class="section-content">
@@ -427,8 +422,7 @@
         </div>
       </div>
 
-      <!-- SEÇÃO: O.S. GERAL (FACILITIES) -->
-      <div id="section-os-geral" class="app-section" style="display:none;">
+      <div id="section-os-grid" class="app-section" style="display:none;">
         <div class="topbar no-print"><h2>Ordem de Serviço — Facilities / Geral</h2></div>
         <div class="section-content">
           <div class="card no-print">
@@ -540,7 +534,6 @@
         </div>
       </div>
 
-      <!-- SEÇÃO: FUNÇÕES -->
       <div id="section-funcoes" class="app-section" style="display:none;">
         <div class="topbar"><h2>Cadastro de Funções e Cargos</h2></div>
         <div class="section-content">
@@ -574,7 +567,6 @@
         </div>
       </div>
 
-      <!-- SEÇÃO: COLABORADORES -->
       <div id="section-colaboradores" class="app-section" style="display:none;">
         <div class="topbar"><h2>Cadastro de Colaboradores</h2></div>
         <div class="section-content">
@@ -616,7 +608,55 @@
         </div>
       </div>
 
-      <!-- SEÇÃO: MINHA CONTA -->
+      <div id="section-usuarios" class="app-section" style="display:none;">
+        <div class="topbar"><h2>Controle de Usuários do Sistema</h2></div>
+        <div class="section-content">
+          <div class="card">
+            <h3 class="card-title">Cadastrar Novo Operador Interno</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>E-mail de Login</label>
+                <input type="email" id="adm-user-email" placeholder="operador@sistema.com">
+              </div>
+              <div class="form-group">
+                <label>Senha Inicial</label>
+                <input type="password" id="adm-user-password" placeholder="Mínimo 6 caracteres">
+              </div>
+              <div class="form-group">
+                <label>Nível de Permissão</label>
+                <select id="adm-user-role" class="form-input-style">
+                  <option value="operador" selected>Operador Técnico / Facilities</option>
+                  <option value="admin">Administrador Geral</option>
+                </select>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button id="btn-admin-salvar-usuario" class="btn-primary">✓ Cadastrar Usuário</button>
+            </div>
+            <p id="msg-admin-usuario" class="msg-form"></p>
+          </div>
+
+          <div class="card">
+            <h3 class="card-title">Usuários Cadastrados com Acesso</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>E-mail</th>
+                    <th>Perfil / Função</th>
+                    <th>Data de Cadastro</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-usuarios-sistema">
+                  <tr><td colspan="4" style="text-align:center;color:#999;">Carregando usuários...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div id="section-conta" class="app-section" style="display:none;">
         <div class="topbar no-print"><h2>Gerenciamento da Conta</h2></div>
         <div class="section-content">
