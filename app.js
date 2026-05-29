@@ -17,8 +17,9 @@ const btnSalvar = document.getElementById('btn-salvar');
 const btnLimpar = document.getElementById('btn-limpar');
 const msgEq = document.getElementById('msg-equipamento');
 
-// ELEMENTOS DA FICHA PMOC
+// ELEMENTOS DO FORMULÁRIO PMOC
 const selectEquipamento = document.getElementById('pmoc-equipamento');
+const selectFrequencia = document.getElementById('pmoc-frequencia');
 const btnSalvarFicha = document.getElementById('btn-salvar-ficha');
 const msgFicha = document.getElementById('msg-ficha');
 const fotoInput = document.getElementById('pmoc-foto');
@@ -26,6 +27,22 @@ const fotoInput = document.getElementById('pmoc-foto');
 // ELEMENTOS DE CONFIGURAÇÃO DA CONTA
 const btnAtualizarSenha = document.getElementById('btn-atualizar-senha');
 const msgConta = document.getElementById('msg-conta');
+
+// FILTRO DE ITENS POR FREQUÊNCIA (MENSAL EXCLUSIVO VS ACUMULADO TRIMESTRAL)
+function toggleItemsPorFrequencia() {
+  const freq = selectFrequencia.value;
+  const itensTrimestrais = document.querySelectorAll('.freq-item-t');
+  
+  itensTrimestrais.forEach(item => {
+    if (freq === 'T') {
+      item.style.display = 'flex'; // Torna visível na manutenção acumulada
+    } else {
+      item.style.display = 'none'; // Esconde na manutenção puramente mensal
+      // Desmarca os inputs do tipo rádio escondidos para evitar salvar lixo eletrônico no banco
+      item.querySelectorAll('input[type="radio"]').forEach(radio => radio.checked = false);
+    }
+  });
+}
 
 // VERIFICAR SESSÃO AO CARREGAR O APP
 supabaseClient.auth.getSession().then(({ data }) => {
@@ -79,7 +96,7 @@ btnLogout.addEventListener('click', async () => {
   if (msgConta) msgConta.innerText = "";
 });
 
-// MOSTRAR APP E CARREGAR INTERFACES WITH IDENTIFICAÇÃO DO USUÁRIO
+// MOSTRAR APP E CARREGAR INTERFACES
 async function mostrarApp() {
   loginBox.style.display = "none";
   appBox.style.display = "flex";
@@ -92,6 +109,7 @@ async function mostrarApp() {
   carregarEquipamentos();
   atualizarSelectEquipamentos();
   carregarHistoricoFichas();
+  toggleItemsPorFrequencia();
 }
 
 // SALVAR NOVO EQUIPAMENTO
@@ -193,38 +211,55 @@ async function excluirEquipamento(id) {
   if (!error) carregarEquipamentos();
 }
 
-// ATUALIZAR SELECT DE EQUIPAMENTOS NA FICHA PMOC
+// ATUALIZAR SELECT DE EQUIPAMENTOS
 async function atualizarSelectEquipamentos() {
   if (!selectEquipamento) return;
 
   const { data, error } = await supabaseClient
     .from('equipamentos')
-    .select('id, tag, marca, product:produto'); // Alias simples caso mude
+    .select('id, tag, marca, produto');
 
-  const actualData = data || [];
-  selectEquipamento.innerHTML = '<option value="">-- Selecione o Equipamento (Tag) --</option>';
-  actualData.forEach(eq => {
-    const opt = document.createElement('option');
-    opt.value = eq.id;
-    opt.textContent = `${eq.tag} - ${eq.product || eq.marca}`;
-    selectEquipamento.appendChild(opt);
-  });
+  selectEquipamento.innerHTML = '<option value="">-- Selecione o Ativo (Tag) --</option>';
+  if (!error && data) {
+    data.forEach(eq => {
+      const opt = document.createElement('option');
+      opt.value = eq.id;
+      opt.textContent = `${eq.tag} - ${eq.produto || eq.marca}`;
+      selectEquipamento.appendChild(opt);
+    });
+  }
 }
 
-// SALVAR FICHA PMOC COM POLÍTICA DE ARQUIVOS (FOTO)
+// SALVAR FORMULÁRIO PMOC HOSPITALAR COMPLETO COM ARQUIVOS
 btnSalvarFicha.addEventListener('click', async () => {
   const equipamento_id = selectEquipamento.value;
   const tecnico_nome = document.getElementById('pmoc-tecnico').value.trim();
-  const filtro_limpo = document.querySelector('input[name="filtro"]:checked')?.value;
-  const serpentina_limpa = document.querySelector('input[name="serpentina"]:checked')?.value;
-  const bandeja_limpa = document.querySelector('input[name="bandeja"]:checked')?.value;
-  const ventilador_ok = document.querySelector('input[name="ventilador"]:checked')?.value;
+  const freq_inspecao = selectFrequencia.value;
   const observacoes = document.getElementById('pmoc-obs').value.trim();
   const arquivoFoto = fotoInput.files[0]; 
 
-  if (!equipamento_id || !tecnico_nome || !filtro_limpo || !serpentina_limpa || !bandeja_limpa || !ventilador_ok) {
+  // Captura dinâmica das notas do Checklist Hospitalar
+  const fil_01 = document.querySelector('input[name="fil_01"]:checked')?.value;
+  const bio_01 = document.querySelector('input[name="bio_01"]:checked')?.value;
+  const bio_02 = document.querySelector('input[name="bio_02"]:checked')?.value;
+  const mec_01 = document.querySelector('input[name="mec_01"]:checked')?.value;
+
+  // Itens trimestrais opcionais
+  const fil_02 = document.querySelector('input[name="fil_02"]:checked')?.value || 'NA';
+  const bio_03 = document.querySelector('input[name="bio_03"]:checked')?.value || 'NA';
+  const ele_01 = document.querySelector('input[name="ele_01"]:checked')?.value || 'NA';
+  const ele_02 = document.querySelector('input[name="ele_02"]:checked')?.value || 'NA';
+
+  // Validação conforme a frequência selecionada
+  if (!equipamento_id || !tecnico_nome || !fil_01 || !bio_01 || !bio_02 || !mec_01) {
     msgFicha.style.color = "red";
-    msgFicha.innerText = "Por favor, preencha todos os campos e avaliações.";
+    msgFicha.innerText = "Por favor, preencha os dados básicos e os itens mensais obrigatórios.";
+    return;
+  }
+
+  if (freq_inspecao === 'T' && (!document.querySelector('input[name="fil_02"]:checked') || !document.querySelector('input[name="bio_03"]:checked') || !document.querySelector('input[name="ele_01"]:checked') || !document.querySelector('input[name="ele_02"]:checked'))) {
+    msgFicha.style.color = "red";
+    msgFicha.innerText = "Por favor, preencha todos os itens trimestrais para esta frequência.";
     return;
   }
 
@@ -236,21 +271,16 @@ btnSalvarFicha.addEventListener('click', async () => {
 
   if (arquivoFoto) {
     msgFicha.innerText = "Enviando imagem técnica...";
-    
     const extensao = arquivoFoto.name.split('.').pop();
     const nomeArquivo = `${user.id}/${Date.now()}.${extensao}`;
 
-    const { data: uploadData, error: uploadError } = await supabaseClient.storage
+    const { error: uploadError } = await supabaseClient.storage
       .from('fotos-pmoc')
       .upload(nomeArquivo, arquivoFoto);
 
     if (uploadError) {
       msgFicha.style.color = "red";
-      if (uploadError.message.includes("row-level security")) {
-        msgFicha.innerText = "Erro no Storage: Ative as Políticas de Inserção (RLS) para o bucket 'fotos-pmoc' no painel do Supabase.";
-      } else {
-        msgFicha.innerText = "Erro ao enviar foto: " + uploadError.message;
-      }
+      msgFicha.innerText = "Erro no Storage: " + uploadError.message;
       return; 
     }
 
@@ -261,48 +291,43 @@ btnSalvarFicha.addEventListener('click', async () => {
     fotoUrl = publicUrlData.publicUrl;
   }
 
-  msgFicha.innerText = "Salvando ficha técnica...";
+  msgFicha.innerText = "Salvando formulário de manutenção...";
 
+  // Envia a carga dinâmica adaptada (Importante: Adicione as colunas fil_01, fil_02, bio_01, etc., na sua tabela 'fichas_pmoc' do Supabase se desejar mapear os itens separadamente, ou use a coluna observações se preferir simplificar)
   const { error } = await supabaseClient.from('fichas_pmoc').insert([
     {
       equipamento_id,
       user_id: user.id,
       tecnico_nome,
-      filtro_limpo,
-      serpentina_limpa,
-      bandeja_limpa,
-      ventilador_ok,
-      observacoes,
-      foto_url: fotoUrl 
+      observacoes: `[Frequência: ${freq_inspecao === 'M' ? 'Mensal' : 'Trimestral'}] \nChecklist: FIL-01:${fil_01} | BIO-01:${bio_01} | BIO-02:${bio_02} | MEC-01:${mec_01} | FIL-02:${fil_02} | BIO-03:${bio_03} | ELE-01:${ele_01} | ELE-02:${ele_02}\n\nObservações: ${observacoes}`,
+      foto_url: fotoUrl
     }
   ]);
 
   if (error) {
     msgFicha.style.color = "red";
-    if (error.message.includes("row-level security")) {
-      msgFicha.innerText = "Erro na Tabela: Ative a política de Inserção (RLS) para a tabela 'fichas_pmoc' no Supabase.";
-    } else {
-      msgFicha.innerText = "Erro ao salvar ficha: " + error.message;
-    }
+    msgFicha.innerText = "Erro ao salvar: " + error.message;
   } else {
     msgFicha.style.color = "green";
-    msgFicha.innerText = "Ficha PMOC registrada com sucesso!";
+    msgFicha.innerText = "Formulário PMOC registrado com sucesso!";
     limparFormularioFicha();
     carregarHistoricoFichas(); 
     setTimeout(() => msgFicha.innerText = "", 4000);
   }
 });
 
-// LIMPAR CAMPOS DA FICHA PMOC
+// LIMPAR CAMPOS DO FORMULÁRIO PMOC
 function limparFormularioFicha() {
   selectEquipamento.value = "";
   document.getElementById('pmoc-tecnico').value = "";
   document.getElementById('pmoc-obs').value = "";
+  selectFrequencia.value = "M";
   if (fotoInput) fotoInput.value = ""; 
   document.querySelectorAll('input[type="radio"]').forEach(radio => radio.checked = false);
+  toggleItemsPorFrequencia();
 }
 
-// CARREGAR HISTÓRICO DE FICHAS PMOC
+// CARREGAR HISTÓRICO DE FORMULÁRIOS PMOC
 async function carregarHistoricoFichas() {
   const tbody = document.getElementById('tbody-fichas');
   if (!tbody) return;
@@ -312,13 +337,13 @@ async function carregarHistoricoFichas() {
   const { data, error } = await supabaseClient
     .from('fichas_pmoc')
     .select(`
-      id, created_at, tecnico_nome, filtro_limpo, serpentina_limpa, bandeja_limpa, ventilador_ok, observacoes, foto_url,
+      id, created_at, tecnico_nome, observacoes, foto_url,
       equipamentos (tag, marca, potencia, nr_serie, patrimonio, produto, bloco, setor, sala, instituicao, validade, criticidade)
     `)
     .order('created_at', { ascending: false });
 
   if (error || !data || !data.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">Nenhuma inspeção realizada ainda.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">Nenhum formulário realizado ainda.</td></tr>';
     return;
   }
 
@@ -326,10 +351,9 @@ async function carregarHistoricoFichas() {
     const dataFormatada = new Date(ficha.created_at).toLocaleDateString('pt-BR');
     const eq = ficha.equipamentos || { tag: "N/A", marca: "Desconhecido" };
     
-    const temProblema = [ficha.filtro_limpo, ficha.serpentina_limpa, ficha.bandeja_limpa, ficha.ventilador_ok].includes("NC");
-    const statusBadge = temProblema 
-      ? '<span class="tag-badge" style="background:#fff5f5; color:#c53030;">Não Conforme</span>' 
-      : '<span class="tag-badge" style="background:#f0fff4; color:#22543d;">Conforme</span>';
+    // Extrai a frequência direto da string estruturada das observações salvadas
+    const isTrimestral = ficha.observacoes.includes("Frequência: Trimestral");
+    const labelFreq = isTrimestral ? "Trimestral" : "Mensal";
 
     const fichaStringificavel = btoa(unescape(encodeURIComponent(JSON.stringify(ficha))));
 
@@ -338,7 +362,7 @@ async function carregarHistoricoFichas() {
         <td>${dataFormatada}</td>
         <td><strong>${eq.tag}</strong> (${eq.produto || eq.marca})</td>
         <td>${ficha.tecnico_nome}</td>
-        <td>${statusBadge}</td>
+        <td><span class="tag-badge" style="background:#ebf4ff; color:#2b6cb0;">${labelFreq}</span></td>
         <td>
           <button class="btn-primary" style="padding:4px 10px; font-size:11px;" onclick="emitirRelatorio('${fichaStringificavel}')">
             🖨 Emitir Relatório
@@ -349,129 +373,90 @@ async function carregarHistoricoFichas() {
   }).join('');
 }
 
-// GERAR DOCUMENTO EXPANDIDO E CHAMAR IMPRESSÃO
+// GERAR DOCUMENTO FORMAL BASEADO NO PDF PMOC_HOSPITALAR E IMPRIMIR
 function emitirRelatorio(fichaBase64) {
   const ficha = JSON.parse(decodeURIComponent(escape(atob(fichaBase64))));
   const eq = ficha.equipamentos || {};
   const dataInspecao = new Date(ficha.created_at).toLocaleDateString('pt-BR');
   
+  const isTrimestral = ficha.observacoes.includes("Frequência: Trimestral");
+
+  // Função interna auxiliar para ler notas individuais guardadas no texto das observações
+  const extrairNota = (id) => {
+    const regex = new RegExp(`${id}:([C|NC|NA]+)`);
+    const match = ficha.observacoes.match(regex);
+    return match ? match[1] : 'NA';
+  };
+
   const areaLaudo = document.getElementById('area-laudo-impressao');
   
   areaLaudo.innerHTML = `
     <div class="laudo-header">
-      <h2>RELATÓRIO TÉCNICO DE INSPEÇÃO PERIÓDICA - PMOC</h2>
-      <p>Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</p>
+      <h2>FORMULÁRIO DE MANUTENÇÃO PMOC - ÁREA HOSPITALAR</h2>
+      <p>Conforme Portaria MS nº 3.523/98 e ABNT NBR 16.401</p>
+      <div style="margin-top:10px; font-weight:bold; color:#004f9f; text-transform:uppercase;">
+        MODALIDADE DA INSPEÇÃO: ${isTrimestral ? 'TRIMESTRAL' : 'MENSAL'}
+      </div>
     </div>
     
     <div class="laudo-section">
-      <h3>1. ESPECIFICAÇÕES TÉCNICAS DO ATIVO</h3>
+      <h3>1. IDENTIFICAÇÃO DO EQUIPAMENTO E LOCALIZAÇÃO</h3>
       <table class="table-laudo-dados">
-        <tr><td><strong>TAG Consolidada:</strong></td><td>${eq.tag || 'N/A'}</td><td><strong>Nº de Série:</strong></td><td>${eq.nr_serie || 'N/A'}</td></tr>
-        <tr><td><strong>Equipamento / Produto:</strong></td><td>${eq.produto || 'N/A'}</td><td><strong>Plaqueta / Patrimônio:</strong></td><td>${eq.patrimonio || 'N/A'}</td></tr>
-        <tr><td><strong>Marca Fabricante:</strong></td><td>${eq.marca || 'N/A'}</td><td><strong>Capacidade/Potência:</strong></td><td>${eq.potencia || 'N/A'}</td></tr>
-        <tr><td><strong>Validade / Garantia:</strong></td><td>${eq.validade || 'N/A'}</td><td><strong>Nível de Criticidade:</strong></td><td>${eq.criticidade || 'N/A'}</td></tr>
+        <tr><td><strong>Hospital / Unidade:</strong></td><td>${eq.instituicao || 'N/A'}</td><td><strong>Setor / Sala:</strong></td><td>${eq.bloco || ''} - ${eq.setor || ''} (${eq.sala || ''})</td></tr>
+        <tr><td><strong>Tag do Equipamento:</strong></td><td>${eq.tag || 'N/A'}</td><td><strong>Modelo / Capacidade:</strong></td><td>${eq.produto || ''} ${eq.potencia || ''}</td></tr>
+        <tr><td><strong>Técnico Responsável:</strong></td><td>${ficha.tecnico_nome}</td><td><strong>Data da Inspeção:</strong></td><td>${dataInspecao}</td></tr>
       </table>
     </div>
 
     <div class="laudo-section">
-      <h3>2. LOCALIZAÇÃO E DETALHES DE INSTALAÇÃO</h3>
-      <table class="table-laudo-dados">
-        <tr><td><strong>Instituição:</strong></td><td>${eq.instituicao || 'N/A'}</td><td><strong>Descrição do Bloco:</strong></td><td>${eq.bloco || 'N/A'}</td></tr>
-        <tr><td><strong>Descrição do Setor:</strong></td><td>${eq.setor || 'N/A'}</td><td><strong>Nº Sala / LAB:</strong></td><td>${eq.sala || 'N/A'}</td></tr>
-      </table>
-    </div>
-
-    <div class="laudo-section">
-      <h3>3. HISTÓRICO DA INSPEÇÃO</h3>
-      <table class="table-laudo-dados">
-        <tr><td><strong>Data da Execução:</strong></td><td>${dataInspecao}</td></tr>
-        <tr><td><strong>Responsável Técnico:</strong></td><td>${ficha.tecnico_nome}</td></tr>
-      </table>
-    </div>
-
-    <div class="laudo-section">
-      <h3>4. ITENS AVALIADOS E CHECKLIST OPERACIONAL</h3>
+      <h3>2. ROTINAS EXECUTADAS E CHECKLIST OPERACIONAL</h3>
       <table class="table-laudo-checklist">
         <thead>
-          <tr><th>Item de Controle</th><th style="text-align:center; width:120px;">Avaliação</th></tr>
+          <tr><th>ID</th><th>Grupo</th><th>Descrição do Item / Rotina</th><th style="text-align:center;">Freq.</th><th style="text-align:center;">Avaliação</th></tr>
         </thead>
         <tbody>
-          <tr><td>Condições e Limpeza do Filtro de Ar</td><td style="text-align:center;"><strong>${ficha.filtro_limpo}</strong></td></tr>
-          <tr><td>Condições e Limpeza da Serpentina</td><td style="text-align:center;"><strong>${ficha.serpentina_limpa}</strong></td></tr>
-          <tr><td>Higienização e Dreno da Bandeja de Condensado</td><td style="text-align:center;"><strong>${ficha.bandeja_limpa}</strong></td></tr>
-          <tr><td>Estado Geral do Conjunto Ventilador/Rotor</td><td style="text-align:center;"><strong>${ficha.ventilador_ok}</strong></td></tr>
+          <tr><td>FIL-01</td><td>Qualidade do Ar</td><td>Filtros de Ar (G4/F7/F9)</td><td style="text-align:center;">M</td><td style="text-align:center;"><strong>${extrairNota('FIL-01')}</strong></td></tr>
+          <tr><td>BIO-01</td><td>Biocontrole</td><td>Bandeja de condensado e aplicação de pastilha</td><td style="text-align:center;">M</td><td style="text-align:center;"><strong>${extrairNota('BIO-01')}</strong></td></tr>
+          <tr><td>BIO-02</td><td>Biocontrole</td><td>Dreno e teste de escoamento de água</td><td style="text-align:center;">M</td><td style="text-align:center;"><strong>${extrairNota('BIO-02')}</strong></td></tr>
+          <tr><td>MEC-01</td><td>Mecânica</td><td>Ruídos, vibrações e fixação do motoventilador</td><td style="text-align:center;">M</td><td style="text-align:center;"><strong>${extrairNota('MEC-01')}</strong></td></tr>
+          
+          ${isTrimestral ? `
+          <tr><td>FIL-02</td><td>Qualidade do Ar</td><td>Diferencial de pressão dos filtros (quando aplicável)</td><td style="text-align:center;">T</td><td style="text-align:center;"><strong>${extrairNota('FIL-02')}</strong></td></tr>
+          <tr><td>BIO-03</td><td>Biocontrole</td><td>Limpeza química das serpentinas (Evaporadora/Condensadora)</td><td style="text-align:center;">T</td><td style="text-align:center;"><strong>${extrairNota('BIO-03')}</strong></td></tr>
+          <tr><td>ELE-01</td><td>Elétrica</td><td>Medição elétrica (A) do compressor e motores</td><td style="text-align:center;">T</td><td style="text-align:center;"><strong>${extrairNota('ELE-01')}</strong></td></tr>
+          <tr><td>ELE-02</td><td>Elétrica</td><td>Reaperto de contatos elétricos e verificação do painel</td><td style="text-align:center;">T</td><td style="text-align:center;"><strong>${extrairNota('ELE-02')}</strong></td></tr>
+          ` : `
+          <tr style="color:#a0aec0;"><td colspan="5" style="text-align:center; font-style:italic; padding:10px;">Rotinas trimestrais (FIL-02, BIO-03, ELE-01, ELE-02) omitidas nesta folha mensal.</td></tr>
+          `}
         </tbody>
       </table>
-      <small style="color:#555; font-size:10px; margin-top:5px; display:block;">Legenda: C = Conforme | NC = Não Conforme | NA = Não Aplicável</small>
     </div>
 
     <div class="laudo-section">
-      <h3>5. PARECER TÉCNICO / OBSERVAÇÕES</h3>
-      <div style="border: 1px solid #cbd5e0; padding:10px; border-radius:4px; font-size:12px; background:#fafafa; min-height:50px;">
-        ${ficha.observacoes ? ficha.observacoes : 'Nenhuma observação extra relatada pelo técnico.'}
+      <h3>3. OBSERVAÇÕES GERAIS / PENDÊNCIAS</h3>
+      <div style="border: 1px solid #cbd5e0; padding:10px; border-radius:4px; font-size:12px; background:#fafafa; min-height:60px; white-space: pre-wrap;">
+        ${ficha.observacoes.split('\n\nObservações: ')[1] || 'Nenhuma pendência relatada.'}
       </div>
     </div>
 
     ${ficha.foto_url ? `
     <div class="laudo-section" style="page-break-inside: avoid;">
-      <h3>6. EVIDÊNCIA FOTOGRÁFICA REGISTRADA</h3>
+      <h3>4. EVIDÊNCIA FOTOGRÁFICA</h3>
       <div style="text-align:center; margin-top:10px;">
-        <img src="${ficha.foto_url}" alt="Foto da Inspeção Técnica" class="laudo-img-preview" />
+        <img src="${ficha.foto_url}" class="laudo-img-preview" />
       </div>
     </div>
     ` : ''}
 
     <div class="laudo-footer">
       <div class="linha-assinatura"></div>
-      <p>Assinatura do Técnico Responsável</p>
-      <p style="font-size:10px; color:#a0aec0; margin-top:20px;">Documento gerado pelo Sistema de Gestão PMOC Automatizado</p>
+      <p>Assinatura do Técnico: ${ficha.tecnico_nome}</p>
+      <p style="font-size:10px; color:#a0aec0; margin-top:15px;">Documento gerado eletronicamente | Página 1 de 1</p>
     </div>
   `;
 
   window.print();
 }
-
-// LOGICA DE TROCA DE SENHA
-btnAtualizarSenha.addEventListener('click', async () => {
-  const novaSenha = document.getElementById('account-new-password').value;
-  const confirmaSenha = document.getElementById('account-confirm-password').value;
-
-  if (!novaSenha || !confirmaSenha) {
-    msgConta.style.color = "red";
-    msgConta.innerText = "Por favor, preencha ambos os campos.";
-    return;
-  }
-
-  if (novaSenha.length < 6) {
-    msgConta.style.color = "red";
-    msgConta.innerText = "A senha deve conter no mínimo 6 caracteres.";
-    return;
-  }
-
-  if (novaSenha !== confirmaSenha) {
-    msgConta.style.color = "red";
-    msgConta.innerText = "As senhas informadas não coincidem.";
-    return;
-  }
-
-  msgConta.style.color = "blue";
-  msgConta.innerText = "Processando atualização de credenciais...";
-
-  const { error } = await supabaseClient.auth.updateUser({
-    password: novaSenha
-  });
-
-  if (error) {
-    msgConta.style.color = "red";
-    msgConta.innerText = "Erro ao atualizar: " + error.message;
-  } else {
-    msgConta.style.color = "green";
-    msgConta.innerText = "Senha updated com sucesso!";
-    document.getElementById('account-new-password').value = "";
-    document.getElementById('account-confirm-password').value = "";
-    setTimeout(() => msgConta.innerText = "", 4000);
-  }
-});
 
 // NAVEGAÇÃO ENTRE AS SEÇÕES DO APP
 function showSection(name) {
