@@ -30,13 +30,13 @@ supabaseClient.auth.getSession().then(({ data }) => {
 
 // LOGIN
 btnLogin.addEventListener('click', async () => {
-  msg.style.color = "blue";
+  msg.style.color = "#ff4d4d";
   msg.innerText = "Verificando acesso...";
   const { error } = await supabaseClient.auth.signInWithPassword({
     email: emailInput.value, password: passwordInput.value,
   });
   if (error) {
-    msg.style.color = "red";
+    msg.style.color = "#ff4d4d";
     msg.innerText = "Erro no acesso: " + error.message;
   } else {
     msg.innerText = "";
@@ -46,16 +46,16 @@ btnLogin.addEventListener('click', async () => {
 
 // CADASTRO DE USUÁRIO
 btnCadastro.addEventListener('click', async () => {
-  msg.style.color = "blue";
+  msg.style.color = "#fff";
   msg.innerText = "Processando cadastro...";
   const { error } = await supabaseClient.auth.signUp({
     email: emailInput.value, password: passwordInput.value,
   });
   if (error) {
-    msg.style.color = "red";
+    msg.style.color = "#ff4d4d";
     msg.innerText = "Erro ao cadastrar: " + error.message;
   } else {
-    msg.style.color = "green";
+    msg.style.color = "#2efd72";
     msg.innerText = "Cadastro realizado! Verifique seu e-mail.";
   }
 });
@@ -80,21 +80,33 @@ function mostrarApp() {
 
 // SALVAR NOVO EQUIPAMENTO
 btnSalvar.addEventListener('click', async () => {
+  const tag = document.getElementById('eq-tag').value.trim();
   const marca = document.getElementById('eq-marca').value.trim();
   const potencia = document.getElementById('eq-potencia').value.trim();
-  const tag = document.getElementById('eq-tag').value.trim();
+  const nr_serie = document.getElementById('eq-serie').value.trim();
   const patrimonio = document.getElementById('eq-patrimonio').value.trim();
+  const produto = document.getElementById('eq-produto').value.trim();
+  const bloco = document.getElementById('eq-bloco').value.trim();
+  const setor = document.getElementById('eq-setor').value.trim();
+  const sala = document.getElementById('eq-sala').value.trim();
+  const instituicao = document.getElementById('eq-instituicao').value.trim();
+  const validade = document.getElementById('eq-validade').value.trim();
+  const criticidade = document.getElementById('eq-criticidade').value;
 
-  if (!marca || !potencia || !tag || !patrimonio) {
+  if (!tag || !marca || !produto) {
     msgEq.style.color = "red";
-    msgEq.innerText = "Preencha todos os campos.";
+    msgEq.innerText = "Os campos TAG, Marca e Equipamento são obrigatórios.";
     return;
   }
 
   const { data: { user } } = await supabaseClient.auth.getUser();
 
   const { error } = await supabaseClient.from('equipamentos').insert([
-    { marca, potencia, tag, patrimonio, user_id: user.id }
+    { 
+      tag, marca, potencia, nr_serie, patrimonio, produto, 
+      bloco, setor, sala, instituicao, validade, criticidade,
+      user_id: user.id 
+    }
   ]);
 
   if (error) {
@@ -112,10 +124,18 @@ btnSalvar.addEventListener('click', async () => {
 // LIMPAR FORMULÁRIO DE EQUIPAMENTOS
 btnLimpar.addEventListener('click', limparFormulario);
 function limparFormulario() {
+  document.getElementById('eq-tag').value = "";
   document.getElementById('eq-marca').value = "";
   document.getElementById('eq-potencia').value = "";
-  document.getElementById('eq-tag').value = "";
+  document.getElementById('eq-serie').value = "";
   document.getElementById('eq-patrimonio').value = "";
+  document.getElementById('eq-produto').value = "";
+  document.getElementById('eq-bloco').value = "";
+  document.getElementById('eq-setor').value = "";
+  document.getElementById('eq-sala').value = "";
+  document.getElementById('eq-instituicao').value = "";
+  document.getElementById('eq-validade').value = "";
+  document.getElementById('eq-criticidade').value = "Média";
   msgEq.innerText = "";
 }
 
@@ -140,9 +160,9 @@ async function carregarEquipamentos() {
   tbody.innerHTML = data.map(eq => `
     <tr>
       <td><span class="tag-badge">${eq.tag}</span></td>
-      <td>${eq.marca}</td>
-      <td>${eq.potencia}</td>
-      <td>${eq.patrimonio}</td>
+      <td><strong>${eq.produto || 'N/A'}</strong><br><small style="color:#718096">${eq.marca || 'N/A'}</small></td>
+      <td>${eq.bloco || '-'} / ${eq.setor || '-'} <br> <small style="color:#718096">${eq.sala || '-'}</small></td>
+      <td><span class="tag-badge" style="background:#edf2f7; color:#2d3748">${eq.criticidade || 'Média'}</span></td>
       <td><button class="btn-excluir" onclick="excluirEquipamento('${eq.id}')">✕ Excluir</button></td>
     </tr>
   `).join('');
@@ -163,7 +183,7 @@ async function atualizarSelectEquipamentos() {
 
   const { data, error } = await supabaseClient
     .from('equipamentos')
-    .select('id, tag, marca');
+    .select('id, tag, marca, produto');
 
   if (error || !data) return;
 
@@ -171,7 +191,7 @@ async function atualizarSelectEquipamentos() {
   data.forEach(eq => {
     const opt = document.createElement('option');
     opt.value = eq.id;
-    opt.textContent = `${eq.tag} - ${eq.marca}`;
+    opt.textContent = `${eq.tag} - ${eq.produto || eq.marca}`;
     selectEquipamento.appendChild(opt);
   });
 }
@@ -253,7 +273,7 @@ btnSalvarFicha.addEventListener('click', async () => {
     msgFicha.style.color = "green";
     msgFicha.innerText = "Ficha PMOC registrada com sucesso!";
     limparFormularioFicha();
-    carregarHistoricoFichas(); // Sincroniza a aba de histórico
+    carregarHistoricoFichas(); 
     setTimeout(() => msgFicha.innerText = "", 4000);
   }
 });
@@ -267,27 +287,18 @@ function limparFormularioFicha() {
   document.querySelectorAll('input[type="radio"]').forEach(radio => radio.checked = false);
 }
 
-// CARREGAR HISTÓRICO DE FICHAS PMOC (COM JOIN DE EQUIPAMENTOS)
+// CARREGAR HISTÓRICO DE FICHAS PMOC
 async function carregarHistoricoFichas() {
   const tbody = document.getElementById('tbody-fichas');
   if (!tbody) return;
 
   tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">Carregando histórico...</td></tr>';
 
-  // Faz a requisição buscando os dados da ficha e as colunas linkadas da tabela equipamentos
   const { data, error } = await supabaseClient
     .from('fichas_pmoc')
     .select(`
-      id,
-      created_at,
-      tecnico_nome,
-      filtro_limpo,
-      serpentina_limpa,
-      bandeja_limpa,
-      ventilador_ok,
-      observacoes,
-      foto_url,
-      equipamentos (tag, marca, potencia, patrimonio)
+      id, created_at, tecnico_nome, filtro_limpo, serpentina_limpa, bandeja_limpa, ventilador_ok, observacoes, foto_url,
+      equipamentos (tag, marca, potencia, nr_serie, patrimonio, produto, bloco, setor, sala, instituicao, validade, criticidade)
     `)
     .order('created_at', { ascending: false });
 
@@ -300,23 +311,21 @@ async function carregarHistoricoFichas() {
     const dataFormatada = new Date(ficha.created_at).toLocaleDateString('pt-BR');
     const eq = ficha.equipamentos || { tag: "N/A", marca: "Desconhecido" };
     
-    // Verifica se há alguma não conformidade (NC) listada nos checklists
     const temProblema = [ficha.filtro_limpo, ficha.serpentina_limpa, ficha.bandeja_limpa, ficha.ventilador_ok].includes("NC");
     const statusBadge = temProblema 
       ? '<span class="tag-badge" style="background:#fff5f5; color:#c53030;">Não Conforme</span>' 
       : '<span class="tag-badge" style="background:#f0fff4; color:#22543d;">Conforme</span>';
 
-    // Guardar os dados convertidos em JSON para injetar de forma direta no escopo do botão de impressão
-    const ficha Stringificável = btoa(unescape(encodeURIComponent(JSON.stringify(ficha))));
+    const fichaStringificavel = btoa(unescape(encodeURIComponent(JSON.stringify(ficha))));
 
     return `
       <tr>
         <td>${dataFormatada}</td>
-        <td><strong>${eq.tag}</strong> (${eq.marca})</td>
+        <td><strong>${eq.tag}</strong> (${eq.produto || eq.marca})</td>
         <td>${ficha.tecnico_nome}</td>
         <td>${statusBadge}</td>
         <td>
-          <button class="btn-primary" style="padding:4px 10px; font-size:11px;" onclick="emitirRelatorio('${fichaStringificável}')">
+          <button class="btn-primary" style="padding:4px 10px; font-size:11px;" onclick="emitirRelatorio('${fichaStringificavel}')">
             🖨 Emitir Relatório
           </button>
         </td>
@@ -325,16 +334,14 @@ async function carregarHistoricoFichas() {
   }).join('');
 }
 
-// GERAR DOCUMENTO E CHAMAR IMPRESSÃO/SALVAMENTO EM PDF
+// GERAR DOCUMENTO EXPANDIDO E CHAMAR IMPRESSÃO
 function emitirRelatorio(fichaBase64) {
-  // Decodifica o objeto da ficha que enviamos por parâmetro
   const ficha = JSON.parse(decodeURIComponent(escape(atob(fichaBase64))));
   const eq = ficha.equipamentos || {};
-  const dataInspeção = new Date(ficha.created_at).toLocaleDateString('pt-BR');
+  const dataInspecao = new Date(ficha.created_at).toLocaleDateString('pt-BR');
   
   const areaLaudo = document.getElementById('area-laudo-impressao');
   
-  // Estrutura HTML formal do documento de Laudo de PMOC
   areaLaudo.innerHTML = `
     <div class="laudo-header">
       <h2>RELATÓRIO TÉCNICO DE INSPEÇÃO PERIÓDICA - PMOC</h2>
@@ -342,23 +349,33 @@ function emitirRelatorio(fichaBase64) {
     </div>
     
     <div class="laudo-section">
-      <h3>1. DADOS COMPLEMENTARES DO EQUIPAMENTO</h3>
+      <h3>1. ESPECIFICAÇÕES TÉCNICAS DO ATIVO</h3>
       <table class="table-laudo-dados">
-        <tr><td><strong>TAG Identificação:</strong></td><td>${eq.tag || 'N/A'}</td><td><strong>Patrimônio:</strong></td><td>${eq.patrimonio || 'N/A'}</td></tr>
+        <tr><td><strong>TAG Consolidada:</strong></td><td>${eq.tag || 'N/A'}</td><td><strong>Nº de Série:</strong></td><td>${eq.nr_serie || 'N/A'}</td></tr>
+        <tr><td><strong>Equipamento / Produto:</strong></td><td>${eq.produto || 'N/A'}</td><td><strong>Plaqueta / Patrimônio:</strong></td><td>${eq.patrimonio || 'N/A'}</td></tr>
         <tr><td><strong>Marca Fabricante:</strong></td><td>${eq.marca || 'N/A'}</td><td><strong>Capacidade/Potência:</strong></td><td>${eq.potencia || 'N/A'}</td></tr>
+        <tr><td><strong>Validade / Garantia:</strong></td><td>${eq.validade || 'N/A'}</td><td><strong>Nível de Criticidade:</strong></td><td>${eq.criticidade || 'N/A'}</td></tr>
       </table>
     </div>
 
     <div class="laudo-section">
-      <h3>2. HISTÓRICO DA INSPEÇÃO</h3>
+      <h3>2. LOCALIZAÇÃO E DETALHES DE INSTALAÇÃO</h3>
       <table class="table-laudo-dados">
-        <tr><td><strong>Data da Execução:</strong></td><td>${dataInspeção}</td></tr>
+        <tr><td><strong>Instituição:</strong></td><td>${eq.instituicao || 'N/A'}</td><td><strong>Descrição do Bloco:</strong></td><td>${eq.bloco || 'N/A'}</td></tr>
+        <tr><td><strong>Descrição do Setor:</strong></td><td>${eq.setor || 'N/A'}</td><td><strong>Nº Sala / LAB:</strong></td><td>${eq.sala || 'N/A'}</td></tr>
+      </table>
+    </div>
+
+    <div class="laudo-section">
+      <h3>3. HISTÓRICO DA INSPEÇÃO</h3>
+      <table class="table-laudo-dados">
+        <tr><td><strong>Data da Execução:</strong></td><td>${dataInspecao}</td></tr>
         <tr><td><strong>Responsável Técnico:</strong></td><td>${ficha.tecnico_nome}</td></tr>
       </table>
     </div>
 
     <div class="laudo-section">
-      <h3>3. ITENS AVALIADOS E CHECKLIST OPERACIONAL</h3>
+      <h3>4. ITENS AVALIADOS E CHECKLIST OPERACIONAL</h3>
       <table class="table-laudo-checklist">
         <thead>
           <tr><th>Item de Controle</th><th style="text-align:center; width:120px;">Avaliação</th></tr>
@@ -374,7 +391,7 @@ function emitirRelatorio(fichaBase64) {
     </div>
 
     <div class="laudo-section">
-      <h3>4. PARECER TÉCNICO / OBSERVAÇÕES</h3>
+      <h3>5. PARECER TÉCNICO / OBSERVAÇÕES</h3>
       <div style="border: 1px solid #cbd5e0; padding:10px; border-radius:4px; font-size:12px; background:#fafafa; min-height:50px;">
         ${ficha.observacoes ? ficha.observacoes : 'Nenhuma observação extra relatada pelo técnico.'}
       </div>
@@ -382,7 +399,7 @@ function emitirRelatorio(fichaBase64) {
 
     ${ficha.foto_url ? `
     <div class="laudo-section" style="page-break-inside: avoid;">
-      <h3>5. EVIDÊNCIA FOTOGRÁFICA REGISTRADA</h3>
+      <h3>6. EVIDÊNCIA FOTOGRÁFICA REGISTRADA</h3>
       <div style="text-align:center; margin-top:10px;">
         <img src="${ficha.foto_url}" alt="Foto da Inspeção Técnica" class="laudo-img-preview" />
       </div>
@@ -396,11 +413,10 @@ function emitirRelatorio(fichaBase64) {
     </div>
   `;
 
-  // Dispara a janela de impressão do Navegador (O CSS cuidará do resto ocultando o painel do app)
   window.print();
 }
 
-// NAVEGAÇÃO ENTRE AS SEÇÕES DO APP (EQUIPAMENTOS / FICHAS / RELATORIOS)
+// NAVEGAÇÃO ENTRE AS SEÇÕES DO APP
 function showSection(name) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   document.getElementById('nav-' + name)?.classList.add('active');
@@ -409,7 +425,6 @@ function showSection(name) {
   const targetSection = document.getElementById('section-' + name);
   if (targetSection) targetSection.style.display = 'block';
 
-  // Se o usuário clicar na aba de histórico, atualiza os registros do banco automaticamente
   if (name === 'relatorios') {
     carregarHistoricoFichas();
   }
