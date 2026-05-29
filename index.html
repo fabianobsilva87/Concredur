@@ -6,6 +6,7 @@
     <title>Sistema PMOC</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -52,22 +53,28 @@
         </div>
       </div>
       <nav>
+        <div class="nav-label">Visão Geral</div>
+        <div class="nav-item active" id="nav-dashboard" onclick="showSection('dashboard')">
+          <span>📊</span> Dashboard Geral
+        </div>
+
         <div class="nav-label">Refrigeração</div>
-        <div class="nav-item active" id="nav-equipamentos" onclick="showSection('equipamentos')">
+        <div class="nav-item" id="nav-equipamentos" onclick="showSection('equipamentos')">
           <span>🌡</span> Equipamentos
         </div>
         <div class="nav-item" id="nav-fichas" onclick="showSection('fichas')">
           <span>📋</span> Formulário PMOC
         </div>
         <div class="nav-item" id="nav-relatorios" onclick="showSection('relatorios')">
-          <span>📊</span> Histórico / Relatórios
+          <span>📜</span> Histórico / Relatórios
         </div>
 
         <div class="nav-label">Manutenção</div>
         <div class="nav-item" id="nav-ordens" onclick="showSection('ordens')">
           <span>🛠</span> O.S. Ar Condicionado
         </div>
-        <div class="nav-item" id="nav-os-geral" onclick="showSection('os-grid')"> <span>📝</span> O.S. Geral (Facilities)
+        <div class="nav-item" id="nav-os-grid" onclick="showSection('os-grid')">
+          <span>📝</span> O.S. Geral (Facilities)
         </div>
 
         <div class="nav-label">RH / Colaboradores</div>
@@ -95,7 +102,44 @@
 
     <main class="main-content">
 
-      <div id="section-equipamentos" class="app-section">
+      <div id="section-dashboard" class="app-section">
+        <div class="topbar no-print"><h2>Dashboard Operacional Gerencial</h2></div>
+        <div class="section-content">
+          
+          <div class="dash-cards-grid">
+            <div class="dash-card">
+              <p class="dash-card-title">Equipamentos Ativos</p>
+              <h3 id="dash-txt-ativos" class="dash-card-value">...</h3>
+            </div>
+            <div class="dash-card">
+              <p class="dash-card-title">Fichas PMOC (Mês)</p>
+              <h3 id="dash-txt-fichas" class="dash-card-value">...</h3>
+            </div>
+            <div class="dash-card" style="border-left-color: #d97706;">
+              <p class="dash-card-title">O.S. em Andamento</p>
+              <h3 id="dash-txt-os-abertas" class="dash-card-value">...</h3>
+            </div>
+            <div class="dash-card" style="border-left-color: #059669;">
+              <p class="dash-card-title">O.S. Concluídas</p>
+              <h3 id="dash-txt-os-fechadas" class="dash-card-value">...</h3>
+            </div>
+          </div>
+
+          <div class="dash-charts-grid">
+            <div class="card chart-container">
+              <h3 class="card-title">Status de Atendimento (O.S. Ar)</h3>
+              <canvas id="chartStatusOS"></canvas>
+            </div>
+            <div class="card chart-container">
+              <h3 class="card-title">Equipamentos por Criticidade</h3>
+              <canvas id="chartCriticidade"></canvas>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div id="section-equipamentos" class="app-section" style="display:none;">
         <div class="topbar no-print"><h2>Cadastro de Equipamentos</h2></div>
         <div class="section-content">
           <div class="card no-print">
