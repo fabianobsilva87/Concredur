@@ -52,6 +52,101 @@ body {
   width: 100% !important;
 }
 
+/* ===================== CONTROLE ADMINISTRATIVO DE ACESSOS ===================== */
+.card-header-admin {
+  background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+  color: white;
+  padding: 16px 20px;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+.card-header-admin h2 { font-size: 16px; font-weight: 700; }
+.card-header-admin p { font-size: 11px; margin-top: 2px; opacity: 0.9; }
+.card-body-admin { padding: 20px; }
+.admin-split-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+@media (max-width: 850px) {
+  .admin-split-grid { grid-template-columns: 1fr; }
+}
+.admin-form-side {
+  border-right: 1px solid #e2e8f0;
+  padding-right: 20px;
+}
+@media (max-width: 850px) {
+  .admin-form-side { border-right: none; padding-right: 0; }
+}
+.admin-form-side h3, .admin-table-side h3 {
+  font-size: 14px;
+  color: #2d3748;
+  margin-bottom: 14px;
+  font-weight: 600;
+}
+.admin-permissions-box {
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+  padding: 12px;
+  border-radius: 6px;
+  margin-top: 15px;
+}
+.admin-permissions-box strong {
+  font-size: 12px;
+  color: #4a5568;
+  display: block;
+  margin-bottom: 8px;
+}
+.admin-checkbox-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: 12px;
+}
+.admin-checkbox-grid label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #2d3748;
+  cursor: pointer;
+}
+.table-sistema {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 12px;
+}
+.table-sistema th {
+  background-color: #edf2f7;
+  color: #4a5568;
+  padding: 10px;
+  text-align: left;
+  border-bottom: 2px solid #cbd5e0;
+}
+.table-sistema td {
+  padding: 10px;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+.badge-perfil {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 10px;
+  text-transform: uppercase;
+  display: inline-block;
+}
+.badge-modulo {
+  background: #edf2f7;
+  color: #4a5568;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  margin-right: 4px;
+  display: inline-block;
+  margin-bottom: 2px;
+}
+
 /* ===================== LOGIN ===================== */
 .login-page-wrapper {
   display: flex;
