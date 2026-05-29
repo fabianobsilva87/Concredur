@@ -153,9 +153,11 @@ async function mostrarApp() {
   renderizarGraficosDashboard();
 }
 
-// ===================== VERIFICAÇÃO DE PERMISSÕES =====================
+// ===================== VERIFICAÇÃO DE PERMISSÕES MASTER =====================
 function verificarRegraAdmin(email) {
-  if (email.includes('admin') || email.includes('master')) {
+  const emailNormalizado = email.toLowerCase().trim();
+  // Vinculado explicitamente ao seu e-mail da imagem para evitar falhas
+  if (emailNormalizado === 'fabianob.silva87@gmail.com' || emailNormalizado.includes('admin') || emailNormalizado.includes('master')) {
     document.getElementById('label-admin').style.display = 'block';
     document.getElementById('nav-usuarios').style.display = 'flex';
     carregarUsuariosSistema();
@@ -167,7 +169,6 @@ function verificarRegraAdmin(email) {
 
 // ===================== LÓGICA DO DASHBOARD (INDICADORES) =====================
 async function renderizarGraficosDashboard() {
-  // 1. Coleta de números para os Flashcards
   const { count: countAtivos } = await supabaseClient.from('equipamentos').select('*', { count: 'exact', head: true });
   const { count: countFichas } = await supabaseClient.from('fichas_pmoc').select('*', { count: 'exact', head: true });
   
@@ -179,7 +180,6 @@ async function renderizarGraficosDashboard() {
   document.getElementById('dash-txt-os-abertas').innerText = countAbertas || 0;
   document.getElementById('dash-txt-os-fechadas').innerText = countFechadas || 0;
 
-  // 2. Gráfico: Status de Atendimento (O.S. Ar) via Views criadas no Supabase
   const { data: dataStatus } = await supabaseClient.from('resumo_status_os').select('*');
   const labelsStatus = (dataStatus || []).map(item => item.status_os);
   const valoresStatus = (dataStatus || []).map(item => item.total);
@@ -200,7 +200,6 @@ async function renderizarGraficosDashboard() {
     options: { responsive: true, maintainAspectRatio: false }
   });
 
-  // 3. Gráfico: Equipamentos por Criticidade (Pizza/Doughnut)
   const { data: dataCrit } = await supabaseClient.from('resumo_criticidade').select('*');
   const labelsCrit = (dataCrit || []).map(item => 'Classe ' + item.criticidade);
   const valoresCrit = (dataCrit || []).map(item => item.total);
@@ -733,11 +732,9 @@ async function carregarOrdensServico() {
   tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;">Carregando Ordens de Serviço...</td></tr>';
 
   const { data, error } = await supabaseClient
-    .from('ordens_servico')
-    .select(`id, created_at, tipo_os, status_os, descricao_defeito, laudo_tecnico,
+    .from('ordens_servico').select(`id, created_at, tipo_os, status_os, descricao_defeito, laudo_tecnico,
       equipamentos (tag, marca, produto, potencia, nr_serie, patrimonio, bloco, setor, sala, instituicao),
-      colaboradores (nome, cpf)`)
-    .order('created_at', { ascending: false });
+      colaboradores (nome, cpf)`).order('created_at', { ascending: false });
 
   if (error || !data || !data.length) {
     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;">Nenhuma O.S. aberta no momento.</td></tr>';
