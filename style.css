@@ -281,7 +281,7 @@ tr:hover td { background: #f7fafc; }
   .main-content { overflow: visible !important; display: block !important; }
   #section-relatorios,
   #section-ordens,
-  #section-os-geral { padding: 0 !important; display: block !important; }
+  #section-os-grid { padding: 0 !important; display: block !important; }
   .section-content { padding: 0 !important; overflow: visible !important; }
   .print-only { display: block !important; }
   .report-laudo-card { border: none !important; padding: 0 !important; }
