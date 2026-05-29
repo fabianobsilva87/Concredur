@@ -6,7 +6,6 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const emailInput = document.getElementById('email');
 const passwordInput = document.getElementById('password');
 const btnLogin = document.getElementById('btn-login');
-const btnCadastro = document.getElementById('btn-cadastro');
 const btnLogout = document.getElementById('btn-logout');
 const msg = document.getElementById('mensagem');
 const loginBox = document.getElementById('login-box');
@@ -51,6 +50,10 @@ const selectFuncaoColab = document.getElementById('colab-funcao');
 // ===================== ELEMENTOS DE CONFIGURAÇÃO DA CONTA =====================
 const btnAtualizarSenha = document.getElementById('btn-atualizar-senha');
 const msgConta = document.getElementById('msg-conta');
+
+// ===================== ELEMENTOS DE CONTROLE ADMIN DE USUÁRIOS =====================
+const btnAdminSalvarUsuario = document.getElementById('btn-admin-salvar-usuario');
+const msgAdminUsuario = document.getElementById('msg-admin-usuario');
 
 // ===================== CRITICIDADE — FLUXOGRAMA =====================
 function calcularCriticidadeFluxograma() {
@@ -108,22 +111,6 @@ btnLogin.addEventListener('click', async () => {
   }
 });
 
-// ===================== CADASTRO DE USUÁRIO =====================
-btnCadastro.addEventListener('click', async () => {
-  msg.style.color = "#fff";
-  msg.innerText = "Processando cadastro...";
-  const { error } = await supabaseClient.auth.signUp({
-    email: emailInput.value, password: passwordInput.value,
-  });
-  if (error) {
-    msg.style.color = "#ff4d4d";
-    msg.innerText = "Erro ao cadastrar: " + error.message;
-  } else {
-    msg.style.color = "#2efd72";
-    msg.innerText = "Cadastro realizado! Verifique seu e-mail.";
-  }
-});
-
 // ===================== LOGOUT =====================
 btnLogout.addEventListener('click', async () => {
   await supabaseClient.auth.signOut();
@@ -133,7 +120,7 @@ btnLogout.addEventListener('click', async () => {
   passwordInput.value = "";
 });
 
-// ===================== MOSTRAR APP =====================
+// ===================== MOSTRAR APP & VERIFICAÇÃO DE PERMISSÕES =====================
 async function mostrarApp() {
   loginBox.style.display = "none";
   appBox.style.display = "flex";
@@ -141,6 +128,7 @@ async function mostrarApp() {
   const { data: { user } } = await supabaseClient.auth.getUser();
   if (user) {
     document.getElementById('user-display-email').innerText = user.email;
+    verificarRegraAdmin(user.email);
   }
 
   if (inputDatePMOC) {
@@ -158,6 +146,80 @@ async function mostrarApp() {
   carregarOrdensServico();
   carregarOSGeral();
   toggleItemsPorFrequencia();
+}
+
+// ===================== VERIFICAÇÃO DE REGRA ADMINISTRADORA =====================
+function verificarRegraAdmin(email) {
+  // Define quem herda visualização da aba Administrativa (Coloque seu e-mail master aqui se desejar)
+  if (email.includes('admin') || email.includes('master') || email === 'seu-email-principal@dominio.com') {
+    document.getElementById('label-admin').style.display = 'block';
+    document.getElementById('nav-usuarios').style.display = 'flex';
+    carregarUsuariosSistema();
+  } else {
+    document.getElementById('label-admin').style.display = 'none';
+    document.getElementById('nav-usuarios').style.display = 'none';
+  }
+}
+
+// ===================== CADASTRO ADMINISTRATIVO DE USUÁRIOS =====================
+btnAdminSalvarUsuario.addEventListener('click', async () => {
+  const novoEmail = document.getElementById('adm-user-email').value.trim();
+  const novaSenha = document.getElementById('adm-user-password').value;
+  const roleAcesso = document.getElementById('adm-user-role').value;
+
+  if (!novoEmail || novaSenha.length < 6) {
+    msgAdminUsuario.style.color = "red";
+    msgAdminUsuario.innerText = "Informe um e-mail válido e senha com no mínimo 6 caracteres.";
+    return;
+  }
+
+  msgAdminUsuario.style.color = "blue";
+  msgAdminUsuario.innerText = "Registrando credenciais na base...";
+
+  // Salva na tabela auxiliar de perfis do sistema
+  const { error } = await supabaseClient.from('perfis_usuarios').insert([
+    { email: novoEmail, role: roleAcesso, password_hint: novaSenha }
+  ]);
+
+  if (error) {
+    msgAdminUsuario.style.color = "red";
+    msgAdminUsuario.innerText = "Erro ao registrar: " + error.message;
+  } else {
+    msgAdminUsuario.style.color = "green";
+    msgAdminUsuario.innerText = "Usuário cadastrado com sucesso na lista de permissões!";
+    document.getElementById('adm-user-email').value = "";
+    document.getElementById('adm-user-password').value = "";
+    carregarUsuariosSistema();
+  }
+});
+
+// ===================== CARREGAR LISTA DE USUÁRIOS DO SISTEMA =====================
+async function carregarUsuariosSistema() {
+  const tbody = document.getElementById('tbody-usuarios-sistema');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">Carregando...</td></tr>';
+
+  const { data, error } = await supabaseClient.from('perfis_usuarios').select('*').order('created_at', { ascending: false });
+
+  if (error || !data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">Nenhum operador adicional cadastrado.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(u => `
+    <tr>
+      <td><strong>${u.email}</strong></td>
+      <td><span class="tag-badge" style="${u.role === 'admin' ? 'background:#fee2e2;color:#991b1b;' : 'background:#e0f2fe;color:#0369a1;'}">${u.role.toUpperCase()}</span></td>
+      <td>${new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
+      <td><button class="btn-excluir" onclick="excluirUsuarioSistema('${u.id}')">✕ Remover</button></td>
+    </tr>
+  `).join('');
+}
+
+async function excluirUsuarioSistema(id) {
+  if (!confirm("Revogar permanentemente o acesso deste usuário?")) return;
+  const { error } = await supabaseClient.from('perfis_usuarios').delete().eq('id', id);
+  if (!error) carregarUsuariosSistema();
 }
 
 // ===================== CADASTRO DE FUNÇÃO =====================
@@ -246,13 +308,11 @@ async function atualizarSelectColaboradores() {
 
   if (!error && data) {
     data.forEach(c => {
-      // PMOC
       const optP = document.createElement('option');
       optP.value = c.nome;
       optP.textContent = c.nome;
       selectTecnicoPMOC.appendChild(optP);
 
-      // OS Ar Condicionado
       if (selectOSTecnico) {
         const optOS = document.createElement('option');
         optOS.value = c.id;
@@ -260,10 +320,9 @@ async function atualizarSelectColaboradores() {
         selectOSTecnico.appendChild(optOS);
       }
 
-      // OS Geral
       if (selectOSGTecnico) {
         const optOSG = document.createElement('option');
-        optOSG.value = c.nome;
+        optOSG.value = c.name || c.nome; 
         optOSG.textContent = c.nome;
         selectOSGTecnico.appendChild(optOSG);
       }
@@ -353,7 +412,6 @@ async function carregarEquipamentos() {
   atualizarSelectEquipamentos();
 }
 
-// ===================== EXCLUIR EQUIPAMENTO =====================
 async function excluirEquipamento(id) {
   if (!confirm("Confirma exclusão deste equipamento?")) return;
   const { error } = await supabaseClient.from('equipamentos').delete().eq('id', id);
@@ -449,7 +507,6 @@ btnSalvarFicha.addEventListener('click', async () => {
   }
 });
 
-// ===================== LIMPAR FORMULÁRIO PMOC =====================
 function limparFormularioFicha() {
   selectEquipamento.value = "";
   selectTecnicoPMOC.value = "";
@@ -661,7 +718,6 @@ async function carregarOrdensServico() {
   }).join('');
 }
 
-// ===================== EMITIR LAUDO O.S. AR CONDICIONADO =====================
 function emitirLaudoOS(osBase64, numOS) {
   const os = JSON.parse(decodeURIComponent(escape(atob(osBase64))));
   const eq = os.equipamentos || {};
@@ -756,7 +812,6 @@ btnSalvarOSG.addEventListener('click', async () => {
   }
 });
 
-// ===================== LIMPAR FORMULÁRIO O.S. GERAL =====================
 function limparFormOSG() {
   document.getElementById('osg-requisitado').value = '';
   document.getElementById('osg-setor').value = '';
@@ -810,7 +865,6 @@ async function carregarOSGeral() {
   }).join('');
 }
 
-// ===================== EXCLUIR O.S. GERAL =====================
 async function excluirOSGeral(id) {
   if (!confirm('Confirma exclusão desta O.S.?')) return;
   const { error } = await supabaseClient.from('ordens_servico_geral').delete().eq('id', id);
@@ -967,5 +1021,6 @@ function showSection(name) {
 
   if (name === 'relatorios') carregarHistoricoFichas();
   if (name === 'ordens') carregarOrdensServico();
-  if (name === 'os-geral') carregarOSGeral();
+  if (name === 'os-grid') carregarOSGeral();
+  if (name === 'usuarios') carregarUsuariosSistema();
 }
