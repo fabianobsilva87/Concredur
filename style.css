@@ -126,6 +126,7 @@ tr:hover td { background: #f7fafc; }
 }
 .btn-excluir:hover { color: #e53e3e; }
 
+/* COMPONENTES DA ADIÇÃO DAS ABAS */
 .app-section {
   display: flex;
   flex-direction: column;
@@ -205,4 +206,131 @@ textarea:focus {
   gap: 4px;
   font-weight: 600;
   cursor: pointer;
+}
+
+/* ESTILIZAÇÃO DO LAUDO DO RELATÓRIO */
+.print-only {
+  display: none;
+}
+
+.report-laudo-card {
+  background: white;
+  padding: 30px;
+  border: 1px solid #cbd5e0;
+  border-radius: 8px;
+  margin-top: 15px;
+}
+
+.laudo-header {
+  text-align: center;
+  border-bottom: 2px solid #1a202c;
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+}
+
+.laudo-header h2 {
+  font-size: 18px;
+  color: #1a202c;
+}
+
+.laudo-header p {
+  font-size: 12px;
+  color: #718096;
+  margin-top: 4px;
+}
+
+.laudo-section {
+  margin-bottom: 22px;
+}
+
+.laudo-section h3 {
+  font-size: 13px;
+  background: #edf2f7;
+  color: #2d3748;
+  padding: 6px 10px;
+  margin-bottom: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.table-laudo-dados {
+  width: 100%;
+  font-size: 13px;
+}
+
+.table-laudo-dados td {
+  padding: 6px 4px;
+  border-bottom: none;
+}
+
+.table-laudo-checklist {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-top: 5px;
+}
+
+.table-laudo-checklist th {
+  background: #4a5568;
+  color: white;
+  padding: 6px 10px;
+}
+
+.table-laudo-checklist td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.laudo-img-preview {
+  max-width: 320px;
+  max-height: 240px;
+  border: 2px solid #cbd5e0;
+  border-radius: 4px;
+  object-fit: contain;
+}
+
+.laudo-footer {
+  text-align: center;
+  margin-top: 50px;
+}
+
+.linha-assinatura {
+  width: 250px;
+  height: 1px;
+  background: #4a5568;
+  margin: 0 auto 8px auto;
+}
+
+/* REGRAS DE IMPRESSÃO VIA IMPRESSORA OU SALVAMENTO PDF */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .app-container {
+    display: block !important;
+    height: auto !important;
+  }
+  .main-content {
+    overflow: visible !important;
+    display: block !important;
+  }
+  #section-relatorios {
+    padding: 0 !important;
+    display: block !important;
+  }
+  .section-content {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .report-laudo-card {
+    border: none !important;
+    padding: 0 !important;
+  }
 }
