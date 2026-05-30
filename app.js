@@ -763,11 +763,10 @@ async function carregarAlertasVencimento() {
     .lte('proxima_manutencao', em30.toISOString().split('T')[0])
     .order('proxima_manutencao', { ascending: true });
 
-  // Busca equipamentos do tipo bebedouro com validade de filtro
-  const { data: bebs } = await db.from('equipamentos')
-    .select('tag, bloco, validade_filtro, validade_lacre')
-    .eq('categoria', 'Bebedouro')
-    .not('validade_filtro', 'is', null);
+  // Busca todos os equipamentos com campo 'validade' preenchido
+  const { data: eqsValidade } = await db.from('equipamentos')
+    .select('tag, bloco, categoria, produto, validade')
+    .not('validade', 'is', null);
 
   const alertas = [];
 
@@ -786,35 +785,23 @@ async function carregarAlertasVencimento() {
     });
   });
 
-  // Processar bebedouros — filtro
-  (bebs || []).forEach(b => {
-    if (!b.validade_filtro) return;
-    const dt = new Date(b.validade_filtro + 'T00:00:00');
+  // Processar equipamentos com validade (filtros, lacres, peças)
+  (eqsValidade || []).forEach(b => {
+    if (!b.validade) return;
+    const dt = new Date(b.validade + 'T00:00:00');
     const diff = Math.ceil((dt - hoje) / (1000 * 60 * 60 * 24));
     if (diff > 30) return;
+    const cat = b.categoria || '';
+    const descricao = cat === 'BEB' || cat === 'Bebedouro'
+      ? 'Troca de Filtro/Lacre — Bebedouro'
+      : `Validade de Item — ${b.produto || cat || 'Equipamento'}`;
     alertas.push({
       tipo: diff < 0 ? 'vencida' : diff <= 7 ? 'urgente' : 'proxima',
       diff,
       tag: b.tag || '—',
       local: b.bloco || '—',
-      descricao: 'Troca de Filtro — Bebedouro',
-      data: b.validade_filtro,
-    });
-  });
-
-  // Processar bebedouros — lacre
-  (bebs || []).forEach(b => {
-    if (!b.validade_lacre) return;
-    const dt = new Date(b.validade_lacre + 'T00:00:00');
-    const diff = Math.ceil((dt - hoje) / (1000 * 60 * 60 * 24));
-    if (diff > 30) return;
-    alertas.push({
-      tipo: diff < 0 ? 'vencida' : diff <= 7 ? 'urgente' : 'proxima',
-      diff,
-      tag: b.tag || '—',
-      local: b.bloco || '—',
-      descricao: 'Renovação de Lacre — Bebedouro',
-      data: b.validade_lacre,
+      descricao,
+      data: b.validade,
     });
   });
 
