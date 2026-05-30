@@ -105,7 +105,62 @@ supabaseClient.auth.getSession().then(({ data }) => {
   if (data.session) mostrarApp();
 });
 
-// ===================== GESTÃO DE ACESSO EXCLUSIVO DO MASTER =====================
+// ===================== LOGIN =====================
+btnLogin.addEventListener('click', async () => {
+  msg.style.color = "#ff4d4d";
+  msg.innerText = "Verificando acesso...";
+  const { error } = await supabaseClient.auth.signInWithPassword({
+    email: emailInput.value, password: passwordInput.value,
+  });
+  if (error) {
+    msg.style.color = "#ff4d4d";
+    msg.innerText = "Erro no acesso: " + error.message;
+  } else {
+    msg.innerText = "";
+    mostrarApp();
+  }
+});
+
+// ===================== LOGOUT =====================
+btnLogout.addEventListener('click', async () => {
+  await supabaseClient.auth.signOut();
+  appBox.style.display = "none";
+  loginBox.style.display = "flex";
+  emailInput.value = "";
+  passwordInput.value = "";
+});
+
+// ===================== MOSTRAR APP =====================
+async function mostrarApp() {
+  loginBox.style.display = "none";
+  appBox.style.display = "flex";
+
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if (user) {
+    document.getElementById('user-display-email').innerText = user.email;
+    verificarRegraAdmin(user.email);
+  }
+
+  if (inputDatePMOC) {
+    inputDatePMOC.value = new Date().toISOString().split('T')[0];
+  }
+
+  const dataOSG = document.getElementById('osg-data-chamada');
+  if (dataOSG) dataOSG.value = new Date().toISOString().split('T')[0];
+
+  carregarEquipamentos();
+  atualizarSelectEquipamentos();
+  carregarHistoricoFichas();
+  atualizarSelectColaboradores();
+  atualizarSelectFuncoes();
+  carregarOrdensServico();
+  carregarOSGeral();
+  carregarCentralUnificadaOS();
+  toggleItemsPorFrequencia();
+  renderizarGraficosDashboard();
+}
+
+// ===================== VERIFICAÇÃO DE PERMISSÕES MASTER =====================
 function verificarRegraAdmin(email) {
   const emailNormalizado = email.toLowerCase().trim();
   if (emailNormalizado === 'fabianob.silva87@gmail.com' || emailNormalizado.includes('admin') || emailNormalizado.includes('master')) {
@@ -118,7 +173,7 @@ function verificarRegraAdmin(email) {
   }
 }
 
-// ===================== DASHBOARD ANALÍTICO =====================
+// ===================== LÓGICA DO DASHBOARD (INDICADORES) =====================
 async function renderizarGraficosDashboard() {
   const { count: countAtivos } = await supabaseClient.from('equipamentos').select('*', { count: 'exact', head: true });
   const { count: countFichas } = await supabaseClient.from('fichas_pmoc').select('*', { count: 'exact', head: true });
@@ -171,58 +226,6 @@ async function renderizarGraficosDashboard() {
 }
 
 // ===================== CADASTRO DE EQUIPAMENTO =====================
-btnSalvar.addEventListener('click', async () => {
-  const tag = document.getElementById('eq-tag').value.trim();
-  const marca = document.getElementById('eq-marca').value.trim();
-  const potencia = document.getElementById('eq-potencia').value.trim();
-  const nr_serie = document.getElementById('eq-serie').value.trim();
-  const patrimonio = document.getElementById('eq-patrimonio').value.trim();
-  const produto = document.getElementById('eq-produto').value.trim();
-  const bloco = document.getElementById('eq-bloco').value.trim();
-  const setor = document.getElementById('eq-setor').value.trim();
-  const sala = document.getElementById('eq-sala').value.trim();
-  const instituicao = document.getElementById('eq-instituicao').value.trim();
-  const validade = document.getElementById('eq-validade').value.trim();
-  const criticidade = calcularCriticidadeFluxograma();
-
-  if (!tag || !marca || !produto) {
-    msgEq.style.color = "red";
-    msgEq.innerText = "Os campos TAG, Marca e Equipamento são obrigatórios.";
-    return;
-  }
-
-  const { data: { user } } = await supabaseClient.auth.getUser();
-  const { error } = await supabaseClient.from('equipamentos').insert([{
-    tag, marca, potencia, nr_serie, patrimonio, produto,
-    bloco, setor, sala, instituicao, validade, criticidade, user_id: user.id
-  }]);
-
-  if (error) {
-    msgEq.style.color = "red";
-    msgEq.innerText = "Erro: " + error.message;
-  } else {
-    msgEq.style.color = "green";
-    msgEq.innerText = "Equipamento salvo com sucesso!";
-    limparFormulario();
-    carregarEquipamentos();
-    setTimeout(() => msgEq.innerText = "", 3000);
-  }
-});
-
-btnLimpar.addEventListener('click', limparFormulario);
-function limparFormulario() {
-  ['eq-tag','eq-marca','eq-potencia','eq-serie','eq-patrimonio',
-   'eq-produto','eq-bloco','eq-setor','eq-sala','eq-instituicao','eq-validade'].forEach(id => {
-    document.getElementById(id).value = "";
-  });
-  document.getElementById('crit-interrupcao').value = "nao";
-  document.getElementById('crit-seguranca').value = "nao";
-  document.getElementById('crit-operacao').value = "nao";
-  document.getElementById('crit-reserva').value = "nao";
-  calcularCriticidadeFluxograma();
-  msgEq.innerText = "";
-}
-
 async function carregarEquipamentos() {
   const tbody = document.getElementById('tbody-equipamentos');
   if (!tbody) return;
@@ -281,62 +284,6 @@ async function atualizarSelectEquipamentos() {
 }
 
 // ===================== FORMULÁRIO PMOC =====================
-btnSalvarFicha.addEventListener('click', async () => {
-  const equipamento_id = selectEquipamento.value;
-  const tecnico_nome = selectTecnicoPMOC.value;
-  const freq_inspecao = selectFrequencia.value;
-  const data_escolhida = inputDatePMOC.value;
-  const observacoes = document.getElementById('pmoc-obs').value.trim();
-  const arquivoFoto = fotoInput.files[0];
-
-  const fil_01 = document.querySelector('input[name="fil_01"]:checked')?.value;
-  const bio_01 = document.querySelector('input[name="bio_01"]:checked')?.value;
-  const bio_02 = document.querySelector('input[name="bio_02"]:checked')?.value;
-  const mec_01 = document.querySelector('input[name="mec_01"]:checked')?.value;
-  const fil_02 = document.querySelector('input[name="fil_02"]:checked')?.value || 'NA';
-  const bio_03 = document.querySelector('input[name="bio_03"]:checked')?.value || 'NA';
-  const ele_01 = document.querySelector('input[name="ele_01"]:checked')?.value || 'NA';
-  const ele_02 = document.querySelector('input[name="ele_02"]:checked')?.value || 'NA';
-
-  if (!equipamento_id || !tecnico_nome || !data_escolhida || !fil_01 || !bio_01 || !bio_02 || !mec_01) {
-    msgFicha.style.color = "red";
-    msgFicha.innerText = "Preencha os itens mensais obrigatórios.";
-    return;
-  }
-
-  msgFicha.style.color = "blue";
-  msgFicha.innerText = "Processando informações...";
-
-  const { data: { user } } = await supabaseClient.auth.getUser();
-  let fotoUrl = null;
-
-  if (arquivoFoto) {
-    const extensao = arquivoFoto.name.split('.').pop();
-    const nomeArquivo = `${user.id}/pmoc_${Date.now()}.${extensao}`;
-    const { error: uploadError } = await supabaseClient.storage.from('fotos-pmoc').upload(nomeArquivo, arquivoFoto);
-    if (!uploadError) {
-      const { data: publicUrlData } = supabaseClient.storage.from('fotos-pmoc').getPublicUrl(nomeArquivo);
-      fotoUrl = publicUrlData.publicUrl;
-    }
-  }
-
-  const { error } = await supabaseClient.from('fichas_pmoc').insert([{
-    equipamento_id, user_id: user.id, tecnico_nome,
-    observacoes: `[Frequência: ${freq_inspecao}] \n[DataInspecao: ${data_escolhida}] \nChecklist: FIL-01:${fil_01} | BIO-01:${bio_01} | BIO-02:${bio_02} | MEC-01:${mec_01} | FIL-02:${fil_02} | BIO-03:${bio_03} | ELE-01:${ele_01} | ELE-02:${ele_02}\n\nObservações: ${observacoes}`,
-    foto_url: fotoUrl
-  }]);
-
-  if (error) {
-    msgFicha.style.color = "red";
-    msgFicha.innerText = "Erro ao salvar: " + error.message;
-  } else {
-    msgFicha.style.color = "green";
-    msgFicha.innerText = "Formulário PMOC registrado!";
-    limparFormularioFicha();
-    carregarHistoricoFichas();
-  }
-});
-
 async function carregarHistoricoFichas() {
   const tbody = document.getElementById('tbody-fichas');
   if (!tbody) return;
@@ -374,7 +321,6 @@ function emitirRelatorio(fichaBase64) {
   const eq = ficha.equipamentos || {};
   const laudoID = "L-PMOC-" + ficha.id.toString().slice(0, 6).toUpperCase();
   
-  // CORREÇÃO DE IMPRESSÃO: Limpa a área antiga eliminando páginas em branco acumuladas
   const target = document.getElementById('area-laudo-impressao');
   target.innerHTML = ''; 
 
@@ -397,7 +343,7 @@ function emitirRelatorio(fichaBase64) {
   window.print();
 }
 
-// ===================== AR CONDICIONADO: SALVAR / EDIÇÃO DE O.S. =====================
+// ===================== AR CONDICIONADO: MANUTENÇÃO TÉCNICA O.S. =====================
 btnSalvarOS.addEventListener('click', async () => {
   const equipamento_id = selectOSEquipamento.value;
   const colaborador_id = selectOSTecnico.value;
@@ -432,10 +378,8 @@ btnSalvarOS.addEventListener('click', async () => {
 
   let resposta;
   if (idEdicao) {
-    // Modo de Edição Ativo (UPDATE)
     resposta = await supabaseClient.from('ordens_servico').update(payload).eq('id', idEdicao);
   } else {
-    // Modo de Inserção Normal (INSERT)
     const { data: { user } } = await supabaseClient.auth.getUser();
     payload.user_id = user.id;
     resposta = await supabaseClient.from('ordens_servico').insert([payload]);
@@ -446,7 +390,7 @@ btnSalvarOS.addEventListener('click', async () => {
     msgOS.innerText = "Erro operacional: " + resposta.error.message;
   } else {
     msgOS.style.color = "green";
-    msgOS.innerText = "Registro concluído com sucesso!";
+    msgOS.innerText = "Ordem de Serviço gravada com sucesso!";
     resetarFormOS();
     carregarOrdensServico();
     carregarCentralUnificadaOS();
@@ -495,7 +439,8 @@ async function carregarOrdensServico() {
 
 function prepararEdicaoOS(osBase64) {
   const os = JSON.parse(decodeURIComponent(escape(atob(osBase64))));
-  selectOSEquipamento.value = os.equipment_id || os.equipamento_id;
+  // CORREÇÃO: Removido typo anterior que causava quebra na leitura do ID
+  selectOSEquipamento.value = os.equipamento_id;
   selectOSTecnico.value = os.colaborador_id;
   selectOSTipo.value = os.tipo_os;
   selectOSStatus.value = os.status_os;
@@ -511,21 +456,21 @@ function prepararEdicaoOS(osBase64) {
 function emitirLaudoOS(osBase64, numOS) {
   const os = JSON.parse(decodeURIComponent(escape(atob(osBase64))));
   const target = document.getElementById('area-os-impressao');
-  target.innerHTML = ''; // Limpeza de cache de páginas em branco
+  target.innerHTML = ''; 
 
   target.innerHTML = `
     <div class="laudo-header">
       <h2>ORDEM DE SERVIÇO TÉCNICA - ${numOS}</h2>
     </div>
-    <p><strong>Status:</strong> ${os.status_os} | <strong>Tipo:</strong> ${os.type_os || os.tipo_os}</p>
+    <p><strong>Status:</strong> ${os.status_os} | <strong>Tipo:</strong> ${os.tipo_os}</p>
     <p><strong>Defeito Relatado:</strong> ${os.descricao_defeito}</p>
     <p><strong>Laudo de Atividades:</strong> ${os.laudo_tecnico || 'Em andamento.'}</p>
-    ${os.foto_url ? `<div style="text-align:center; margin-top:20px;"><p><strong>Evidência Fotográfica:</strong></p><img src="${os.foto_url}" class="laudo-img-preview"/></div>` : ''}
+    ${os.foto_url ? `<div style="text-align:center; margin-top:20px;"><img src="${os.foto_url}" class="laudo-img-preview"/></div>` : ''}
   `;
   window.print();
 }
 
-// ===================== FACILITIES: SALVAR / EDIÇÃO DE O.S. GERAL =====================
+// ===================== FACILITIES: O.S. GERAL & IMPRESSÃO =====================
 btnSalvarOSG.addEventListener('click', async () => {
   const setor = document.getElementById('osg-setor').value.trim();
   const servico_requisitado = document.getElementById('osg-requisitado').value.trim();
@@ -544,13 +489,10 @@ btnSalvarOSG.addEventListener('click', async () => {
   const arquivoFoto = osgFotoInput.files[0];
 
   if (!setor || !servico_requisitado || !falha_relatada) {
-    msgOSG.style.color = 'red';
-    msgOSG.innerText = 'Preencha os campos obrigatórios.';
-    return;
+    msgOSG.style.color = 'red'; msgOSG.innerText = 'Preencha os campos obrigatórios.'; return;
   }
 
-  msgOSG.style.color = 'blue';
-  msgOSG.innerText = 'Processando informações de manutenção...';
+  msgOSG.style.color = 'blue'; msgOSG.innerText = 'Processando informações...';
 
   let fotoUrl = null;
   if (arquivoFoto) {
@@ -576,14 +518,10 @@ btnSalvarOSG.addEventListener('click', async () => {
   }
 
   if (resposta.error) {
-    msgOSG.style.color = 'red';
-    msgOSG.innerText = 'Erro: ' + resposta.error.message;
+    msgOSG.style.color = 'red'; msgOSG.innerText = 'Erro: ' + resposta.error.message;
   } else {
-    msgOSG.style.color = 'green';
-    msgOSG.innerText = 'O.S. Geral gravada com sucesso!';
-    resetarFormOSG();
-    carregarOSGeral();
-    carregarCentralUnificadaOS();
+    msgOSG.style.color = 'green'; msgOSG.innerText = 'O.S. Geral gravada!';
+    resetarFormOSG(); carregarOSGeral(); carregarCentralUnificadaOS();
   }
 });
 
@@ -604,7 +542,6 @@ async function carregarOSGeral() {
   if (!tbody) return;
 
   const { data } = await supabaseClient.from('ordens_servico_geral').select('*').order('created_at', { ascending: false });
-
   if (!data || !data.length) {
     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;">Nenhuma O.S. Geral localizada.</td></tr>';
     return;
@@ -623,7 +560,7 @@ async function carregarOSGeral() {
         <td><span class="tag-badge" style="background:#fef3c7;color:#d97706;">${os.status_os}</span></td>
         <td>
           <button class="btn-primary" style="padding:3px 8px;" onclick="imprimirOSGeral('${osB64}')">🖨️</button>
-          <button class="btn-primary" style="background:#d97706; padding:3px 8px;" onclick="prepararEdicaoOSG('${osB64}')">✍️ Editar</button>
+          <button class="btn-primary" style="background:#d97706; padding:3px 8px;" onclick="prepararEdicaoOSG('${osB64}')">✍️</button>
           <button class="btn-excluir" onclick="excluirOSGeral('${os.id}')">✕</button>
         </td>
       </tr>`;
@@ -645,7 +582,6 @@ function prepararEdicaoOSG(osBase64) {
   document.getElementById('osg-obs').value = os.observacoes;
   osgIdEdicao.value = os.id;
 
-  // Marcar as caixas de seleção salvas das áreas de facilities
   document.querySelectorAll('input[name="osg-area"]').forEach(chk => {
     chk.checked = (os.areas_servico || []).includes(chk.value);
   });
@@ -655,26 +591,54 @@ function prepararEdicaoOSG(osBase64) {
   document.getElementById('foco-formulario-osg').scrollIntoView({ behavior: 'smooth' });
 }
 
+function imprimirOSGeral(osBase64) {
+  const os = JSON.parse(decodeURIComponent(escape(atob(osBase64))));
+  // CORREÇÃO DE IMPRESSÃO DUPLA: Limpa o espelho antes de injetar
+  const target = document.getElementById('area-osg-impressao');
+  target.innerHTML = '';
+
+  const dataFormatada = os.data_chamada ? new Date(os.data_chamada + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
+  const checkTipo = (val) => os.tipo_manutencao === val ? '(X)' : '( )';
+
+  target.innerHTML = `
+    <div style="font-family:Arial,sans-serif;font-size:13px;color:#000;">
+      <h2>ORDEM DE SERVIÇO GERAL (FACILITIES)</h2>
+      <p><strong>Nº Protocolo:</strong> ${os.numero_os || '—'}</p>
+      <p><strong>Setor Requisitante:</strong> ${os.setor}</p>
+      <p><strong>Serviço:</strong> ${os.servico_requisitado}</p>
+      <p><strong>Manutenção:</strong> ${checkTipo('Corretiva')} Corretiva ${checkTipo('Preventiva')} Preventiva</p>
+      <p><strong>Falha Relatada:</strong> ${os.falha_relatada}</p>
+      <p><strong>Técnico Responsável:</strong> ${os.realizado_por || 'Não Atribuído'}</p>
+      <p><strong>Data de Abertura:</strong> ${dataFormatada}</p>
+      ${os.foto_url ? `<div style="text-align:center; margin-top:15px;"><img src="${os.foto_url}" style="max-width:300px; border:1px solid #ccc;"/></div>` : ''}
+    </div>`;
+  window.print();
+}
+
+async function excluirOSGeral(id) {
+  if (!confirm('Confirma exclusão desta O.S.?')) return;
+  const { error } = await supabaseClient.from('ordens_servico_geral').delete().eq('id', id);
+  if (!error) { carregarOSGeral(); carregarCentralUnificadaOS(); }
+}
+
 // ===================== CENTRAL DE RELATÓRIOS UNIFICADOS =====================
 async function carregarCentralUnificadaOS() {
   const tbody = document.getElementById('tbody-central-unificada-os');
   if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">Consolidando histórico...</td></tr>';
 
-  const { data } = await supabaseClient.from('relatorio_unificado_os').select('*').order('created_at', { ascending: false });
-
-  if (!data || !data.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">Nenhum documento centralizado.</td></tr>';
-    return;
+  const { data, error } = await supabaseClient.from('relatorio_unificado_os').select('*').order('created_at', { ascending: false });
+  if (error || !data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">Nenhum documento unificado.</td></tr>'; return;
   }
 
   tbody.innerHTML = data.map(doc => {
     const prefixo = doc.modulo_origem === 'Ar Condicionado' ? 'OS-AC-' : 'OS-GEN-';
-    const docID = prefixo + doc.id.toString().slice(0, 5).toUpperCase();
     return `
       <tr>
-        <td><strong>${docID}</strong></td>
+        <td><strong>${prefixo + doc.id.toString().slice(0, 5).toUpperCase()}</strong></td>
         <td>${new Date(doc.created_at).toLocaleDateString('pt-BR')}</td>
-        <td><small>${doc.modulo_origem}</small></td>
+        <td>${doc.modulo_origem}</td>
         <td><small>${doc.categoria_servico}</small></td>
         <td><span style="display:inline-block; max-width:240px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${doc.resumo_solicitacao || '—'}</span></td>
         <td><span class="tag-badge" style="background:#def7ec; color:#03543f;">${doc.status_os}</span></td>
@@ -682,22 +646,44 @@ async function carregarCentralUnificadaOS() {
   }).join('');
 }
 
-// ===================== CADASTRO DE FUNÇÃO / OPERADORES =====================
+// ===================== CONFIGURAÇÃO E CADASTROS ADICIONAIS =====================
+btnAtualizarSenha.addEventListener('click', async () => {
+  const novaSenha = document.getElementById('account-new-password').value;
+  const confirmaSenha = document.getElementById('account-confirm-password').value;
+  if (!novaSenha || novaSenha !== confirmaSenha) return;
+  await supabaseClient.auth.updateUser({ password: novaSenha });
+});
+
+btnAdminSalvarUsuario.addEventListener('click', async () => {
+  const novoEmail = document.getElementById('adm-user-email').value.trim();
+  const novaSenha = document.getElementById('adm-user-password').value;
+  const roleAcesso = document.getElementById('adm-user-role').value;
+  const modulos = [...document.querySelectorAll('.chk-acesso:checked')].map(cb => cb.value);
+  if (!novoEmail || novaSenha.length < 6) return;
+
+  const { error } = await supabaseClient.from('perfis_usuarios').insert([{ email: novoEmail, role: roleAcesso, password_hint: novaSenha, observacoes: `Modulos Permitidos: ${modulos.join(', ')}` }]);
+  if (!error) carregarUsuariosSistema();
+});
+
+async function carregarUsuariosSistema() {
+  const tbody = document.getElementById('tbody-usuarios-sistema');
+  if (!tbody) return;
+  const { data } = await supabaseClient.from('perfis_usuarios').select('*');
+  if (data) {
+    tbody.innerHTML = data.map(u => `<tr><td><strong>${u.email}</strong></td><td>${u.role}</td><td>${u.observacoes || 'Padrão'}</td><td><button class="btn-excluir" onclick="excluirUsuarioSistema('${u.id}')">✕</button></td></tr>`).join('');
+  }
+}
+
+async function excluirUsuarioSistema(id) {
+  await supabaseClient.from('perfis_usuarios').delete().eq('id', id); carregarUsuariosSistema();
+}
+
 btnSalvarFuncao.addEventListener('click', async () => {
   const nome = document.getElementById('func-nome').value.trim();
   const salario = parseFloat(document.getElementById('func-salario').value);
   const nivel = document.getElementById('func-nivel').value;
-
-  if (!nome || isNaN(salario)) {
-    msgFuncao.style.color = "red"; msgFuncao.innerText = "Preencha dados válidos."; return;
-  }
-
-  const { data: { user } } = await supabaseClient.auth.getUser();
-  const { error } = await supabaseClient.from('funcoes').insert([{ nome, salario, nivel, user_id: user.id }]);
-
-  if (!error) {
-    document.getElementById('func-nome').value = ""; document.getElementById('func-salario').value = "";
-    atualizarSelectFuncoes();
+  if (nome && !isNaN(salario)) {
+    await supabaseClient.from('funcoes').insert([{ nome, salario, nivel }]); atualizarSelectFuncoes();
   }
 });
 
@@ -705,31 +691,8 @@ btnSalvarColaborador.addEventListener('click', async () => {
   const nome = document.getElementById('colab-nome').value.trim();
   const cpf = document.getElementById('colab-cpf').value.trim();
   const funcao_id = selectFuncaoColab.value;
-
-  if (!nome || !cpf || !funcao_id) { msgColaborador.innerText = "Campos obrigatórios ausentes."; return; }
-
-  const { data: { user } } = await supabaseClient.auth.getUser();
-  const { error } = await supabaseClient.from('colaboradores').insert([{ nome, cpf, funcao_id, user_id: user.id }]);
-
-  if (!error) {
-    document.getElementById('colab-nome').value = ""; document.getElementById('colab-cpf').value = "";
-    atualizarSelectColaboradores();
-  }
-});
-
-// ===================== REFRESH DE PERFIS ADMIN =====================
-btnAdminSalvarUsuario.addEventListener('click', async () => {
-  const novoEmail = document.getElementById('adm-user-email').value.trim();
-  const novaSenha = document.getElementById('adm-user-password').value;
-  const roleAcesso = document.getElementById('adm-user-role').value;
-  const modulos = [...document.querySelectorAll('.chk-acesso:checked')].map(cb => cb.value);
-
-  if (!novoEmail || novaSenha.length < 6) return;
-
-  const { error } = await supabaseClient.from('perfis_usuarios').insert([{ email: novoEmail, role: roleAcesso, password_hint: novaSenha, observacoes: `Modulos Permitidos: ${modulos.join(', ')}` }]);
-  if (!error) {
-    document.getElementById('adm-user-email').value = ""; document.getElementById('adm-user-password').value = "";
-    carregarUsuariosSistema();
+  if (nome && cpf) {
+    await supabaseClient.from('colaboradores').insert([{ nome, cpf, funcao_id }]); atualizarSelectColaboradores();
   }
 });
 
