@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22Manutencao%20Concredur%22,%22short_name%22:%22Concredur%22,%22start_url%22:%22index.html%22,%22display%22:%22standalone%22,%22background_color%22:%22%23072d6e%22,%22theme_color%22:%22%231a56db%22}" />
 </head>
 <body>
   <div class="login-page-wrapper">
@@ -44,13 +43,9 @@
     </div>
   </div>
 
+  <script src="app.js"></script>
   <script>
-    const SUPABASE_URL = "https://nweligwbglblbncaegir.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53ZWxpZ3diZ2xibGJuY2FlZ2lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwMzAzNTgsImV4cCI6MjA5NTYwNjM1OH0.6eKcn40QmcfvHKAxuDH3kB6vHBJUu5LUVzfr27dvbKk";
-    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    let modoRecuperacao = false;
-
-    db.auth.getSession().then(({ data }) => { if (data.session) window.location.href = "pages/dashboard.html"; });
+    db.auth.getSession().then(({ data }) => { if (data.session) window.location.href = "dashboard.html"; });
 
     function toggleModoRecuperacao(ativar) {
       modoRecuperacao = activar;
@@ -76,13 +71,13 @@
       const email = document.getElementById('email').value.trim();
       if (!email) { alert("Informe o e-mail."); return; }
       if (modoRecuperacao) {
-        const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+        const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + "/index.html" });
         if (error) document.getElementById('mensagem').innerText = error.message;
         else document.getElementById('mensagem').innerText = "Link de recuperação enviado!";
       } else {
         const { error } = await db.auth.signInWithPassword({ email, password: document.getElementById('password').value });
         if (error) document.getElementById('mensagem').innerText = "Acesso negado: dados incorretos.";
-        else window.location.href = "pages/dashboard.html";
+        else window.location.href = "dashboard.html";
       }
     });
   </script>
