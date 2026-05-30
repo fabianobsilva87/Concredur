@@ -613,3 +613,109 @@ if ($('btn-login')) {
     }
   });
 }
+
+// ===================== DASHBOARD =====================
+async function renderizarGraficosDashboard() {
+  // Cards de contagem
+  const [{ count: cAtivos }, { count: cFichas }, { count: cAbertas }, { count: cFechadas }] = await Promise.all([
+    db.from('equipamentos').select('*', { count: 'exact', head: true }),
+    db.from('fichas_pmoc').select('*', { count: 'exact', head: true }),
+    db.from('ordens_servico').select('*', { count: 'exact', head: true }).in('status_os', ['Aberta', 'Em Andamento']),
+    db.from('ordens_servico').select('*', { count: 'exact', head: true }).eq('status_os', 'Concluída'),
+  ]);
+  if ($('dash-txt-ativos'))    $('dash-txt-ativos').innerText    = cAtivos    ?? '0';
+  if ($('dash-txt-fichas'))    $('dash-txt-fichas').innerText    = cFichas    ?? '0';
+  if ($('dash-txt-os-abertas'))  $('dash-txt-os-abertas').innerText  = cAbertas  ?? '0';
+  if ($('dash-txt-os-fechadas')) $('dash-txt-os-fechadas').innerText = cFechadas ?? '0';
+
+  // Gráfico O.S. Ar Condicionado
+  const { data: osAC } = await db.from('ordens_servico').select('status_os, tipo_os');
+  if ($('chartStatusOS') && osAC) {
+    const contagem = { Aberta: 0, 'Em Andamento': 0, Concluída: 0 };
+    osAC.forEach(o => { if (contagem[o.status_os] !== undefined) contagem[o.status_os]++; });
+    if (chartOS) chartOS.destroy();
+    chartOS = new Chart($('chartStatusOS'), {
+      type: 'doughnut',
+      data: {
+        labels: Object.keys(contagem),
+        datasets: [{ data: Object.values(contagem), backgroundColor: ['#f59e0b','#3b82f6','#10b981'], borderWidth: 2 }]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+  }
+
+  // Gráfico Criticidade
+  const { data: eqCrit } = await db.from('equipamentos').select('criticidade');
+  if ($('chartCriticidade') && eqCrit) {
+    const contagem = { Alta: 0, Média: 0, Baixa: 0 };
+    eqCrit.forEach(e => { if (contagem[e.criticidade] !== undefined) contagem[e.criticidade]++; });
+    if (chartCrit) chartCrit.destroy();
+    chartCrit = new Chart($('chartCriticidade'), {
+      type: 'bar',
+      data: {
+        labels: Object.keys(contagem),
+        datasets: [{ label: 'Ativos', data: Object.values(contagem), backgroundColor: ['#ef4444','#f59e0b','#10b981'] }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+    });
+  }
+
+  // Gráfico Facilities
+  const { data: osFac } = await db.from('ordens_servico_geral').select('status_os');
+  if ($('chartStatusOSG') && osFac) {
+    const contagem = { Aberta: 0, 'Em Andamento': 0, Concluída: 0 };
+    osFac.forEach(o => { if (contagem[o.status_os] !== undefined) contagem[o.status_os]++; });
+    if (chartOSG) chartOSG.destroy();
+    chartOSG = new Chart($('chartStatusOSG'), {
+      type: 'pie',
+      data: {
+        labels: Object.keys(contagem),
+        datasets: [{ data: Object.values(contagem), backgroundColor: ['#f59e0b','#8b5cf6','#10b981'], borderWidth: 2 }]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+  }
+
+  // Logs recentes
+  const { data: logsAC } = await db.from('ordens_servico').select('created_at, status_os, tipo_os, equipamentos(tag)').order('created_at', { ascending: false }).limit(5);
+  const el = $('dash-atividades');
+  if (el && logsAC) {
+    el.innerHTML = logsAC.length ? logsAC.map(l =>
+      `<div style="padding:8px 0;border-bottom:1px solid #e2e8f0;">
+        <span style="font-size:11px;color:#a0aec0;">${fmtDate(l.created_at)}</span>
+        <strong style="margin-left:8px;">${l.equipamentos?.tag || '—'}</strong>
+        <span style="margin-left:6px;color:#4a5568;">${l.tipo_os}</span>
+        ${statusBadge(l.status_os)}
+      </div>`
+    ).join('') : '<p style="color:#a0aec0;">Nenhum registro encontrado.</p>';
+  }
+}
+
+async function carregarAgendaManutencoes() {
+  const tbody = $('tbody-agenda-pmoc'); if (!tbody) return;
+  const { data } = await db.from('fichas_pmoc')
+    .select('proxima_manutencao, equipamentos(tag, bloco)')
+    .not('proxima_manutencao', 'is', null)
+    .order('proxima_manutencao', { ascending: true })
+    .limit(10);
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="td-loading">Nenhuma manutenção agendada.</td></tr>';
+    return;
+  }
+
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  tbody.innerHTML = data.map(f => {
+    const dt = new Date(f.proxima_manutencao + 'T00:00:00');
+    const diff = Math.ceil((dt - hoje) / (1000 * 60 * 60 * 24));
+    const status = diff < 0 ? '<span class="tag-badge danger">Vencida</span>'
+      : diff <= 7  ? '<span class="tag-badge warning">Urgente</span>'
+      : '<span class="tag-badge success">Programada</span>';
+    return `<tr>
+      <td><span class="tag-badge">${f.equipamentos?.tag || '—'}</span></td>
+      <td>${f.equipamentos?.bloco || '—'}</td>
+      <td>${fmtDate(f.proxima_manutencao)}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+}
