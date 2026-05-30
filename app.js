@@ -1,8 +1,4 @@
 // ===================== SUPABASE CONFIG =====================
-// ⚠️  SEGURANÇA:
-//   A ANON KEY abaixo é segura para o front-end pois é somente leitura pública.
-//   O acesso real aos dados é controlado por Row Level Security (RLS) no Supabase.
-//   NUNCA exponha a SERVICE_ROLE_KEY no front-end.
 const SUPABASE_URL      = "https://nweligwbglblbncaegir.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53ZWxpZ3diZ2xibGJuY2FlZ2lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwMzAzNTgsImV4cCI6MjA5NTYwNjM1OH0.6eKcn40QmcfvHKAxuDH3kB6vHBJUu5LUVzfr27dvbKk";
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -279,7 +275,7 @@ if ($('btn-limpar')) {
   });
 }
 
-// ===================== EQUIPAMENTOS — LISTAGEM + PAGINAÇÃO =====================
+// ===================== EQUIPAMENTOS — LISTAGEM =====================
 async function carregarEquipamentos() {
   const { data } = await db.from('equipamentos').select('*').order('tag', { ascending: true });
   globalEquipamentos = data || [];
@@ -692,7 +688,7 @@ function emitirRelatorioPMOC(b64) {
     bio_02:'[BIO-02] Rede de Drenagem — Desobstrução e Teste de Escoamento',
     mec_01:'[MEC-01] Conjunto Ventilação — Ruídos, Coxins e Fixadores',
     fil_02:'[FIL-02] Diferencial de Pressão de Filtros — Manômetro',
-    bio_03:'[BIO-03] Serpentinas — Limpeza Química por Pressão',
+    bio_03:'[BIO-03] Serpentinas — Limpeza Química por Presão',
     ele_01:'[ELE-01] Medição de Corrente/Tensão dos Compressores',
     ele_02:'[ELE-02] Reaperto dos Bornes de Comando e Potência',
     mec_02:'[MEC-02] Lubrificação de Rolamentos e Buchas do Motoventilador',
@@ -952,7 +948,7 @@ async function carregarOrdensServico() {
 
 function prepararEdicaoOS(b64) {
   const os = JSON.parse(decodeURIComponent(escape(atob(b64))));
-  if ($('os-equipamento')) $('os-equipamento').value = os.path === undefined ? os.equipamento_id : os.equipamento_id;
+  if ($('os-equipamento')) $('os-equipamento').value = os.equipamento_id;
   if ($('os-tecnico'))     $('os-tecnico').value     = os.colaborador_id;
   if ($('os-tipo'))        $('os-tipo').value        = os.tipo_os;
   if ($('os-status'))      $('os-status').value      = os.status_os;
@@ -993,10 +989,6 @@ function emitirLaudoOS(b64, numOS) {
       <div class="laudo-section-title">3. LAUDO TÉCNICO</div>
       <div class="laudo-obs">${os.laudo_tecnico||'Em andamento.'}</div>
     </div>
-    ${os.foto_url ? `<div class="laudo-section laudo-foto">
-      <div class="laudo-section-title">4. EVIDÊNCIA FOTOGRÁFICA</div>
-      <img src="${os.foto_url}" alt="Evidência"/>
-    </div>` : ''}
   </div>`;
   imprimir('area-os-impressao', html);
 }
@@ -1161,7 +1153,7 @@ async function carregarCentralUnificadaOS() {
   ].sort((a,b) => new Date(b.data) - new Date(a.data));
 
   tbody.innerHTML = linhas.length
-    ? linhas.map(l => `<tr>
+    ? lines.map(l => `<tr>
         <td><strong>${l.id}</strong></td><td>${fmtDate(l.data)}</td>
         <td>${l.mod}</td><td><small>${l.cat||'—'}</small></td>
         <td><span style="max-width:200px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(l.res||'—').slice(0,60)}</span></td>
@@ -1219,63 +1211,15 @@ async function renderizarGraficosDashboard() {
   const { data: dadosOSG } = await db.from('ordens_servico_geral').select('status_os');
   const contOSG = {}; (dadosOSG||[]).forEach(r => { contOSG[r.status_os]=(contOSG[r.status_os]||0)+1; });
   const ctxOSG = $('chartStatusOSG');
-  if (ctxOSG) {
-    if (chartOSG) chartOSG.destroy();
-    chartOSG = new Chart(ctxOSG.getContext('2d'), {
-      type: 'bar',
-      data: {
-        labels: Object.keys(contOSG).length ? Object.keys(contOSG) : ['Sem dados'],
-        datasets: [{ label: 'O.S. Facilities', data: Object.values(contOSG).length ? Object.values(contOSG) : [0], backgroundColor:['#f59e0b','#8b5cf6','#10b981'], borderRadius:5 }]
-      },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true,ticks:{stepSize:1},grid:{color:'#f1f5f9'}}, x:{grid:{display:false}} } }
-    });
-  }
-
-  const { data: logs, error: logsErr } = await db.from('logs_auditoria').select('*').order('created_at',{ascending:false}).limit(5);
-  const container = $('dash-atividades');
-  if (!container) return;
-
-  if (!logsErr && logs && logs.length) {
-    container.innerHTML = logs.map(l =>
-      `<div class="dash-atividade-item"><span>🔒</span><span><strong>${l.usuario_email||'Sistema'}</strong>: ${l.acao} em <em>${l.tabela}</em></span><span style="margin-left:auto;font-size:11px;color:#a0aec0;">${fmtDate(l.created_at)}</span></div>`
-    ).join('');
-  } else {
-    const { data: atv } = await db.from('ordens_servico')
-      .select('created_at, status_os, descricao_defeito, equipamentos(tag)')
-      .order('created_at',{ascending:false}).limit(5);
-    container.innerHTML = (atv||[]).length
-      ? (atv||[]).map(a => {
-          const cls = a.status_os==='Concluída' ? 'ok' : a.status_os==='Em Andamento' ? '' : 'warn';
-          return `<div class="dash-atividade-item ${cls}"><span>🛠️</span><span><strong>${a.equipamentos?.tag||'—'}</strong> — ${(a.descricao_defeito||'').slice(0,45)}</span><span style="margin-left:auto;font-size:11px;color:#a0aec0;">${fmtDate(a.created_at)}</span></div>`;
-        }).join('')
-      : '<p style="color:#a0aec0;font-size:13px;">Nenhuma atividade recente.</p>';
-  }
-}
-
-async function carregarAgendaManutencoes() {
-  const tbody = $('tbody-agenda-pmoc'); if (!tbody) return;
-  const { data, error } = await db.from('cronograma_pmoc')
-    .select('*, equipamentos(tag, bloco, setor)').order('data_prevista',{ascending:true}).limit(6);
-
-  if (!error && data && data.length) {
-    tbody.innerHTML = data.map(c => `<tr>
-      <td><span class="tag-badge">${c.equipamentos?.tag||'—'}</span></td>
-      <td>${c.equipamentos?.bloco||'—'} / ${c.equipamentos?.setor||'—'}</td>
-      <td>${fmtDate(c.data_prevista)}</td>
-      <td>${statusBadge(c.status)}</td>
-    </tr>`).join('');
-  } else {
-    const { data: fichas } = await db.from('fichas_pmoc')
-      .select('*, equipamentos(tag, bloco, setor)').order('created_at',{ascending:false}).limit(6);
-    tbody.innerHTML = (fichas||[]).length
-      ? (fichas||[]).map(f => `<tr>
-          <td><span class="tag-badge">${f.equipamentos?.tag||'—'}</span></td>
-          <td>${f.equipamentos?.bloco||'—'} / ${f.equipamentos?.setor||'—'}</td>
-          <td>${fmtDate(f.created_at)}</td>
-          <td>${statusBadge('Em Andamento')}</td>
-        </tr>`).join('')
-      : '<tr><td colspan="4" class="td-loading">Nenhum agendamento registrado.</td></tr>';
-  }
+  if (chartOSG) chartOSG.destroy();
+  chartOSG = new Chart(ctxOSG.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: Object.keys(contOSG).length ? Object.keys(contOSG) : ['Sem dados'],
+      datasets: [{ label: 'O.S. Facilities', data: Object.values(contOSG).length ? Object.values(contOSG) : [0], backgroundColor:['#f59e0b','#8b5cf6','#10b981'], borderRadius:5 }]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true,ticks:{stepSize:1},grid:{color:'#f1f5f9'}}, x:{grid:{display:false}} } }
+  });
 }
 
 // ===================== VALIDAÇÃO CPF =====================
@@ -1308,14 +1252,6 @@ function formatarCPF(valor) {
 
 document.querySelectorAll('.input-cpf').forEach(el => {
   el.addEventListener('input', (e) => { e.target.value = formatarCPF(e.target.value); });
-  el.addEventListener('blur', (e) => {
-    const val = e.target.value;
-    if (val && !validarCPF(val)) {
-      el.style.borderColor = 'var(--danger)';
-    } else {
-      el.style.borderColor = '';
-    }
-  });
 });
 
 // ===================== GESTÃO DE USUÁRIOS — CONVITE HÍBRIDO =====================
@@ -1350,24 +1286,18 @@ if ($('btn-admin-salvar-usuario')) {
       return;
     }
 
-    // Geração do link de contingência direto para o WhatsApp do Administrador
     const linkAtivacaoNativo = `${window.location.origin}/index.html?email=${encodeURIComponent(email)}&token=ativar`;
     
     if ($('adm-link-gerado') && $('wrapper-link-ativacao')) {
+      $('lbl-link-contexto').innerText = "🔗 Link de Ativação Gerado (Novo Cadastro):";
+      $('desc-link-contexto').innerText = "Copie o link abaixo e mande para o técnico via WhatsApp:";
       $('adm-link-gerado').value = linkAtivacaoNativo;
       $('wrapper-link-ativacao').style.display = 'block'; 
     }
 
-    const { error: authError } = await db.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/index.html`
-    });
-
-    if (authError) {
-      console.warn("Envio nativo restrito por limite de requisições SMTP:", authError.message);
-      msgForm('msg-admin-usuario', '⚠️ Perfil cadastrado! Forneça o link gerado abaixo diretamente ao operador.', 'blue');
-    } else {
-      msgForm('msg-admin-usuario', `✅ Perfil criado e convite disparado para ${email}!`, 'green');
-    }
+    // Dispara em background
+    await db.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/index.html` });
+    msgForm('msg-admin-usuario', `✅ Operador cadastrado! Link de ativação disponível abaixo.`, 'green');
     
     if ($('adm-user-cpf')) $('adm-user-cpf').value = '';
     if ($('adm-user-nome')) $('adm-user-nome').value = '';
@@ -1386,29 +1316,16 @@ async function carregarUsuariosSistema() {
   let lista = [];
   const { data: perfis, error } = await db.from('profiles').select('*').order('email', { ascending: true });
 
-  if (!error && perfis) {
-    lista = perfis;
-  }
+  if (!error && perfis) lista = perfis;
 
   const adminNaLista = lista.some(u => u.email === userAtual?.email);
   if (userAtual?.email && !adminNaLista) {
-    lista = [{
-      id: userAtual.id,
-      email: userAtual.email,
-      role: 'admin',
-      nome: userAtual.user_metadata?.nome || 'Administrador',
-      cpf: null,
-      status: 'ativo',
-      _isCurrentUser: true,
-    }, ...lista];
+    lista = [{ id: userAtual.id, email: userAtual.email, role: 'admin', nome: 'Administrador', cpf: null, status: 'ativo', _isCurrentUser: true }, ...lista];
   } else if (userAtual?.email) {
     lista = lista.map(u => u.email === userAtual.email ? { ...u, _isCurrentUser: true } : u);
   }
 
-  if (!lista.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="td-loading">Nenhum perfil cadastrado.</td></tr>';
-    return;
-  }
+  if (!lista.length) { tbody.innerHTML = '<tr><td colspan="5" class="td-loading">Nenhum perfil cadastrado.</td></tr>'; return; }
 
   const roleBadge = {
     admin:   '<span class="tag-badge danger">🛡️ Admin</span>',
@@ -1425,19 +1342,15 @@ async function carregarUsuariosSistema() {
     const isVoce = !!u._isCurrentUser;
     const cpfFmt = u.cpf ? u.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '—';
     return `<tr${isVoce ? ' style="background:#f0f7ff;"' : ''}>
-      <td>
-        <strong>${u.nome || u.email}</strong>
-        ${isVoce ? '<span class="tag-badge" style="background:#dbeafe;color:#1e40af;margin-left:6px;font-size:10px;">Você</span>' : ''}
-        <br><small style="color:#a0aec0;">${u.email}</small>
-      </td>
+      <td><strong>${u.nome || u.email}</strong>${isVoce ? '<span class="tag-badge" style="background:#dbeafe;color:#1e40af;margin-left:6px;font-size:10px;">Você</span>' : ''}<br><small style="color:#a0aec0;">${u.email}</small></td>
       <td>${cpfFmt}</td>
-      <td>${roleBadge[u.role] || `<span class="tag-badge">${u.role || '—'}</span>`}</td>
+      <td>${roleBadge[u.role] || `<span>${u.role || '—'}</span>`}</td>
       <td>${statusBadgeUser[u.status] || statusBadgeUser['ativo']}</td>
       <td>
         ${isVoce
           ? '<span style="color:#a0aec0;font-size:12px;">—</span>'
           : `<button class="btn-excluir" onclick="excluirPerfil('${u.id}','${u.email}')">✕ Revogar</button>
-             ${u.status === 'pendente' ? `<button class="btn-primary" style="padding:3px 6px;font-size:11px;margin-left:4px;" onclick="reenviarConvite('${u.email}')">↺ Reenviar</button>` : ''}`
+             ${u.status === 'pendente' ? `<button class="btn-primary" style="padding:3px 8px;font-size:11px;margin-left:4px;background:#d97706;border-color:#d97706;" onclick="reenviarConvite('${u.email}')">↺ Reenviar</button>` : ''}`
         }
       </td>
     </tr>`;
@@ -1446,17 +1359,27 @@ async function carregarUsuariosSistema() {
 
 async function excluirPerfil(id, email) {
   if (!confirm(`Revogar acesso de "${email}"?`)) return;
-  const { error } = await db.from('profiles').delete().eq('id', id);
-  if (!error) carregarUsuariosSistema();
+  await db.from('profiles').delete().eq('id', id);
+  await carregarUsuariosSistema();
 }
 
+// RECUPERAÇÃO E GERAÇÃO OPERACIONAL DE LINKS NA TELA (ALTERAÇÃO ATUAL)
 async function reenviarConvite(email) {
-  msgForm('msg-admin-usuario', `📨 Reenviando convite para ${email}...`, 'blue');
-  const { error } = await db.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.origin + '/index.html',
-  });
-  if (!error) msgForm('msg-admin-usuario', `✅ Convite reenviado!`, 'green');
-  else msgForm('msg-admin-usuario', 'Erro: ' + error.message, 'red');
+  if ($('wrapper-link-ativacao') && $('adm-link-gerado')) {
+    // Monta o link na hora para o administrador copiar
+    const linkRecuperado = `${window.location.origin}/index.html?email=${encodeURIComponent(email)}&token=ativar`;
+    
+    $('lbl-link-contexto').innerText = `🔗 Link de Reenvio Recuperado para: ${email}`;
+    $('desc-link-contexto').innerText = "O e-mail foi enfileirado no servidor. Copie o token de contingência abaixo para envio imediato via WhatsApp:";
+    $('adm-link-gerado').value = linkRecuperado;
+    $('wrapper-link-ativacao').style.display = 'block';
+    
+    // Rola a tela de forma suave até a caixa do link para facilitar a visualização
+    $('wrapper-link-ativacao').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // Aciona o disparo de e-mail opcional em background para manter a compatibilidade
+  await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/index.html' });
 }
 
 // ===================== SUB-ABAS CONTROLLERS =====================
@@ -1480,16 +1403,10 @@ function alternarSubAbasRH(modo) {
 // ===================== MOTOR UNIVERSAL DE IMPRESSÃO =====================
 function imprimir(areaId, html) {
   document.querySelectorAll('.print-only').forEach(el => { el.innerHTML = ''; });
-
   const area = $(areaId);
   if (!area) return;
   area.innerHTML = html;
-
   window.print();
-
-  const limpar = () => {
-    area.innerHTML = '';
-    window.removeEventListener('afterprint', limpar);
-  };
+  const limpar = () => { area.innerHTML = ''; window.removeEventListener('afterprint', limpar); };
   window.addEventListener('afterprint', limpar);
 }
