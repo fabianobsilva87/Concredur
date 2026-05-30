@@ -1446,47 +1446,46 @@ if ($('btn-admin-salvar-usuario')) {
 
     msgForm('msg-admin-usuario', '📨 Enviando convite...', 'blue');
 
-    // 1. Registra o perfil antecipado (pendente) na tabela profiles
-    const cpfLimpo = cpf.replace(/\D/g, '');
+    // Chama a Edge Function no servidor — ela usa SERVICE_ROLE_KEY para disparar
+    // o convite real via auth.admin.inviteUserByEmail, que cria o usuário em auth.users
+    // e envia o e-mail oficial do Supabase com link para definição de senha.
+    const { data: { session } } = await db.auth.getSession();
+    const token = session?.access_token;
 
-    // Gera UUID no cliente como fallback — protege contra bancos sem DEFAULT na coluna id
-    const novoId = crypto.randomUUID ? crypto.randomUUID()
-      : ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
-          (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
-
-    const { error: errProfile } = await db.from('profiles').insert([{
-      id: novoId,
-      email, role, nome, cpf: cpfLimpo,
-      status: 'pendente',
-    }]);
-
-    if (errProfile) {
-      // Se já existe, pode ser duplicata de e-mail ou CPF
-      if (errProfile.message?.includes('duplicate') || errProfile.message?.includes('unique')) {
-        msgForm('msg-admin-usuario', '⚠️ E-mail ou CPF já cadastrado no sistema.', 'red');
-      } else {
-        msgForm('msg-admin-usuario', 'Erro ao registrar: ' + errProfile.message, 'red');
+    const resp = await fetch(
+      `${db.supabaseUrl}/functions/v1/convidar-usuario`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${token}`,
+          'apikey':        db.supabaseKey,
+        },
+        body: JSON.stringify({
+          email,
+          nome,
+          role,
+          cpf,
+          redirectTo: `${window.location.origin}/index.html`,
+        }),
       }
+    );
+
+    const resultado = await resp.json();
+
+    if (!resp.ok) {
+      msgForm('msg-admin-usuario', '❌ ' + (resultado.error || 'Erro ao enviar convite.'), 'red');
       return;
     }
 
-    // 2. Dispara convite via Supabase Auth (disponível apenas com service role key no backend)
-    //    No front-end, usamos a API de reset de senha como fallback para convidar via e-mail
-    const { error: errInvite } = await db.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + '/index.html',
-    });
-
-    if (errInvite) {
-      // Convite não enviado mas perfil foi criado — avisa o admin
-      msgForm('msg-admin-usuario',
-        `✅ Perfil criado, mas o e-mail de convite falhou. Envie manualmente o link de acesso para ${email}.`, 'red');
-    } else {
-      msgForm('msg-admin-usuario',
-        `✅ Convite enviado para ${email}! O usuário receberá um link para definir sua senha.`, 'green');
-      // Limpa o formulário
-      ['adm-user-email','adm-user-cpf','adm-user-nome'].forEach(id => { if ($(id)) $(id).value = ''; });
-      carregarUsuariosSistema();
-    }
+    msgForm('msg-admin-usuario',
+      `✅ Convite enviado para ${email}! O usuário receberá o e-mail para definir a senha.`,
+      'green');
+    ['adm-user-email','adm-user-cpf','adm-user-nome'].forEach(id => { if ($(id)) $(id).value = ''; });
+    // Limpa ícones de validação
+    const icon = $('cpf-status-icon'); if (icon) icon.textContent = '';
+    const fb = $('cpf-feedback'); if (fb) { fb.style.color='#a0aec0'; fb.textContent='Validação automática pelo algoritmo da Receita Federal'; }
+    await carregarUsuariosSistema();
   });
 }
 
