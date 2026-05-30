@@ -1,0 +1,1082 @@
+// ===================== SUPABASE CONFIG CORE =====================
+const SUPABASE_URL = "https://nweligwbglblbncaegir.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53ZWxpZ3diZ2xibGJuY2FlZ2lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwMzAzNTgsImV4cCI6MjA5NTYwNjM1OH0.6eKcn40QmcfvHKAxuDH3kB6vHBJUu5LUVzfr27dvbKk";
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ===================== ESTADO GLOBAL =====================
+let globalEquipamentos = [];
+let paginaAtualEquipamento = 0;
+const itensPorPagina = 8;
+let chartOS = null, chartCrit = null, chartOSG = null;
+let modoRecuperacao = false;
+
+// Canvas assinatura
+let canvas = document.getElementById('canvas-assinatura');
+let ctx = canvas ? canvas.getContext('2d') : null;
+let desenhando = false;
+
+// ===================== UTILITÁRIOS =====================
+const $ = (id) => document.getElementById(id);
+const fmtDate = (iso) => iso ? new Date(iso.includes('T') ? iso : iso + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
+const hoje = () => new Date().toISOString().split('T')[0];
+
+function statusBadge(status) {
+  const cls = status === 'Concluída' ? 'success' : status === 'Em Andamento' ? 'andamento' : 'warning';
+  return `<span class="tag-badge ${cls}">${status}</span>`;
+}
+
+function msgForm(id, texto, cor) {
+  const el = $(id);
+  if (!el) return;
+  el.style.color = cor === 'red' ? '#dc2626' : cor === 'green' ? '#059669' : '#1a56db';
+  el.innerText = texto;
+  if (cor === 'green') setTimeout(() => { el.innerText = ''; }, 4000);
+}
+
+async function uploadFoto(file, pasta) {
+  if (!file) return null;
+  const ext = file.name.split('.').pop();
+  const nome = `${pasta}/foto_${Date.now()}.${ext}`;
+  const { data } = await db.storage.from('fotos-pmoc').upload(nome, file);
+  return data ? db.storage.from('fotos-pmoc').getPublicUrl(nome).data.publicUrl : null;
+}
+
+// ===================== SESSÃO & ROTEAMENTO =====================
+async function verificarSessaoGlobal() {
+  const { data: { session } } = await db.auth.getSession();
+  const pag = window.location.pathname.split('/').pop();
+  if (!session) {
+    if (pag !== '' && pag !== 'index.html') window.location.href = 'index.html';
+  } else {
+    if (pag === '' || pag === 'index.html') window.location.href = 'dashboard.html';
+    if ($('user-display-email')) $('user-display-email').innerText = session.user.email;
+  }
+}
+verificarSessaoGlobal();
+
+if ($('btn-logout')) {
+  $('btn-logout').addEventListener('click', async () => {
+    if (confirm('Encerrar sessão?')) { await db.auth.signOut(); window.location.href = 'index.html'; }
+  });
+}
+
+// ===================== MODO RECUPERAÇÃO DE SENHA =====================
+function toggleModoRecuperacao(ativar) {
+  modoRecuperacao = ativar;
+  if ($('login-title')) $('login-title').innerText = ativar ? 'Recuperação de Acesso' : 'Acesso ao Sistema';
+  if ($('login-desc')) $('login-desc').innerText = ativar ? 'Digite seu e-mail para receber o link de redefinição.' : 'Informe suas credenciais para continuar';
+  if ($('login-password-group')) $('login-password-group').style.display = ativar ? 'none' : 'flex';
+  if ($('link-recuperar')) $('link-recuperar').style.display = ativar ? 'none' : 'inline';
+  if ($('link-voltar')) $('link-voltar').style.display = ativar ? 'inline' : 'none';
+  if ($('btn-login')) $('btn-login').querySelector('span').nextSibling.textContent = ativar ? ' Enviar Link' : ' Entrar no Sistema';
+}
+
+// ===================== CANVAS DE ASSINATURA DIGITAL =====================
+function inicializarCanvasAssinatura() {
+  canvas = document.getElementById('canvas-assinatura');
+  if (!canvas) return;
+  ctx = canvas.getContext('2d');
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#1a202c';
+  ctx.lineCap = 'round';
+
+  const getPos = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const src = e.touches ? e.touches[0] : e;
+    return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+  };
+
+  canvas.addEventListener('mousedown', (e) => { desenhando = true; ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); });
+  canvas.addEventListener('mousemove', (e) => { if (!desenhando) return; e.preventDefault(); const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); });
+  window.addEventListener('mouseup', () => desenhando = false);
+  canvas.addEventListener('touchstart', (e) => { desenhando = true; ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); }, { passive: true });
+  canvas.addEventListener('touchmove', (e) => { if (!desenhando) return; e.preventDefault(); const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); }, { passive: false });
+  window.addEventListener('touchend', () => desenhando = false);
+}
+function limparCanvasAssinatura() { if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height); }
+
+// Máscara CPF
+if ($('colab-cpf')) {
+  $('colab-cpf').addEventListener('input', (e) => {
+    let v = e.target.value.replace(/\D/g, '').slice(0, 11);
+    v = v.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    e.target.value = v;
+  });
+}
+
+// ===================== CRITICIDADE =====================
+function calcularCriticidadeFluxograma() {
+  const el = (id) => $(id);
+  if (!el('crit-interrupcao')) return 'Média';
+  const i = el('crit-interrupcao').value, s = el('crit-seguranca').value;
+  const o = el('crit-operacao').value,  r = el('crit-reserva').value;
+  const res = (i === 'sim' || s === 'sim')
+    ? (r === 'nao' ? 'Alta (A)' : 'Média (B)')
+    : (o === 'sim' ? (r === 'nao' ? 'Média (B)' : 'Baixa (C)') : 'Baixa (C)');
+  if ($('label-criticidade-calculada')) $('label-criticidade-calculada').innerText = 'Classe ' + res;
+  return res.split(' ')[0];
+}
+
+// ===================== TOGGLE CHECKLIST PMOC =====================
+function toggleItemsPorFrequencia() {
+  const freq = $('pmoc-frequencia')?.value;
+  document.querySelectorAll('.freq-item-t').forEach(el => {
+    el.style.display = freq === 'T' ? '' : 'none';
+    if (freq !== 'T') el.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
+  });
+}
+
+// ===================== EQUIPAMENTOS — CADASTRO =====================
+if ($('btn-salvar')) {
+  $('btn-salvar').addEventListener('click', async () => {
+    const tag = $('eq-tag').value.trim();
+    if (!tag) { msgForm('msg-equipamento', 'TAG é obrigatória.', 'red'); return; }
+    msgForm('msg-equipamento', 'Salvando...', 'blue');
+    const payload = {
+      tag,
+      marca:       $('eq-marca')?.value.trim()       || null,
+      potencia:    $('eq-potencia')?.value.trim()    || null,
+      nr_serie:    $('eq-serie')?.value.trim()       || null,
+      patrimonio:  $('eq-patrimonio')?.value.trim()  || null,
+      produto:     $('eq-produto')?.value.trim()     || null,
+      bloco:       $('eq-bloco')?.value.trim()       || null,
+      setor:       $('eq-setor')?.value.trim()       || null,
+      sala:        $('eq-sala')?.value.trim()        || null,
+      instituicao: $('eq-instituicao')?.value.trim() || null,
+      validade:    $('eq-validade')?.value.trim()    || null,
+      criticidade: calcularCriticidadeFluxograma(),
+    };
+    const { error } = await db.from('equipamentos').insert([payload]);
+    if (error) { msgForm('msg-equipamento', 'Erro: ' + error.message, 'red'); return; }
+    msgForm('msg-equipamento', '✓ Equipamento salvo!', 'green');
+    setTimeout(() => location.href = 'gerir-equipamentos.html', 1200);
+  });
+}
+if ($('btn-limpar')) {
+  $('btn-limpar').addEventListener('click', () => {
+    document.querySelectorAll('#eq-tag,#eq-marca,#eq-potencia,#eq-serie,#eq-patrimonio,#eq-produto,#eq-bloco,#eq-setor,#eq-sala,#eq-instituicao,#eq-validade')
+      .forEach(el => { if (el) el.value = ''; });
+    if ($('label-criticidade-calculada')) $('label-criticidade-calculada').innerText = 'Classe Média (B)';
+  });
+}
+
+// ===================== EQUIPAMENTOS — LISTAGEM + PAGINAÇÃO + QR =====================
+async function carregarEquipamentos() {
+  const { data } = await db.from('equipamentos').select('*').order('tag', { ascending: true });
+  globalEquipamentos = data || [];
+  filtrarEquipamentos(0);
+  atualizarSelectEquipamentos();
+}
+
+function filtrarEquipamentos(delta) {
+  paginaAtualEquipamento = Math.max(0, paginaAtualEquipamento + delta);
+  const termo  = ($('search-eq-termo')?.value  || '').toLowerCase();
+  const crit   = ($('search-eq-criticidade')?.value || '');
+  const bloco  = ($('search-eq-bloco')?.value  || '').toLowerCase();
+
+  let items = globalEquipamentos.filter(e =>
+    (!termo  || e.tag.toLowerCase().includes(termo) || (e.produto || '').toLowerCase().includes(termo)) &&
+    (!crit   || (e.criticidade || '') === crit) &&
+    (!bloco  || (e.bloco || '').toLowerCase().includes(bloco))
+  );
+
+  const total = Math.max(1, Math.ceil(items.length / itensPorPagina));
+  paginaAtualEquipamento = Math.min(paginaAtualEquipamento, total - 1);
+  if ($('txt-eq-paginacao')) $('txt-eq-paginacao').innerText = `Página ${paginaAtualEquipamento + 1} de ${total}`;
+
+  const slice = items.slice(paginaAtualEquipamento * itensPorPagina, (paginaAtualEquipamento + 1) * itensPorPagina);
+  const tbody = $('tbody-equipamentos-gerir');
+  if (!tbody) return;
+
+  if (!slice.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="td-loading">Nenhum equipamento encontrado.</td></tr>'; return;
+  }
+
+  tbody.innerHTML = slice.map(eq => {
+    const critCls = eq.criticidade === 'Alta' ? 'danger' : eq.criticidade === 'Baixa' ? 'success' : '';
+    return `<tr>
+      <td><span class="tag-badge">${eq.tag}</span></td>
+      <td><strong>${eq.produto || '—'}</strong><br><small style="color:#a0aec0">${eq.marca || ''}</small></td>
+      <td>${eq.bloco || '—'} / ${eq.setor || '—'}<br><small style="color:#a0aec0">${eq.sala || ''}</small></td>
+      <td><span class="tag-badge ${critCls}">Classe ${eq.criticidade || 'Média'}</span></td>
+      <td>${eq.qrcode_token
+        ? `<button class="btn-primary" style="padding:3px 8px;font-size:11px;" onclick="exibirJanelaQRCode('${eq.qrcode_token}','${eq.tag}')">👁️ QR</button>`
+        : '<span style="color:#a0aec0;font-size:11px;">—</span>'}</td>
+      <td>
+        <button class="btn-primary" style="background:#4a5568;padding:3px 8px;font-size:11px;" onclick="editarEquipamento('${eq.id}')">✍️</button>
+        <button class="btn-excluir" onclick="excluirEquipamento('${eq.id}')">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function mudarPaginaEquipamento(d) { filtrarEquipamentos(d); }
+
+async function excluirEquipamento(id) {
+  if (!confirm('Remover este equipamento?')) return;
+  await db.from('equipamentos').delete().eq('id', id);
+  carregarEquipamentos();
+}
+
+function editarEquipamento(id) {
+  location.href = 'equipamentos.html?edit=' + id;
+}
+
+function exibirJanelaQRCode(token, tag) {
+  const alvo = $('qrcode-temp-generator');
+  if (!alvo) return;
+  alvo.innerHTML = '';
+  new QRCode(alvo, { text: window.location.origin + '/pmoc.html?token=' + token, width: 160, height: 160 });
+  setTimeout(() => {
+    const img = alvo.querySelector('img');
+    if (!img) return;
+    const win = window.open('', '_blank', 'width=340,height=360');
+    win.document.write(`
+      <html><head><title>QR Code — ${tag}</title></head>
+      <body style="text-align:center;font-family:sans-serif;padding:20px;">
+        <h3 style="margin-bottom:10px;">🏗️ Ativo: <strong>${tag}</strong></h3>
+        <img src="${img.src}" style="border:1px solid #ccc;padding:10px;"/>
+        <br><small style="color:#888;">Escaneie para abrir PMOC deste ativo</small>
+        <br><button onclick="window.print()" style="margin-top:14px;padding:8px 18px;background:#1a56db;color:#fff;border:none;border-radius:4px;cursor:pointer;">🖨️ Imprimir</button>
+      </body></html>`);
+  }, 250);
+}
+
+async function atualizarSelectEquipamentos() {
+  const { data } = await db.from('equipamentos').select('id, tag, produto');
+  ['pmoc-equipamento', 'os-equipamento'].map($).filter(Boolean).forEach(sel => {
+    sel.innerHTML = '<option value="">-- Selecione o Ativo --</option>';
+    (data || []).forEach(e => { sel.innerHTML += `<option value="${e.id}">${e.tag} — ${e.produto || ''}</option>`; });
+  });
+}
+
+async function carregarAtivoViaTokenQRCode(token) {
+  const { data } = await db.from('equipamentos').select('id').eq('qrcode_token', token).single();
+  if (data && $('pmoc-equipamento')) $('pmoc-equipamento').value = data.id;
+}
+
+// Verificar modo edição de equipamento
+(async () => {
+  const params = new URLSearchParams(window.location.search);
+  const editId = params.get('edit');
+  if (editId && $('eq-tag')) {
+    const { data } = await db.from('equipamentos').select('*').eq('id', editId).single();
+    if (data) {
+      ['tag','marca','potencia','serie','patrimonio','produto','bloco','setor','sala','instituicao','validade'].forEach(k => {
+        const dbKey = k === 'serie' ? 'nr_serie' : k;
+        if ($('eq-' + k)) $('eq-' + k).value = data[dbKey] || '';
+      });
+      if ($('msg-equipamento')) $('msg-equipamento').innerText = '(Modo Edição — salvar substituirá o registro)';
+      if ($('btn-salvar')) {
+        $('btn-salvar').innerText = '💾 Atualizar Equipamento';
+        $('btn-salvar').onclick = async (ev) => {
+          ev.stopImmediatePropagation();
+          const payload = {
+            tag: $('eq-tag').value.trim(), marca: $('eq-marca').value.trim(),
+            potencia: $('eq-potencia').value.trim(), nr_serie: $('eq-serie').value.trim(),
+            patrimonio: $('eq-patrimonio').value.trim(), produto: $('eq-produto').value.trim(),
+            bloco: $('eq-bloco').value.trim(), setor: $('eq-setor').value.trim(),
+            sala: $('eq-sala').value.trim(), instituicao: $('eq-instituicao').value.trim(),
+            validade: $('eq-validade').value.trim(), criticidade: calcularCriticidadeFluxograma(),
+          };
+          await db.from('equipamentos').update(payload).eq('id', editId);
+          msgForm('msg-equipamento', '✓ Equipamento atualizado!', 'green');
+          setTimeout(() => location.href = 'gerir-equipamentos.html', 1000);
+        };
+      }
+    }
+  }
+})();
+
+// ===================== COLABORADORES & FUNÇÕES =====================
+async function atualizarSelectColaboradores() {
+  const { data } = await db.from('colaboradores').select('id, nome');
+  ['pmoc-tecnico', 'os-tecnico', 'osg-tecnico'].map($).filter(Boolean).forEach(sel => {
+    sel.innerHTML = '<option value="">-- Selecione o Colaborador --</option>';
+    (data || []).forEach(c => { sel.innerHTML += `<option value="${c.id}">${c.nome}</option>`; });
+  });
+}
+
+async function atualizarSelectFuncoes() {
+  const sel = $('colab-funcao');
+  if (!sel) return;
+  const { data } = await db.from('funcoes').select('id, nome');
+  sel.innerHTML = '<option value="">-- Selecione uma Função --</option>';
+  (data || []).forEach(f => { sel.innerHTML += `<option value="${f.id}">${f.nome}</option>`; });
+}
+
+async function carregarColaboradores() {
+  const tbody = $('tbody-colaboradores'); if (!tbody) return;
+  const { data } = await db.from('colaboradores').select('*, funcoes(nome)').order('nome', { ascending: true });
+  tbody.innerHTML = (data || []).length
+    ? (data || []).map(c => `<tr>
+        <td><strong>${c.nome}</strong></td><td>${c.cpf || '—'}</td>
+        <td>${c.funcoes?.nome || '—'}</td>
+        <td><button class="btn-excluir" onclick="excluirColaborador('${c.id}')">✕</button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="4" class="td-loading">Nenhum colaborador cadastrado.</td></tr>';
+}
+async function excluirColaborador(id) {
+  if (confirm('Remover colaborador?')) { await db.from('colaboradores').delete().eq('id', id); carregarColaboradores(); }
+}
+
+async function carregarFuncoes() {
+  const tbody = $('tbody-funcoes'); if (!tbody) return;
+  const { data } = await db.from('funcoes').select('*').order('nome', { ascending: true });
+  tbody.innerHTML = (data || []).length
+    ? (data || []).map(f => `<tr>
+        <td><strong>${f.nome}</strong></td><td>${f.nivel || '—'}</td>
+        <td>R$ ${Number(f.salario || 0).toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
+        <td><button class="btn-excluir" onclick="excluirFuncao('${f.id}')">✕</button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="4" class="td-loading">Nenhuma função cadastrada.</td></tr>';
+}
+async function excluirFuncao(id) {
+  if (confirm('Remover função?')) { await db.from('funcoes').delete().eq('id', id); carregarFuncoes(); }
+}
+
+// Listeners de formulário — RH
+if ($('btn-salvar-colaborador')) {
+  $('btn-salvar-colaborador').addEventListener('click', async () => {
+    const nome = $('colab-nome')?.value.trim();
+    const cpf  = $('colab-cpf')?.value.trim();
+    if (!nome || !cpf) { msgForm('msg-colaborador', 'Nome e CPF obrigatórios.', 'red'); return; }
+    const { error } = await db.from('colaboradores').insert([{ nome, cpf, funcao_id: $('colab-funcao')?.value || null }]);
+    if (!error) { msgForm('msg-colaborador', '✓ Colaborador salvo!', 'green'); carregarColaboradores(); atualizarSelectColaboradores(); if ($('colab-nome')) $('colab-nome').value = ''; if ($('colab-cpf')) $('colab-cpf').value = ''; }
+    else msgForm('msg-colaborador', 'Erro: ' + error.message, 'red');
+  });
+}
+if ($('btn-salvar-funcao')) {
+  $('btn-salvar-funcao').addEventListener('click', async () => {
+    const nome = $('func-nome')?.value.trim();
+    if (!nome) { msgForm('msg-funcao', 'Nome da função obrigatório.', 'red'); return; }
+    const { error } = await db.from('funcoes').insert([{ nome, salario: parseFloat($('func-salario')?.value) || 0, nivel: $('func-nivel')?.value || 'Pleno' }]);
+    if (!error) { msgForm('msg-funcao', '✓ Função salva!', 'green'); carregarFuncoes(); atualizarSelectFuncoes(); if ($('func-nome')) $('func-nome').value = ''; }
+    else msgForm('msg-funcao', 'Erro: ' + error.message, 'red');
+  });
+}
+
+// ===================== FORMULÁRIO PMOC =====================
+if ($('btn-salvar-ficha')) {
+  $('btn-salvar-ficha').addEventListener('click', async () => {
+    const equipamento_id = $('pmoc-equipamento')?.value;
+    const tecnico_id     = $('pmoc-tecnico')?.value;
+    if (!equipamento_id || !tecnico_id) { msgForm('msg-ficha', 'Selecione o equipamento e o técnico.', 'red'); return; }
+    msgForm('msg-ficha', 'Salvando...', 'blue');
+
+    const freq = $('pmoc-frequencia')?.value || 'M';
+    const dataInsp = $('pmoc-data')?.value || hoje();
+    const obs = $('pmoc-obs')?.value.trim() || '';
+
+    // Coleta checklist
+    const checkItems = [
+      { nome: '[FIL-01] Filtros de Ar (G4/F7/F9)',          campo: 'fil_01' },
+      { nome: '[BIO-01] Bandeja condensado / Pastilha',      campo: 'bio_01' },
+      { nome: '[BIO-02] Dreno e escoamento de água',         campo: 'bio_02' },
+      { nome: '[MEC-01] Ruídos e fixação do motoventilador', campo: 'mec_01' },
+      { nome: '[FIL-02] Diferencial de pressão dos filtros', campo: 'fil_02' },
+      { nome: '[BIO-03] Limpeza química das serpentinas',    campo: 'bio_03' },
+      { nome: '[ELE-01] Medição elétrica do compressor',     campo: 'ele_01' },
+      { nome: '[ELE-02] Reaperto de contatos e painel',      campo: 'ele_02' },
+    ];
+    const checklistResult = {};
+    checkItems.forEach(item => {
+      const sel = document.querySelector(`input[name="${item.campo}"]:checked`);
+      checklistResult[item.campo] = sel ? sel.value : 'NA';
+    });
+
+    // Assinatura digital
+    let assinaturaBase64 = null;
+    if (canvas && ctx) {
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const hasPixels = imageData.data.some((v, i) => i % 4 === 3 && v > 0);
+      if (hasPixels) assinaturaBase64 = canvas.toDataURL('image/png');
+    }
+
+    const obsCompleto = `[DataInspecao: ${dataInsp}]\n[Frequencia: ${freq === 'T' ? 'Trimestral' : 'Mensal'}]\n[Checklist: ${JSON.stringify(checklistResult)}]\n${obs}`;
+
+    const foto_url = await uploadFoto($('pmoc-foto')?.files[0], 'pmoc');
+    const { data: colab } = await db.from('colaboradores').select('nome').eq('id', tecnico_id).single();
+    const { data: { user } } = await db.auth.getUser();
+
+    const payload = {
+      equipamento_id, tecnico_nome: colab?.nome || 'Técnico',
+      observacoes: obsCompleto, user_id: user?.id,
+    };
+    if (foto_url) payload.foto_url = foto_url;
+    if (assinaturaBase64) payload.assinatura_digital = assinaturaBase64;
+
+    const { error } = await db.from('fichas_pmoc').insert([payload]);
+    if (error) { msgForm('msg-ficha', 'Erro: ' + error.message, 'red'); return; }
+    msgForm('msg-ficha', '✓ Laudo PMOC salvo com sucesso!', 'green');
+    limparCanvasAssinatura();
+    if ($('pmoc-obs')) $('pmoc-obs').value = '';
+    if ($('pmoc-foto')) $('pmoc-foto').value = '';
+    document.querySelectorAll('.pmoc-checklist-container input[type="radio"]').forEach(r => r.checked = false);
+    await carregarHistoricoFichas();
+    alternarSubAbasPMOC('hist');
+  });
+}
+
+async function carregarHistoricoFichas() {
+  const tbody = $('tbody-fichas'); if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" class="td-loading">Carregando histórico...</td></tr>';
+  const { data } = await db.from('fichas_pmoc')
+    .select('*, equipamentos(tag, marca, potencia, nr_serie, patrimonio, produto, bloco, setor, sala, instituicao)')
+    .order('created_at', { ascending: false });
+
+  if (!data || !data.length) { tbody.innerHTML = '<tr><td colspan="6" class="td-loading">Nenhum laudo encontrado.</td></tr>'; return; }
+
+  tbody.innerHTML = data.map(f => {
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(f))));
+    const matchData = f.observacoes?.match(/\[DataInspecao:\s*([\d-]+)\]/);
+    const dataFmt = matchData ? fmtDate(matchData[1]) : fmtDate(f.created_at);
+    const freq = f.observacoes?.includes('Trimestral') ? 'Trimestral' : 'Mensal';
+    const laudoID = 'L-PMOC-' + f.id.toString().slice(0,6).toUpperCase();
+    return `<tr>
+      <td><strong>${laudoID}</strong></td>
+      <td>${dataFmt}</td>
+      <td><span class="tag-badge">${f.equipamentos?.tag || '—'}</span></td>
+      <td>${f.tecnico_nome}</td>
+      <td>${freq}</td>
+      <td>
+        <button class="btn-primary" style="padding:4px 12px;font-size:12px;" onclick="emitirRelatorioPMOC('${b64}')">🖨️ Emitir</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ===================== IMPRESSÃO PMOC =====================
+function emitirRelatorioPMOC(b64) {
+  const f = JSON.parse(decodeURIComponent(escape(atob(b64))));
+  const eq = f.equipamentos || {};
+  const obs = f.observacoes || '';
+  const laudoID = 'L-PMOC-' + f.id.toString().slice(0,6).toUpperCase();
+
+  const matchData = obs.match(/\[DataInspecao:\s*([\d-]+)\]/);
+  const matchFreq = obs.match(/\[Frequencia:\s*([^\]]+)\]/);
+  const matchChk  = obs.match(/\[Checklist:\s*(\{[^}]+\})\]/);
+  const dataFmt   = matchData ? fmtDate(matchData[1]) : fmtDate(f.created_at);
+  const freq      = matchFreq ? matchFreq[1] : '—';
+  let obsLimpa    = obs
+    .replace(/\[DataInspecao:[^\]]+\]/g, '')
+    .replace(/\[Frequencia:[^\]]+\]/g, '')
+    .replace(/\[Checklist:[^\]]+\]/g, '')
+    .trim();
+
+  const nomes = {
+    fil_01:'[FIL-01] Filtros de Ar (G4/F7/F9)',
+    bio_01:'[BIO-01] Bandeja condensado / Pastilha',
+    bio_02:'[BIO-02] Dreno e escoamento de água',
+    mec_01:'[MEC-01] Ruídos e fixação do motoventilador',
+    fil_02:'[FIL-02] Diferencial de pressão dos filtros',
+    bio_03:'[BIO-03] Limpeza química das serpentinas',
+    ele_01:'[ELE-01] Medição elétrica do compressor',
+    ele_02:'[ELE-02] Reaperto de contatos e painel',
+  };
+
+  let checklistHTML = '';
+  if (matchChk) {
+    try {
+      const chk = JSON.parse(matchChk[1]);
+      const rows = Object.entries(chk).map(([k, v]) => {
+        const cls = v === 'C' ? 'check-c' : v === 'NC' ? 'check-nc' : 'check-na';
+        return `<tr><td>${nomes[k] || k}</td><td class="${cls}"><strong>${v}</strong></td></tr>`;
+      }).join('');
+      checklistHTML = `<div class="laudo-section">
+        <div class="laudo-section-title">3. CHECKLIST DE ROTINAS TÉCNICAS</div>
+        <table class="checklist-print-table">
+          <thead><tr><th>Rotina Técnica</th><th style="width:80px;text-align:center;">Resultado</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>`;
+    } catch(_) {}
+  }
+
+  const assinaturaHTML = f.assinatura_digital
+    ? `<div style="text-align:center;margin-top:8px;"><img src="${f.assinatura_digital}" style="max-width:200px;max-height:70px;border:1px dashed #ccc;" alt="Assinatura digital"/></div>`
+    : '';
+
+  const html = `
+  <div class="laudo-wrapper">
+    <div class="laudo-header">
+      <div class="empresa">MANUTENÇÃO CONCREDUR — Sistema Integrado de Gestão</div>
+      <h1>FORMULÁRIO DE MANUTENÇÃO PREVENTIVA — PMOC</h1>
+      <div class="doc-id">Código: ${laudoID}</div>
+      <div class="doc-sub">Conforme Portaria MS nº 3.523/98 &nbsp;|&nbsp; Frequência: ${freq} &nbsp;|&nbsp; Data da Inspeção: ${dataFmt}</div>
+    </div>
+
+    <div class="laudo-section">
+      <div class="laudo-section-title">1. IDENTIFICAÇÃO DO ATIVO</div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">TAG / Código:</span><span class="info-value">${eq.tag||'—'}</span></div>
+        <div class="info-item"><span class="info-label">Produto / Tipo:</span><span class="info-value">${eq.produto||'—'}</span></div>
+        <div class="info-item"><span class="info-label">Marca:</span><span class="info-value">${eq.marca||'—'}</span></div>
+        <div class="info-item"><span class="info-label">Potência:</span><span class="info-value">${eq.potencia||'—'}</span></div>
+        <div class="info-item"><span class="info-label">Nº de Série:</span><span class="info-value">${eq.nr_serie||'—'}</span></div>
+        <div class="info-item"><span class="info-label">Patrimônio:</span><span class="info-value">${eq.patrimonio||'—'}</span></div>
+        <div class="info-item"><span class="info-label">Bloco / Edificação:</span><span class="info-value">${eq.bloco||'—'}</span></div>
+        <div class="info-item"><span class="info-label">Setor:</span><span class="info-value">${eq.setor||'—'}</span></div>
+        <div class="info-item"><span class="info-label">Sala:</span><span class="info-value">${eq.sala||'—'}</span></div>
+        <div class="info-item"><span class="info-label">Instituição:</span><span class="info-value">${eq.instituicao||'—'}</span></div>
+      </div>
+    </div>
+
+    <div class="laudo-section">
+      <div class="laudo-section-title">2. RESPONSÁVEL TÉCNICO</div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">Técnico:</span><span class="info-value"><strong>${f.tecnico_nome}</strong></span></div>
+        <div class="info-item"><span class="info-label">Data da Inspeção:</span><span class="info-value">${dataFmt}</span></div>
+      </div>
+    </div>
+
+    ${checklistHTML}
+
+    ${obsLimpa ? `<div class="laudo-section">
+      <div class="laudo-section-title">4. OBSERVAÇÕES TÉCNICAS / ANOMALIAS</div>
+      <div class="laudo-obs">${obsLimpa}</div>
+    </div>` : ''}
+
+    ${f.foto_url ? `<div class="laudo-section laudo-foto">
+      <div class="laudo-section-title">5. EVIDÊNCIA FOTOGRÁFICA</div>
+      <img src="${f.foto_url}" alt="Foto da inspeção"/>
+    </div>` : ''}
+
+    <div class="laudo-footer">
+      <div class="assinatura-box">
+        ${assinaturaHTML}
+        <div class="assinatura-linha" style="${f.assinatura_digital ? 'margin-top:4px;' : 'margin-top:50px;'}"></div>
+        <div class="assinatura-label">Técnico Responsável: <strong>${f.tecnico_nome}</strong></div>
+      </div>
+      <div class="assinatura-box">
+        <div class="assinatura-linha" style="margin-top:60px;"></div>
+        <div class="assinatura-label">Supervisor / Gestor da Unidade</div>
+      </div>
+    </div>
+
+    <div class="laudo-rodape">
+      Documento gerado em ${new Date().toLocaleString('pt-BR')} &nbsp;|&nbsp; ${laudoID} &nbsp;|&nbsp; Manutenção Concredur
+    </div>
+  </div>`;
+
+  imprimir('area-laudo-impressao', html);
+}
+
+// ===================== ORDENS DE SERVIÇO — AR CONDICIONADO =====================
+if ($('btn-salvar-os')) {
+  $('btn-salvar-os').addEventListener('click', async () => {
+    const equipamento_id    = $('os-equipamento')?.value;
+    const colaborador_id    = $('os-tecnico')?.value;
+    const tipo_os           = $('os-tipo')?.value;
+    const status_os         = $('os-status')?.value;
+    const descricao_defeito = $('os-defeito')?.value.trim();
+    const laudo_tecnico     = $('os-laudo')?.value.trim();
+    const idEdicao          = $('os-id-edicao')?.value;
+
+    if (!equipamento_id || !colaborador_id || !descricao_defeito) {
+      msgForm('msg-os', 'Equipamento, técnico e defeito são obrigatórios.', 'red'); return;
+    }
+    msgForm('msg-os', 'Gravando...', 'blue');
+
+    const foto_url = await uploadFoto($('os-foto')?.files[0], 'os_clima');
+    const payload = { equipamento_id, colaborador_id, tipo_os, status_os, descricao_defeito, laudo_tecnico };
+    if (foto_url) payload.foto_url = foto_url;
+
+    let resposta;
+    if (idEdicao) {
+      resposta = await db.from('ordens_servico').update(payload).eq('id', idEdicao);
+    } else {
+      const { data: { user } } = await db.auth.getUser();
+      payload.user_id = user?.id;
+      resposta = await db.from('ordens_servico').insert([payload]);
+    }
+
+    if (resposta.error) { msgForm('msg-os', 'Erro: ' + resposta.error.message, 'red'); return; }
+    msgForm('msg-os', idEdicao ? '✓ O.S. atualizada!' : '✓ O.S. salva!', 'green');
+    resetarFormOS();
+    await carregarOrdensServico();
+    await carregarCentralUnificadaOS();
+  });
+}
+
+function resetarFormOS() {
+  ['os-defeito','os-laudo'].forEach(id => { if ($(id)) $(id).value = ''; });
+  ['os-equipamento','os-tecnico','os-foto'].forEach(id => { if ($(id)) $(id).value = ''; });
+  if ($('os-id-edicao')) $('os-id-edicao').value = '';
+  if ($('titulo-formulario-os')) $('titulo-formulario-os').innerText = 'Abertura / Atualização de O.S. Técnica';
+  if ($('btn-cancelar-edicao-os')) $('btn-cancelar-edicao-os').style.display = 'none';
+}
+if ($('btn-cancelar-edicao-os')) $('btn-cancelar-edicao-os').addEventListener('click', resetarFormOS);
+
+async function carregarOrdensServico() {
+  const tbody = $('tbody-os'); if (!tbody) return;
+  const { data } = await db.from('ordens_servico')
+    .select('id, created_at, tipo_os, status_os, descricao_defeito, laudo_tecnico, equipamento_id, colaborador_id, foto_url, equipamentos(tag), colaboradores(nome)')
+    .order('created_at', { ascending: false });
+
+  if (!data || !data.length) { tbody.innerHTML = '<tr><td colspan="6" class="td-loading">Nenhuma O.S. cadastrada.</td></tr>'; return; }
+
+  tbody.innerHTML = data.map(os => {
+    const numOS = 'OS-AC-' + os.id.toString().slice(0,5).toUpperCase();
+    const b64   = btoa(unescape(encodeURIComponent(JSON.stringify(os))));
+    return `<tr>
+      <td><strong>${numOS}</strong></td>
+      <td>${fmtDate(os.created_at)}</td>
+      <td><span class="tag-badge">${os.equipamentos?.tag || '—'}</span></td>
+      <td>${os.colaboradores?.nome || '—'}</td>
+      <td>${os.tipo_os}</td>
+      <td>${statusBadge(os.status_os)}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn-primary" style="background:#4a5568;padding:3px 9px;font-size:12px;" onclick="emitirLaudoOS('${b64}','${numOS}')">🖨️</button>
+        <button class="btn-primary" style="background:#d97706;padding:3px 9px;font-size:12px;" onclick="prepararEdicaoOS('${b64}')">✍️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function prepararEdicaoOS(b64) {
+  const os = JSON.parse(decodeURIComponent(escape(atob(b64))));
+  if ($('os-equipamento')) $('os-equipamento').value = os.equipamento_id;
+  if ($('os-tecnico'))     $('os-tecnico').value     = os.colaborador_id;
+  if ($('os-tipo'))        $('os-tipo').value        = os.tipo_os;
+  if ($('os-status'))      $('os-status').value      = os.status_os;
+  if ($('os-defeito'))     $('os-defeito').value     = os.descricao_defeito;
+  if ($('os-laudo'))       $('os-laudo').value       = os.laudo_tecnico || '';
+  if ($('os-id-edicao'))   $('os-id-edicao').value   = os.id;
+  if ($('titulo-formulario-os')) $('titulo-formulario-os').innerText = '✍️ Editando: ' + 'OS-AC-' + os.id.toString().slice(0,5).toUpperCase();
+  if ($('btn-cancelar-edicao-os')) $('btn-cancelar-edicao-os').style.display = 'inline-block';
+  if ($('foco-formulario-os')) $('foco-formulario-os').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ===================== IMPRESSÃO O.S. AC =====================
+function emitirLaudoOS(b64, numOS) {
+  const os = JSON.parse(decodeURIComponent(escape(atob(b64))));
+  const html = `
+  <div class="laudo-wrapper">
+    <div class="laudo-header">
+      <div class="empresa">MANUTENÇÃO CONCREDUR — Sistema Integrado de Gestão</div>
+      <h1>ORDEM DE SERVIÇO TÉCNICA — CLIMATIZAÇÃO</h1>
+      <div class="doc-id">${numOS}</div>
+      <div class="doc-sub">Emitido em ${new Date().toLocaleString('pt-BR')}</div>
+    </div>
+    <div class="laudo-section">
+      <div class="laudo-section-title">1. DADOS DA ORDEM</div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">Número O.S.:</span><span class="info-value"><strong>${numOS}</strong></span></div>
+        <div class="info-item"><span class="info-label">Status:</span><span class="info-value"><strong>${os.status_os}</strong></span></div>
+        <div class="info-item"><span class="info-label">Tipo:</span><span class="info-value">${os.tipo_os}</span></div>
+        <div class="info-item"><span class="info-label">Data de Abertura:</span><span class="info-value">${fmtDate(os.created_at)}</span></div>
+        <div class="info-item"><span class="info-label">Equipamento (TAG):</span><span class="info-value">${os.equipamentos?.tag||'—'}</span></div>
+        <div class="info-item"><span class="info-label">Técnico:</span><span class="info-value">${os.colaboradores?.nome||'—'}</span></div>
+      </div>
+    </div>
+    <div class="laudo-section">
+      <div class="laudo-section-title">2. DEFEITO RELATADO</div>
+      <div class="laudo-obs">${os.descricao_defeito||'—'}</div>
+    </div>
+    <div class="laudo-section">
+      <div class="laudo-section-title">3. LAUDO TÉCNICO / ATIVIDADES EXECUTADAS</div>
+      <div class="laudo-obs">${os.laudo_tecnico||'Em andamento.'}</div>
+    </div>
+    ${os.foto_url ? `<div class="laudo-section laudo-foto">
+      <div class="laudo-section-title">4. EVIDÊNCIA FOTOGRÁFICA</div>
+      <img src="${os.foto_url}" alt="Evidência técnica"/>
+    </div>` : ''}
+    <div class="laudo-footer">
+      <div class="assinatura-box"><div class="assinatura-linha" style="margin-top:60px;"></div><div class="assinatura-label">Técnico Responsável</div></div>
+      <div class="assinatura-box"><div class="assinatura-linha" style="margin-top:60px;"></div><div class="assinatura-label">Responsável pelo Setor / Aceite</div></div>
+    </div>
+    <div class="laudo-rodape">${numOS} &nbsp;|&nbsp; Manutenção Concredur &nbsp;|&nbsp; ${new Date().toLocaleDateString('pt-BR')}</div>
+  </div>`;
+  imprimir('area-os-impressao', html);
+}
+
+// ===================== O.S. GERAL (FACILITIES) =====================
+if ($('btn-salvar-osg')) {
+  $('btn-salvar-osg').addEventListener('click', async () => {
+    const setor = $('osg-setor')?.value.trim();
+    const servico_requisitado = $('osg-requisitado')?.value.trim();
+    const falha_relatada = $('osg-falha')?.value.trim();
+    if (!setor || !servico_requisitado || !falha_relatada) {
+      msgForm('msg-osg', 'Preencha os campos obrigatórios (*).', 'red'); return;
+    }
+    msgForm('msg-osg', 'Processando...', 'blue');
+
+    const tipo_manutencao = document.querySelector('input[name="osg-tipo"]:checked')?.value || 'Preventiva';
+    const areas_servico   = [...document.querySelectorAll('input[name="osg-area"]:checked')].map(c => c.value);
+    const status_os       = $('osg-status')?.value;
+    const idEdicaoG       = $('osg-id-edicao')?.value;
+
+    const foto_url = await uploadFoto($('osg-foto')?.files[0], 'os_facilities');
+    const payload  = {
+      setor, servico_requisitado, falha_relatada, tipo_manutencao, areas_servico, status_os,
+      equipamento:  $('osg-equipamento')?.value.trim()  || null,
+      realizado_por:$('osg-tecnico')?.value             || null,
+    };
+    if (foto_url) payload.foto_url = foto_url;
+
+    let resposta;
+    if (idEdicaoG) {
+      resposta = await db.from('ordens_servico_geral').update(payload).eq('id', idEdicaoG);
+    } else {
+      const { data: { user } } = await db.auth.getUser();
+      payload.user_id = user?.id;
+      payload.numero_os = 'OSG-' + Date.now().toString().slice(-6);
+      resposta = await db.from('ordens_servico_geral').insert([payload]);
+    }
+    if (resposta.error) { msgForm('msg-osg', 'Erro: ' + resposta.error.message, 'red'); return; }
+    msgForm('msg-osg', idEdicaoG ? '✓ O.S. atualizada!' : '✓ O.S. Geral salva!', 'green');
+    resetarFormOSG();
+    await carregarOSGeral();
+    await carregarCentralUnificadaOS();
+  });
+}
+
+function resetarFormOSG() {
+  ['osg-requisitado','osg-setor','osg-falha','osg-equipamento'].forEach(id => { if ($(id)) $(id).value = ''; });
+  ['osg-id-edicao','osg-foto'].forEach(id => { if ($(id)) $(id).value = ''; });
+  document.querySelectorAll('input[name="osg-area"]').forEach(c => c.checked = false);
+}
+if ($('btn-cancelar-edicao-osg')) $('btn-cancelar-edicao-osg').addEventListener('click', resetarFormOSG);
+
+async function carregarOSGeral() {
+  const tbody = $('tbody-osg'); if (!tbody) return;
+  const { data } = await db.from('ordens_servico_geral').select('*').order('created_at', { ascending: false });
+  if (!data || !data.length) { tbody.innerHTML = '<tr><td colspan="5" class="td-loading">Nenhuma O.S. Geral cadastrada.</td></tr>'; return; }
+  tbody.innerHTML = data.map(os => {
+    const numOS = os.numero_os || 'OSG-' + os.id.toString().slice(0,5).toUpperCase();
+    const b64   = btoa(unescape(encodeURIComponent(JSON.stringify(os))));
+    return `<tr>
+      <td><strong>${numOS}</strong></td>
+      <td>${fmtDate(os.data_chamada || os.created_at)}</td>
+      <td>${os.setor}</td>
+      <td><small>${(os.areas_servico || []).join(', ') || '—'}</small></td>
+      <td>${statusBadge(os.status_os)}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn-primary" style="padding:3px 9px;font-size:12px;" onclick="imprimirOSGeral('${b64}')">🖨️</button>
+        <button class="btn-primary" style="background:#d97706;padding:3px 9px;font-size:12px;" onclick="prepararEdicaoOSG('${b64}')">✍️</button>
+        <button class="btn-excluir" onclick="excluirOSGeral('${os.id}')">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function prepararEdicaoOSG(b64) {
+  const os = JSON.parse(decodeURIComponent(escape(atob(b64))));
+  if ($('osg-requisitado')) $('osg-requisitado').value = os.servico_requisitado;
+  if ($('osg-setor'))       $('osg-setor').value       = os.setor;
+  if ($('osg-falha'))       $('osg-falha').value       = os.falha_relatada;
+  if ($('osg-equipamento')) $('osg-equipamento').value = os.equipamento;
+  if ($('osg-tecnico'))     $('osg-tecnico').value     = os.realizado_por || '';
+  if ($('osg-status'))      $('osg-status').value      = os.status_os;
+  if ($('osg-id-edicao'))   $('osg-id-edicao').value   = os.id;
+  document.querySelectorAll('input[name="osg-area"]').forEach(chk => { chk.checked = (os.areas_servico||[]).includes(chk.value); });
+  if ($('foco-formulario-osg')) $('foco-formulario-osg').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ===================== IMPRESSÃO O.S. GERAL =====================
+function imprimirOSGeral(b64) {
+  const os = JSON.parse(decodeURIComponent(escape(atob(b64))));
+  const numOS = os.numero_os || 'OSG-' + os.id.toString().slice(0,5).toUpperCase();
+  const checkTipo = (v) => os.tipo_manutencao === v ? '(X)' : '(  )';
+  const html = `
+  <div class="laudo-wrapper">
+    <div class="laudo-header">
+      <div class="empresa">MANUTENÇÃO CONCREDUR — Sistema Integrado de Gestão</div>
+      <h1>ORDEM DE SERVIÇO — FACILITIES / GERAL</h1>
+      <div class="doc-id">Nº Protocolo: ${numOS}</div>
+      <div class="doc-sub">Emitido em ${new Date().toLocaleString('pt-BR')}</div>
+    </div>
+    <div class="laudo-section">
+      <div class="laudo-section-title">1. DADOS DA SOLICITAÇÃO</div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">Nº O.S.:</span><span class="info-value"><strong>${numOS}</strong></span></div>
+        <div class="info-item"><span class="info-label">Status:</span><span class="info-value"><strong>${os.status_os}</strong></span></div>
+        <div class="info-item"><span class="info-label">Setor Requisitante:</span><span class="info-value">${os.setor}</span></div>
+        <div class="info-item"><span class="info-label">Serviço:</span><span class="info-value">${os.servico_requisitado}</span></div>
+        <div class="info-item"><span class="info-label">Equipamento:</span><span class="info-value">${os.equipamento||'—'}</span></div>
+        <div class="info-item"><span class="info-label">Técnico:</span><span class="info-value">${os.realizado_por||'Não atribuído'}</span></div>
+      </div>
+    </div>
+    <div class="laudo-section">
+      <div class="laudo-section-title">2. TIPO E ÁREA</div>
+      <p style="font-size:12px;margin-bottom:8px;">
+        ${checkTipo('Corretiva')} Corretiva &nbsp;&nbsp;
+        ${checkTipo('Preventiva')} Preventiva &nbsp;&nbsp;
+        ${checkTipo('Reforma')} Reforma
+      </p>
+      <p style="font-size:12px;"><strong>Especialidades:</strong> ${(os.areas_servico||[]).join(', ')||'—'}</p>
+    </div>
+    <div class="laudo-section">
+      <div class="laudo-section-title">3. FALHA RELATADA / SERVIÇO SOLICITADO</div>
+      <div class="laudo-obs">${os.falha_relatada||'—'}</div>
+    </div>
+    ${os.foto_url ? `<div class="laudo-section laudo-foto">
+      <div class="laudo-section-title">4. EVIDÊNCIA FOTOGRÁFICA</div>
+      <img src="${os.foto_url}" alt="Evidência"/>
+    </div>` : ''}
+    <div class="laudo-footer">
+      <div class="assinatura-box"><div class="assinatura-linha" style="margin-top:60px;"></div><div class="assinatura-label">Técnico Executante</div></div>
+      <div class="assinatura-box"><div class="assinatura-linha" style="margin-top:60px;"></div><div class="assinatura-label">Responsável / Aceite</div></div>
+    </div>
+    <div class="laudo-rodape">${numOS} &nbsp;|&nbsp; Manutenção Concredur &nbsp;|&nbsp; ${new Date().toLocaleDateString('pt-BR')}</div>
+  </div>`;
+  imprimir('area-osg-impressao', html);
+}
+
+async function excluirOSGeral(id) {
+  if (!confirm('Confirma exclusão desta O.S.?')) return;
+  await db.from('ordens_servico_geral').delete().eq('id', id);
+  await carregarOSGeral();
+  await carregarCentralUnificadaOS();
+}
+
+// ===================== CENTRAL UNIFICADA =====================
+async function carregarCentralUnificadaOS() {
+  const tbody = $('tbody-central-unificada-os'); if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" class="td-loading">Consolidando registros...</td></tr>';
+
+  const { data: view, error } = await db.from('relatorio_unificado_os').select('*').order('created_at', { ascending: false });
+  if (!error && view && view.length) {
+    tbody.innerHTML = view.map(doc => {
+      const pre = doc.modulo_origem === 'Ar Condicionado' ? 'OS-AC-' : 'OS-GEN-';
+      return `<tr>
+        <td><strong>${pre + doc.id.toString().slice(0,5).toUpperCase()}</strong></td>
+        <td>${fmtDate(doc.created_at)}</td>
+        <td>${doc.modulo_origem}</td>
+        <td><small>${doc.categoria_servico||'—'}</small></td>
+        <td><span style="max-width:200px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${doc.resumo_solicitacao||'—'}</span></td>
+        <td>${statusBadge(doc.status_os)}</td>
+      </tr>`;
+    }).join(''); return;
+  }
+
+  // Fallback direto nas tabelas
+  const [{ data: ac }, { data: g }] = await Promise.all([
+    db.from('ordens_servico').select('id,created_at,tipo_os,status_os,descricao_defeito').order('created_at',{ascending:false}).limit(40),
+    db.from('ordens_servico_geral').select('id,created_at,tipo_manutencao,status_os,servico_requisitado,numero_os').order('created_at',{ascending:false}).limit(40),
+  ]);
+  const linhas = [
+    ...(ac||[]).map(d => ({ id:'OS-AC-'+d.id.toString().slice(0,5).toUpperCase(), data:d.created_at, mod:'Refrigeração', cat:d.tipo_os, res:d.descricao_defeito, st:d.status_os })),
+    ...(g||[]).map(d  => ({ id:d.numero_os||'OSG-'+d.id.toString().slice(0,5).toUpperCase(), data:d.created_at, mod:'Facilities', cat:d.tipo_manutencao, res:d.servico_requisitado, st:d.status_os })),
+  ].sort((a,b) => new Date(b.data) - new Date(a.data));
+
+  tbody.innerHTML = linhas.length
+    ? linhas.map(l => `<tr>
+        <td><strong>${l.id}</strong></td><td>${fmtDate(l.data)}</td>
+        <td>${l.mod}</td><td><small>${l.cat||'—'}</small></td>
+        <td><span style="max-width:200px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(l.res||'—').slice(0,60)}</span></td>
+        <td>${statusBadge(l.st)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="6" class="td-loading">Nenhum registro encontrado.</td></tr>';
+}
+
+// ===================== DASHBOARD — GRÁFICOS & KPIs =====================
+async function renderizarGraficosDashboard() {
+  // KPIs
+  const [
+    { count: catv }, { count: cfch },
+    { count: cab }, { count: cfc }
+  ] = await Promise.all([
+    db.from('equipamentos').select('*',{count:'exact',head:true}),
+    db.from('fichas_pmoc').select('*',{count:'exact',head:true}),
+    db.from('ordens_servico').select('*',{count:'exact',head:true}).neq('status_os','Concluída'),
+    db.from('ordens_servico').select('*',{count:'exact',head:true}).eq('status_os','Concluída'),
+  ]);
+  if ($('dash-txt-ativos'))    $('dash-txt-ativos').innerText    = catv ?? 0;
+  if ($('dash-txt-fichas'))    $('dash-txt-fichas').innerText    = cfch ?? 0;
+  if ($('dash-txt-os-abertas'))  $('dash-txt-os-abertas').innerText  = cab  ?? 0;
+  if ($('dash-txt-os-fechadas')) $('dash-txt-os-fechadas').innerText = cfc  ?? 0;
+
+  // Gráfico 1 — O.S. AC por status
+  const { data: dadosOS } = await db.from('ordens_servico').select('status_os');
+  const contOS = {}; (dadosOS||[]).forEach(r => { contOS[r.status_os] = (contOS[r.status_os]||0)+1; });
+  const ctxOS = $('chartStatusOS');
+  if (ctxOS) {
+    if (chartOS) chartOS.destroy();
+    chartOS = new Chart(ctxOS.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: Object.keys(contOS).length ? Object.keys(contOS) : ['Sem dados'],
+        datasets: [{ label: 'O.S.', data: Object.values(contOS).length ? Object.values(contOS) : [0], backgroundColor: ['#f59e0b','#3b82f6','#10b981'], borderRadius: 5 }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true,ticks:{stepSize:1},grid:{color:'#f1f5f9'}}, x:{grid:{display:false}} } }
+    });
+  }
+
+  // Gráfico 2 — Criticidade
+  const { data: dadosCrit } = await db.from('equipamentos').select('criticidade');
+  const contCrit = {}; (dadosCrit||[]).forEach(r => { const k=r.criticidade||'Média'; contCrit[k]=(contCrit[k]||0)+1; });
+  const ctxCrit = $('chartCriticidade');
+  if (ctxCrit) {
+    if (chartCrit) chartCrit.destroy();
+    chartCrit = new Chart(ctxCrit.getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: Object.keys(contCrit).length ? Object.keys(contCrit).map(k=>'Classe '+k) : ['Nenhum ativo'],
+        datasets: [{ data: Object.values(contCrit).length ? Object.values(contCrit) : [1], backgroundColor:['#ef4444','#3b82f6','#10b981'], borderWidth:2, borderColor:'#fff' }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, cutout:'60%', plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:12}}} }
+    });
+  }
+
+  // Gráfico 3 — O.S. Geral por status
+  const { data: dadosOSG } = await db.from('ordens_servico_geral').select('status_os');
+  const contOSG = {}; (dadosOSG||[]).forEach(r => { contOSG[r.status_os]=(contOSG[r.status_os]||0)+1; });
+  const ctxOSG = $('chartStatusOSG');
+  if (ctxOSG) {
+    if (chartOSG) chartOSG.destroy();
+    chartOSG = new Chart(ctxOSG.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: Object.keys(contOSG).length ? Object.keys(contOSG) : ['Sem dados'],
+        datasets: [{ label: 'O.S. Facilities', data: Object.values(contOSG).length ? Object.values(contOSG) : [0], backgroundColor:['#f59e0b','#8b5cf6','#10b981'], borderRadius:5 }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true,ticks:{stepSize:1},grid:{color:'#f1f5f9'}}, x:{grid:{display:false}} } }
+    });
+  }
+
+  // Logs de auditoria ou fallback
+  const { data: logs, error: logsErr } = await db.from('logs_auditoria').select('*').order('created_at',{ascending:false}).limit(5);
+  const container = $('dash-atividades');
+  if (!container) return;
+
+  if (!logsErr && logs && logs.length) {
+    container.innerHTML = logs.map(l =>
+      `<div class="dash-atividade-item"><span>🔒</span><span><strong>${l.usuario_email||'Sistema'}</strong>: ${l.acao} em <em>${l.tabela}</em></span><span style="margin-left:auto;font-size:11px;color:#a0aec0;">${fmtDate(l.created_at)}</span></div>`
+    ).join('');
+  } else {
+    // Fallback: últimas O.S.
+    const { data: atv } = await db.from('ordens_servico')
+      .select('created_at, status_os, descricao_defeito, equipamentos(tag)')
+      .order('created_at',{ascending:false}).limit(5);
+    container.innerHTML = (atv||[]).length
+      ? (atv||[]).map(a => {
+          const cls = a.status_os==='Concluída' ? 'ok' : a.status_os==='Em Andamento' ? '' : 'warn';
+          return `<div class="dash-atividade-item ${cls}"><span>🛠️</span><span><strong>${a.equipamentos?.tag||'—'}</strong> — ${(a.descricao_defeito||'').slice(0,45)}</span><span style="margin-left:auto;font-size:11px;color:#a0aec0;">${fmtDate(a.created_at)}</span></div>`;
+        }).join('')
+      : '<p style="color:#a0aec0;font-size:13px;">Nenhuma atividade recente.</p>';
+  }
+}
+
+async function carregarAgendaManutencoes() {
+  const tbody = $('tbody-agenda-pmoc'); if (!tbody) return;
+  // Tenta tabela cronograma; se não existir, usa fichas PMOC recentes
+  const { data, error } = await db.from('cronograma_pmoc')
+    .select('*, equipamentos(tag, bloco, setor)').order('data_prevista',{ascending:true}).limit(6);
+
+  if (!error && data && data.length) {
+    tbody.innerHTML = data.map(c => `<tr>
+      <td><span class="tag-badge">${c.equipamentos?.tag||'—'}</span></td>
+      <td>${c.equipamentos?.bloco||'—'} / ${c.equipamentos?.setor||'—'}</td>
+      <td>${fmtDate(c.data_prevista)}</td>
+      <td>${statusBadge(c.status)}</td>
+    </tr>`).join('');
+  } else {
+    // Fallback: últimos laudos
+    const { data: fichas } = await db.from('fichas_pmoc')
+      .select('*, equipamentos(tag, bloco, setor)').order('created_at',{ascending:false}).limit(6);
+    tbody.innerHTML = (fichas||[]).length
+      ? (fichas||[]).map(f => `<tr>
+          <td><span class="tag-badge">${f.equipamentos?.tag||'—'}</span></td>
+          <td>${f.equipamentos?.bloco||'—'} / ${f.equipamentos?.setor||'—'}</td>
+          <td>${fmtDate(f.created_at)}</td>
+          <td>${statusBadge('Em Andamento')}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="4" class="td-loading">Nenhum agendamento registrado.</td></tr>';
+  }
+}
+
+// ===================== GESTÃO DE USUÁRIOS / PROFILES =====================
+if ($('btn-admin-salvar-usuario')) {
+  $('btn-admin-salvar-usuario').addEventListener('click', async () => {
+    const email = $('adm-user-email')?.value.trim();
+    const role  = $('adm-user-role')?.value;
+    if (!email) { msgForm('msg-admin-usuario','E-mail obrigatório.','red'); return; }
+    const { error } = await db.from('profiles').insert([{ email, role }]);
+    if (!error) { msgForm('msg-admin-usuario','✓ Perfil registrado!','green'); if ($('adm-user-email')) $('adm-user-email').value=''; carregarUsuariosSistema(); }
+    else msgForm('msg-admin-usuario','Erro: '+error.message,'red');
+  });
+}
+
+async function carregarUsuariosSistema() {
+  const tbody = $('tbody-usuarios-sistema'); if (!tbody) return;
+  const { data } = await db.from('profiles').select('*').order('email',{ascending:true});
+  tbody.innerHTML = (data||[]).length
+    ? (data||[]).map(u => `<tr>
+        <td><strong>${u.email}</strong></td>
+        <td><span class="tag-badge">${u.role||'—'}</span></td>
+        <td><button class="btn-excluir" onclick="excluirPerfil('${u.id}')">✕</button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="3" class="td-loading">Nenhum perfil cadastrado.</td></tr>';
+}
+async function excluirPerfil(id) {
+  if (confirm('Remover este perfil?')) { await db.from('profiles').delete().eq('id',id); carregarUsuariosSistema(); }
+}
+
+// ===================== SUB-ABAS CONTROLLERS =====================
+function alternarSubAbasPMOC(modo) {
+  if ($('sub-pmoc-form'))      $('sub-pmoc-form').style.display      = modo === 'form' ? 'block' : 'none';
+  if ($('sub-pmoc-historico')) $('sub-pmoc-historico').style.display = modo === 'hist' ? 'block' : 'none';
+  if (modo === 'hist') carregarHistoricoFichas();
+}
+function alternarSubAbasOS(modo) {
+  if ($('sub-os-ac'))      $('sub-os-ac').style.display      = modo === 'ac'      ? 'block' : 'none';
+  if ($('sub-os-fac'))     $('sub-os-fac').style.display     = modo === 'fac'     ? 'block' : 'none';
+  if ($('sub-os-central')) $('sub-os-central').style.display = modo === 'central' ? 'block' : 'none';
+  if (modo === 'central') carregarCentralUnificadaOS();
+}
+function alternarSubAbasRH(modo) {
+  if ($('sub-rh-usuarios')) $('sub-rh-usuarios').style.display = modo === 'usuarios' ? 'block' : 'none';
+  if ($('sub-rh-colab'))    $('sub-rh-colab').style.display    = modo === 'colab'    ? 'block' : 'none';
+  if ($('sub-rh-cargo'))    $('sub-rh-cargo').style.display    = modo === 'cargo'    ? 'block' : 'none';
+}
+
+// ===================== MOTOR DE IMPRESSÃO =====================
+function imprimir(areaId, html) {
+  document.querySelectorAll('.print-only').forEach(el => { el.innerHTML = ''; });
+  const area = $(areaId);
+  if (area) area.innerHTML = html;
+  window.print();
+}
+
+// ===================== ESTILOS IMPRESSÃO (INJETADOS VIA JS) =====================
+// Os estilos de impressão ficam no style.css — este bloco garante a área visível
+(function injetarEstilosImpressao() {
+  if (document.getElementById('style-print-inject')) return;
+  const s = document.createElement('style');
+  s.id = 'style-print-inject';
+  s.textContent = `
+    @media print {
+      body > * { display: none !important; }
+      .print-only { display: block !important; position: fixed; inset: 0; background: #fff; padding: 20px 30px; font-family: Arial, sans-serif; color: #000; z-index: 99999; overflow: visible; }
+      .print-only .laudo-wrapper { max-width: 760px; margin: 0 auto; }
+      .print-only .laudo-header { border-bottom: 3px double #000; padding-bottom: 12px; margin-bottom: 18px; text-align: center; }
+      .print-only .empresa { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #333; margin-bottom: 5px; }
+      .print-only h1 { font-size: 14px; font-weight: 700; color: #000; margin: 4px 0 2px; }
+      .print-only .doc-id { font-size: 12px; font-weight: 700; color: #333; }
+      .print-only .doc-sub { font-size: 10px; color: #666; margin-top: 3px; }
+      .print-only .laudo-section { margin-bottom: 16px; page-break-inside: avoid; }
+      .print-only .laudo-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; background: #1a3a6b; color: #fff; padding: 5px 10px; margin-bottom: 8px; letter-spacing: .4px; }
+      .print-only .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px; }
+      .print-only .info-item { display: flex; gap: 4px; padding: 3px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px; }
+      .print-only .info-label { font-weight: 700; color: #333; min-width: 140px; }
+      .print-only .info-value { color: #000; }
+      .print-only .laudo-obs { background: #f8fafc; border: 1px solid #ddd; padding: 10px; border-radius: 3px; font-size: 12px; white-space: pre-wrap; line-height: 1.6; }
+      .print-only .laudo-foto { text-align: center; }
+      .print-only .laudo-foto img { max-width: 300px; max-height: 220px; border: 1px solid #ccc; object-fit: contain; }
+      .print-only .laudo-footer { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+      .print-only .assinatura-box { text-align: center; }
+      .print-only .assinatura-linha { border-top: 1px solid #000; }
+      .print-only .assinatura-label { font-size: 11px; color: #444; margin-top: 5px; }
+      .print-only .laudo-rodape { margin-top: 24px; text-align: center; font-size: 10px; color: #999; border-top: 1px solid #ddd; padding-top: 8px; }
+      .print-only .checklist-print-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+      .print-only .checklist-print-table th { background: #4a5568; color: #fff; padding: 5px 10px; text-align: left; }
+      .print-only .checklist-print-table td { padding: 5px 10px; border-bottom: 1px solid #e2e8f0; }
+      .print-only .check-c  { color: #059669; font-weight: 700; text-align: center; }
+      .print-only .check-nc { color: #dc2626; font-weight: 700; text-align: center; }
+      .print-only .check-na { color: #718096; text-align: center; }
+      .print-only .dash-atividade-item { display: flex; gap: 8px; padding: 6px; margin-bottom: 4px; border-left: 3px solid #3b82f6; font-size: 12px; }
+      @page { margin: 14mm; size: A4 portrait; }
+    }`;
+  document.head.appendChild(s);
+})();
