@@ -1497,9 +1497,10 @@ async function carregarUsuariosSistema() {
 
   if (!error && perfis) {
     lista = perfis;
+  } else if (error) {
+    // Loga o erro real para diagnóstico no console do navegador (F12 → Console)
+    console.error('[profiles] Erro ao carregar:', error.code, error.message, error.details);
   }
-  // Se deu erro (tabela não existe ainda, RLS, etc.) continua com lista vazia
-  // O admin logado será adicionado abaixo de qualquer forma
 
   // Garante que o usuário logado apareça sempre no topo, independente do estado da tabela
   const adminNaLista = lista.some(u => u.email === userAtual?.email);
