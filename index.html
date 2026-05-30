@@ -49,7 +49,12 @@
     let fluxoAtivacaoDireta = false;
     let emailAlvoAtivacao = "";
 
-    // Reconhece a QueryString vinda do link móvel gerado
+    // Força a limpeza de tokens locais se o usuário entrar de forma limpa para evitar travamento de sessão anterior
+    if (!paramsUrl.get('token')) {
+      db.auth.signOut().catch(() => {});
+    }
+
+    // Detecta a QueryString vinda do link móvel gerado
     if (paramsUrl.get('email') && paramsUrl.get('token') === 'ativar_direto') {
       fluxoAtivacaoDireta = true;
       emailAlvoAtivacao = decodeURIComponent(paramsUrl.get('email'));
@@ -74,7 +79,7 @@
       if (!email) { alert("Por favor, preencha o campo de e-mail."); return; }
 
       // =======================================================================
-      // ENGINE REESTRUTURADA: ATIVAÇÃO DE CONTINGÊNCIA ATRAVÉS DE UPDATE USER
+      // FLUXO A: MÓDULO DE ATIVAÇÃO DE CONTINGÊNCIA (WHATSAPP - IGNORA SMTP)
       // =======================================================================
       if (fluxoAtivacaoDireta) {
         if (!password || password.length < 6) { alert("A nova senha precisa conter no mínimo 6 dígitos."); return; }
@@ -82,11 +87,11 @@
 
         const senhaTemporariaPadrao = "Acesso@Provisorio123";
 
-        // Passo 1: Como o e-mail do admin já pré-cadastrou este usuário, tentamos assinar a sessão provisória
+        // Tenta assinar com a senha mestre provisória que foi gerada pelo admin no painel
         const { error: errorLoginProv } = await db.auth.signInWithPassword({ email: emailAlvoAtivacao, password: senhaTemporariaPadrao });
 
         if (errorLoginProv) {
-          // Se o login provisório falhar, pode ser que o usuário já tenha definido sua senha antes. Tentamos logar com a senha da tela.
+          // Se falhar, pode ser que o usuário já tenha definido sua senha definitiva antes. Tenta logar direto.
           const { error: errorLoginDireto } = await db.auth.signInWithPassword({ email: emailAlvoAtivacao, password: password });
           if (!errorLoginDireto) {
             await db.from('profiles').update({ status: 'ativo' }).eq('email', emailAlvoAtivacao);
@@ -94,12 +99,11 @@
             return;
           }
           
-          // Se o usuário ainda não foi criado na engrenagem interna Auth do Supabase pelo painel administrativo
-          console.log("Criando canal direto de persistência local...");
-          const { data: sData, error: sError } = await db.auth.signUp({ email: emailAlvoAtivacao, password: password });
+          // Fallback: se não estiver no Auth, tenta registrar direto
+          const { data: sData, error: sError } = await db.auth.signUp({ email: emailAlvoAtivacao, password: password, options: { emailRedirectTo: null } });
           
           if (sError && sError.message.includes('confirmation email')) {
-            msgForm('mensagem', 'Inconsistência de SMTP no Provedor. Crie este e-mail no painel do Supabase em Authentication -> Add User.', 'red');
+            msgForm('mensagem', 'Inconsistência de SMTP. Crie o usuário no painel do Supabase em Authentication -> Add User.', 'red');
             return;
           }
           
@@ -107,13 +111,13 @@
             msgForm('mensagem', 'Erro ao processar: ' + sError.message, 'red');
           } else {
             await db.from('profiles').update({ status: 'ativo' }).eq('email', emailAlvoAtivacao);
-            msgForm('mensagem', 'Conta criada! Entrando...', 'green');
+            msgForm('mensagem', 'Conta operacional ativa! Redirecionando...', 'green');
             setTimeout(() => { window.location.href = "dashboard.html"; }, 1000);
           }
           return;
         }
 
-        // Passo 2: Uma vez logado com a senha provisória, injetamos a senha real usando updateUser (Isso NUNCA envia e-mail)
+        // Se logou com a provisória, injeta a senha definitiva (Bypass completo de SMTP)
         msgForm('mensagem', 'Atualizando e criptografando nova senha...', 'blue');
         const { error: errorUpdate } = await db.auth.updateUser({ password: password });
 
@@ -122,27 +126,33 @@
           return;
         }
 
-        // Passo 3: Atualiza o status na tabela profiles para ativo e joga o técnico para dentro do sistema
         await db.from('profiles').update({ status: 'ativo' }).eq('email', emailAlvoAtivacao);
         msgForm('mensagem', '✓ Conta ativada com sucesso! Entrando...', 'green');
         setTimeout(() => { window.location.href = "dashboard.html"; }, 1000);
         return;
       }
 
-      // Fluxo comum de login / redefinição
+      // =======================================================================
+      // FLUXO B: MÓDULO DE LOGIN TRADICIONAL / COMUM (ISOLADO E BLINDADO)
+      // =======================================================================
       if (modoRecuperacao) {
         msgForm('mensagem', 'Processando requisição...', 'blue');
         await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + "/index.html" });
-        msgForm('mensagem', 'Se aplicável, instruções foram enviadas para o e-mail informado.', 'green');
+        msgForm('mensagem', 'Se o SMTP do servidor estiver ativo, as instruções chegarão no e-mail.', 'green');
       } else {
         if (!password) { alert("Por favor, informe sua senha."); return; }
-        msgForm('mensagem', 'Verificando credenciais...', 'blue');
-        const { error } = await db.auth.signInWithPassword({ email, password });
-        if (error) {
-          msgForm('mensagem', 'Acesso negado: ' + error.message, 'red');
+        msgForm('mensagem', 'Verificando credenciais de acesso...', 'blue');
+        
+        // Chamada direta e pura de autenticação por e-mail e senha
+        const { data: loginData, error: loginError } = await db.auth.signInWithPassword({ email, password });
+        
+        if (loginError) {
+          msgForm('mensagem', 'Acesso negado: ' + loginError.message, 'red');
         } else {
+          // Login bem-sucedido! Sincroniza a tabela profiles e redireciona
+          msgForm('mensagem', 'Acesso autorizado! Carregando dashboard...', 'green');
           await db.from('profiles').update({ status: 'ativo' }).eq('email', email);
-          window.location.href = "dashboard.html";
+          setTimeout(() => { window.location.href = "dashboard.html"; }, 600);
         }
       }
     });
