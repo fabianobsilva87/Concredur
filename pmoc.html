@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Concredur — PMOC</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2 family=Rajdhani:wght@600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
@@ -14,59 +14,75 @@
     <aside class="sidebar no-print">
       <div class="sidebar-header">
         <div class="sidebar-logo">🏗️</div><h3>Concredur</h3><p>Gestão de Manutenção</p>
+        <div class="user-logged-badge"><span class="user-icon-dot">●</span><span id="user-display-email">...</span></div>
       </div>
       <nav>
         <div class="nav-label">Visão Geral</div>
         <div class="nav-item" onclick="location.href='dashboard.html'"><span>📊</span> Dashboard Geral</div>
         <div class="nav-label">Refrigeração</div>
-        <div class="nav-item" onclick="location.href='equipamentos.html'"><span>⚙️</span> Ativos & QR Code</div>
+        <div class="nav-item" onclick="location.href='equipamentos.html'"><span>➕</span> Novo Ativo</div>
+        <div class="nav-item" onclick="location.href='gerir-equipamentos.html'"><span>⚙️</span> Gerenciamento de Ativos</div>
         <div class="nav-item active" onclick="location.href='pmoc.html'"><span>📋</span> Formulário PMOC</div>
         <div class="nav-label">Manutenção</div>
         <div class="nav-item" onclick="location.href='os.html'"><span>🛠️</span> Ordens de Serviço</div>
         <div class="nav-label">Administração</div>
         <div class="nav-item" onclick="location.href='usuarios.html'"><span>👥</span> Gestão de Usuários</div>
       </nav>
+      <div class="sidebar-footer"><button id="btn-logout" class="btn-sair">⬅ Sair</button></div>
     </aside>
 
     <main class="main-content">
       <div class="topbar no-print">
-        <h2>📋 Formulário Técnico Portaria MS (PMOC)</h2>
-        <div class="topbar-right" style="display: flex; align-items: center; gap: 16px;">
-          <span id="user-display-email">carregando...</span>
-          <button class="btn-primary" style="background: var(--danger); padding: 6px 12px; font-size: 12px;" onclick="executarLogout()">🚪 Sair</button>
-        </div>
+        <button class="btn-refresh" onclick="alternarSubAbasPMOC('form')">📋 Novo Laudo</button>
+        <button class="btn-refresh" style="background:#4a5568; color:#fff; border-color:#4a5568;" onclick="alternarSubAbasPMOC('hist')">📜 Arquivo PMOC</button>
       </div>
+
       <div class="section-content">
-        <div class="card no-print">
+        <div id="sub-pmoc-form" class="card no-print">
           <div class="form-grid">
-            <div class="form-group"><label>Equipamento (TAG) *</label><select id="pmoc-equipamento" class="form-input-style"></select></div>
-            <div class="form-group"><label>Técnico Homologador *</label><select id="pmoc-tecnico" class="form-input-style"></select></div>
-            <div class="form-group"><label>Frequência</label><select id="pmoc-frequencia" class="form-input-style"><option value="M">Mensal</option><option value="T">Trimestral</option></select></div>
-            <div class="form-group"><label>📷 Foto de Evidência de Campo</label><input type="file" id="pmoc-foto" accept="image/*" capture="environment"></div>
+            <div class="form-group"><label>Equipamento (TAG) *</label><select id="pmoc-equipamento" class="form-input-style"><option value="">-- Selecione o Ativo --</option></select></div>
+            <div class="form-group"><label>Técnico Responsável *</label><select id="pmoc-tecnico" class="form-input-style"><option value="">-- Selecione o Colaborador --</option></select></div>
+            <div class="form-group"><label>Data da Inspeção</label><input type="date" id="pmoc-data" class="form-input-style"></div>
+            <div class="form-group"><label>Frequência Operacional</label><select id="pmoc-frequencia" class="form-input-style" onchange="toggleItemsPorFrequencia()"><option value="M" selected>Mensal</option><option value="T">Trimestral</option></select></div>
+            <div class="form-group" style="grid-column:span 2;"><label>📷 Registro Fotográfico de Campo</label><input type="file" id="pmoc-foto" accept="image/*" capture="environment" class="form-input-style"></div>
           </div>
 
           <div class="pmoc-checklist-container">
-            <h4>Verificações Técnicas Obrigatórias</h4>
-            <div class="checklist-section-title">🔧 Procedimentos Conforme Legislação</div>
-            <div class="checklist-row"><div><strong>[FIL-01]</strong> Filtros de Ar — Higienização Completa</div><div class="radio-group"><label><input type="radio" name="fil_01" value="C"> C</label><label><input type="radio" name="fil_01" value="NC"> NC</label></div></div>
-            <div class="checklist-row"><div><strong>[BIO-01]</strong> Bandeja e Linha de Dreno — Sanitização</div><div class="radio-group"><label><input type="radio" name="bio_01" value="C"> C</label><label><input type="radio" name="bio_01" value="NC"> NC</label></div></div>
+            <h4>Rotinas de Verificação Técnica PMOC</h4>
+            <div class="checklist-section-title">🔧 Rotinas Mensais</div>
+            <div class="checklist-row"><div><strong>[FIL-01]</strong> Filtros de Ar (G4/F7/F9) — Higienização/Substituição</div><div class="radio-group"><label><input type="radio" name="fil_01" value="C"> C</label><label><input type="radio" name="fil_01" value="NC"> NC</label><label><input type="radio" name="fil_01" value="NA"> NA</label></div></div>
+            <div class="checklist-row"><div><strong>[BIO-01]</strong> Bandeja de Condensados — Aplicação de Pastilha Sanitizante</div><div class="radio-group"><label><input type="radio" name="bio_01" value="C"> C</label><label><input type="radio" name="bio_01" value="NC"> NC</label><label><input type="radio" name="bio_01" value="NA"> NA</label></div></div>
+            <div class="checklist-row"><div><strong>[BIO-02]</strong> Rede de Drenagem — Desobstrução e Escoamento</div><div class="radio-group"><label><input type="radio" name="bio_02" value="C"> C</label><label><input type="radio" name="bio_02" value="NC"> NC</label><label><input type="radio" name="bio_02" value="NA"> NA</label></div></div>
+            <div class="checklist-row"><div><strong>[MEC-01]</strong> Conjunto Ventilação — Ruídos, Coxins e Fixadores</div><div class="radio-group"><label><input type="radio" name="mec_01" value="C"> C</label><label><input type="radio" name="mec_01" value="NC"> NC</label><label><input type="radio" name="mec_01" value="NA"> NA</label></div></div>
+            
+            <div class="checklist-section-title freq-item-t" style="display:none;">📅 Rotinas Adicionais Trimestrais</div>
+            <div class="checklist-row freq-item-t" style="display:none;"><div><strong>[FIL-02]</strong> Diferencial de Pressão de Filtros</div><div class="radio-group"><label><input type="radio" name="fil_02" value="C"> C</label><label><input type="radio" name="fil_02" value="NC"> NC</label><label><input type="radio" name="fil_02" value="NA"> NA</label></div></div>
+            <div class="checklist-row freq-item-t" style="display:none;"><div><strong>[BIO-03]</strong> Serpentinas — Limpeza Química por Pressão</div><div class="radio-group"><label><input type="radio" name="bio_03" value="C"> C</label><label><input type="radio" name="bio_03" value="NC"> NC</label><label><input type="radio" name="bio_03" value="NA"> NA</label></div></div>
+            <div class="checklist-row freq-item-t" style="display:none;"><div><strong>[ELE-01]</strong> Medição de Corrente/Tensão dos Compressores</div><div class="radio-group"><label><input type="radio" name="ele_01" value="C"> C</label><label><input type="radio" name="ele_01" value="NC"> NC</label><label><input type="radio" name="ele_01" value="NA"> NA</label></div></div>
+            <div class="checklist-row freq-item-t" style="display:none;"><div><strong>[ELE-02]</strong> Reaperto Geral dos Bornes de Comando/Potência</div><div class="radio-group"><label><input type="radio" name="ele_02" value="C"> C</label><label><input type="radio" name="ele_02" value="NC"> NC</label><label><input type="radio" name="ele_02" value="NA"> NA</label></div></div>
           </div>
 
-          <div class="form-group" style="margin-top:15px;">
-            <label>🖋️ Assinatura Digital Touch Screen</label>
-            <canvas id="canvas-assinatura" width="400" height="120" style="border:2px dashed #a0aec0; background:#fff; touch-action:none; border-radius:6px;"></canvas>
-            <div style="margin-top:5px;"><button class="btn-secondary" style="padding:3px 10px; font-size:11px;" onclick="limparCanvas()">Limpar Tela</button></div>
+          <div class="form-group" style="margin-top:20px;">
+            <label>🖋️ Assinatura Digital do Técnico (Desenhe na tela)</label>
+            <canvas id="canvas-assinatura" width="450" height="130" style="border: 2px dashed var(--gray-400); background:#fff; border-radius:6px; cursor:crosshair; touch-action:none;"></canvas>
+            <div style="margin-top:5px;"><button class="btn-secondary" style="padding:4px 10px; font-size:11px;" onclick="limparCanvasAssinatura()">Limpar Tela</button></div>
           </div>
 
-          <div class="form-group" style="margin-top:10px;"><label>Laudo / Observações</label><textarea id="pmoc-obs" rows="2"></textarea></div>
-          <div class="btn-row"><button id="btn-salvar-ficha" class="btn-primary">✓ Enviar Laudo Autenticado</button></div>
+          <div class="form-group" style="margin-top:16px;"><label>Observações / Anomalias Constatadas</label><textarea id="pmoc-obs" rows="3" placeholder="Parâmetros de pressão..."></textarea></div>
+          <div class="btn-row"><button id="btn-salvar-ficha" class="btn-primary">✓ Autenticar e Salvar PMOC</button></div>
           <p id="msg-ficha" class="msg-form"></p>
         </div>
 
-        <div class="card no-print">
-          <h3 class="card-title">Laudos PMOC Registrados</h3>
-          <div class="table-wrap"><table><thead><tr><th>Código</th><th>Data</th><th>TAG Ativo</th><th>Responsável</th><th>Ações</th></tr></thead><tbody id="tbody-fichas"></tbody></table></div>
+        <div id="sub-pmoc-historico" class="card no-print" style="display:none;">
+          <h3 class="card-title">Laudos PMOC Arquivados</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Código Laudo</th><th>Data Emissão</th><th>Ativo (TAG)</th><th>Técnico Homologador</th><th>Frequência</th><th>Ações</th></tr></thead>
+              <tbody id="tbody-fichas"><tr><td colspan="6" class="td-loading">Carregando histórico...</td></tr></tbody>
+            </table>
+          </div>
         </div>
+
         <div id="area-laudo-impressao" class="print-only"></div>
       </div>
     </main>
@@ -74,72 +90,18 @@
 
   <script src="app.js"></script>
   <script>
-    let canvas = document.getElementById('canvas-assinatura'), ctx = canvas.getContext('2d'), desenhando = false;
-
-    const obterPos = (e) => { let r = canvas.getBoundingClientRect(); return { x: (e.touches ? e.touches[0].clientX : e.clientX) - r.left, y: (e.touches ? e.touches[0].clientY : e.clientY) - r.top }; };
-    canvas.addEventListener('mousedown', (e) => { desenhando = true; ctx.beginPath(); let p = obterPos(e); ctx.moveTo(p.x, p.y); });
-    canvas.addEventListener('mousemove', (e) => { if(!desenhando) return; e.preventDefault(); let p = obterPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); });
-    window.addEventListener('mouseup', () => desenhando = false);
-    canvas.addEventListener('touchstart', (e) => { desenhando = true; ctx.beginPath(); let p = obterPos(e); ctx.moveTo(p.x, p.y); });
-    canvas.addEventListener('touchmove', (e) => { if(!desenhando) return; e.preventDefault(); let p = obterPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); });
-    window.addEventListener('touchend', () => desenhando = false);
-
-    function limparCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
-
-    async function carregarFormOptions() {
-      const [{ data: eq }, { data: cb }] = await Promise.all([db.from('equipamentos').select('id, tag'), db.from('colaboradores').select('id, nome')]);
-      document.getElementById('pmoc-equipamento').innerHTML = (eq || []).map(e => `<option value="${e.id}">${e.tag}</option>`).join('');
-      document.getElementById('pmoc-tecnico').innerHTML = (cb || []).map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
-      
-      const urlParams = new URLSearchParams(window.location.search);
-      const token = urlParams.get('token');
-      if (token) {
-        const { data: eqToken } = await db.from('equipamentos').select('id').eq('qrcode_token', token).single();
-        if (eqToken) document.getElementById('pmoc-equipamento').value = eqToken.id;
-      }
-    }
-
-    document.getElementById('btn-salvar-ficha').addEventListener('click', async () => {
-      const ass = canvas.toDataURL();
-      const { data: colab } = await db.from('colaboradores').select('nome').eq('id', document.getElementById('pmoc-tecnico').value).single();
-      const { data: { user } } = await db.auth.getUser();
-
-      await db.from('fichas_pmoc').insert([{
-        equipamento_id: document.getElementById('pmoc-equipamento').value,
-        tecnico_nome: colab?.nome || 'Técnico',
-        observacoes: document.getElementById('pmoc-obs').value,
-        assinatura_digital: ass,
-        user_id: user.id
-      }]);
-      location.reload();
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        inicializarCanvasAssinatura();
+        atualizarSelectEquipamentos();
+        atualizarSelectColaboradores();
+        caror = carregarHistoricoFichas();
+        
+        // Trata token vindo do QR code
+        const p = new URLSearchParams(window.location.search).get('token');
+        if (p) carregarAtivoViaTokenQRCode(p);
+      }, 400);
     });
-
-    async function carregarTabelaPMOC() {
-      const { data } = await db.from('fichas_pmoc').select('*, equipamentos(tag, produto, bloco, setor)').order('created_at', { ascending: false });
-      document.getElementById('tbody-fichas').innerHTML = (data || []).map(f => {
-        const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(f))));
-        return `<tr><td>L-PMOC</td><td>${new Date(f.created_at).toLocaleDateString('pt-BR')}</td><td><span class="tag-badge">${f.equipamentos?.tag}</span></td><td>${f.tecnico_nome}</td><td><button class="btn-primary" style="padding:4px 8px; font-size:12px;" onclick="renderLaudoPDF('${b64}')">🖨️ PDF</button></td></tr>`;
-      }).join('');
-    }
-
-    function renderLaudoPDF(b64) {
-      const f = JSON.parse(decodeURIComponent(escape(atob(b64))));
-      const html = `
-      <div class="laudo-wrapper" id="pdf-target">
-        <div class="laudo-header"><h2>CONCREDUR — CERTIFICADO REGULAMENTAR PMOC</h2></div>
-        <p><strong>Ativo (TAG):</strong> ${f.equipamentos?.tag}</p>
-        <p><strong>Localização:</strong> ${f.equipamentos?.bloco || '—'} / ${f.equipamentos?.setor || '—'}</p>
-        <p><strong>Homologado por:</strong> ${f.tecnico_nome}</p>
-        <div style="margin:15px 0; border:1px solid #ddd; padding:10px;">${f.observacoes || 'Nenhuma ressalva anexa.'}</div>
-        <div style="text-align:center;"><h5>Visto Eletrônico Touch:</h5><img src="${f.assinatura_digital}"/></div>
-        <div style="text-align:center; margin-top:15px;" class="no-print"><button class="btn-primary" onclick="dispararDownloadPDF()">Baixar PDF Corporativo</button></div>
-      </div>`;
-      document.getElementById('area-laudo-impressao').innerHTML = html; window.print();
-    }
-
-    function dispararDownloadPDF() { html2pdf().set({ margin:10, filename: 'Laudo_PMOC.pdf', html2canvas: { scale: 2 }, jsPDF: { format: 'a4' } }).from(document.getElementById('pdf-target')).save(); }
-    
-    setTimeout(() => { carform = carregarFormOptions(); cartab = carregarTabelaPMOC(); }, 300);
   </script>
 </body>
 </html>
