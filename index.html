@@ -49,7 +49,7 @@
     let fluxoAtivacaoDireta = false;
     let emailAlvoAtivacao = "";
 
-    // Intercepta a QueryString segura de ativação direta vinda do WhatsApp
+    // Reconhece a QueryString vinda do link móvel gerado
     if (paramsUrl.get('email') && paramsUrl.get('token') === 'ativar_direto') {
       fluxoAtivacaoDireta = true;
       emailAlvoAtivacao = decodeURIComponent(paramsUrl.get('email'));
@@ -74,64 +74,64 @@
       if (!email) { alert("Por favor, preencha o campo de e-mail."); return; }
 
       // =======================================================================
-      // ENGINE DE SEGURANÇA: ATIVAÇÃO DIRETA EXCLUSIVA (IGNORA SMTP)
+      // ENGINE REESTRUTURADA: ATIVAÇÃO DE CONTINGÊNCIA ATRAVÉS DE UPDATE USER
       // =======================================================================
       if (fluxoAtivacaoDireta) {
-        if (!password || password.length < 6) { alert("A senha de acesso precisa conter no mínimo 6 dígitos."); return; }
-        msgForm('mensagem', 'Verificando e sincronizando credenciais...', 'blue');
+        if (!password || password.length < 6) { alert("A nova senha precisa conter no mínimo 6 dígitos."); return; }
+        msgForm('mensagem', 'Autenticando canal de segurança silencioso...', 'blue');
 
-        // ETAPA 1: Tenta realizar o registro limpo no Auth
-        const { data: signUpData, error: signUpError } = await db.auth.signUp({
-          email: emailAlvoAtivacao,
-          password: password,
-          options: { emailRedirectTo: null }
-        });
+        const senhaTemporariaPadrao = "Acesso@Provisorio123";
 
-        // Caso o usuário já exista na base devido a testes anteriores (Cenário da sua imagem)
-        if (signUpError && signUpError.message.includes('already registered')) {
-          console.log("Usuário detectado no Auth. Realizando login e vinculando senha nova...");
-          
-          // Se ele já existe, nós apenas fazemos o login direto usando a senha digitada
-          const { error: loginError } = await db.auth.signInWithPassword({ email: emailAlvoAtivacao, password: password });
-          
-          if (!loginError) {
+        // Passo 1: Como o e-mail do admin já pré-cadastrou este usuário, tentamos assinar a sessão provisória
+        const { error: errorLoginProv } = await db.auth.signInWithPassword({ email: emailAlvoAtivacao, password: senhaTemporariaPadrao });
+
+        if (errorLoginProv) {
+          // Se o login provisório falhar, pode ser que o usuário já tenha definido sua senha antes. Tentamos logar com a senha da tela.
+          const { error: errorLoginDireto } = await db.auth.signInWithPassword({ email: emailAlvoAtivacao, password: password });
+          if (!errorLoginDireto) {
             await db.from('profiles').update({ status: 'ativo' }).eq('email', emailAlvoAtivacao);
-            msgForm('mensagem', 'Conta operacional ativa! Redirecionando...', 'green');
-            setTimeout(() => { window.location.href = "dashboard.html"; }, 1000);
+            window.location.href = "dashboard.html";
             return;
+          }
+          
+          // Se o usuário ainda não foi criado na engrenagem interna Auth do Supabase pelo painel administrativo
+          console.log("Criando canal direto de persistência local...");
+          const { data: sData, error: sError } = await db.auth.signUp({ email: emailAlvoAtivacao, password: password });
+          
+          if (sError && sError.message.includes('confirmation email')) {
+            msgForm('mensagem', 'Inconsistência de SMTP no Provedor. Crie este e-mail no painel do Supabase em Authentication -> Add User.', 'red');
+            return;
+          }
+          
+          if (sError) {
+            msgForm('mensagem', 'Erro ao processar: ' + sError.message, 'red');
           } else {
-            msgForm('mensagem', 'Esta conta já foi criada. Digite a senha correta ou use a recuperação de senha.', 'red');
-            return;
-          }
-        }
-
-        // Intercepta e ignora os travamentos de falta de SMTP padrão do plano gratuito
-        if (signUpError && signUpError.message.includes('confirmation email')) {
-          console.log("Bypassando bloqueio de envio de confirmação de e-mail...");
-          const { error: fallbackLoginError } = await db.auth.signInWithPassword({ email: emailAlvoAtivacao, password: password });
-          
-          if (!fallbackLoginError) {
             await db.from('profiles').update({ status: 'ativo' }).eq('email', emailAlvoAtivacao);
-            msgForm('mensagem', 'Conta ativada com sucesso! Entrando...', 'green');
+            msgForm('mensagem', 'Conta criada! Entrando...', 'green');
             setTimeout(() => { window.location.href = "dashboard.html"; }, 1000);
-            return;
           }
+          return;
         }
 
-        if (signUpError) {
-          msgForm('mensagem', 'Inconsistência na ativação: ' + signUpError.message, 'red');
-        } else {
-          // Registro de primeira viagem concluído sem erros
-          await db.from('profiles').update({ status: 'ativo' }).eq('email', emailAlvoAtivacao);
-          msgForm('mensagem', '✓ Conta ativada com sucesso!', 'green');
-          setTimeout(() => { window.location.href = "dashboard.html"; }, 1000);
+        // Passo 2: Uma vez logado com a senha provisória, injetamos a senha real usando updateUser (Isso NUNCA envia e-mail)
+        msgForm('mensagem', 'Atualizando e criptografando nova senha...', 'blue');
+        const { error: errorUpdate } = await db.auth.updateUser({ password: password });
+
+        if (errorUpdate) {
+          msgForm('mensagem', 'Erro ao salvar nova senha: ' + errorUpdate.message, 'red');
+          return;
         }
+
+        // Passo 3: Atualiza o status na tabela profiles para ativo e joga o técnico para dentro do sistema
+        await db.from('profiles').update({ status: 'ativo' }).eq('email', emailAlvoAtivacao);
+        msgForm('mensagem', '✓ Conta ativada com sucesso! Entrando...', 'green');
+        setTimeout(() => { window.location.href = "dashboard.html"; }, 1000);
         return;
       }
 
-      // Fluxo de login e recuperação convencional
+      // Fluxo comum de login / redefinição
       if (modoRecuperacao) {
-        msgForm('mensagem', 'Enfileirando link de recuperação...', 'blue');
+        msgForm('mensagem', 'Processando requisição...', 'blue');
         await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + "/index.html" });
         msgForm('mensagem', 'Se aplicável, instruções foram enviadas para o e-mail informado.', 'green');
       } else {
