@@ -59,12 +59,12 @@
           </div>
           <div class="card">
             <h3 class="card-title">Registros Ativos — Climatização</h3>
-            <div class="table-wrap"><table><thead><tr><th>Código O.S.</th><th>Abertura</th><th>TAG Ativo</th><th>Operador</th><th>Tipo</th><th>Status</th></tr></thead><tbody id="tbody-os"></tbody></table></div>
+            <div class="table-wrap"><table><thead><tr><th>Código O.S.</th><th>Abertura</th><th>TAG Ativo</th><th>Operador</th><th>Tipo</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbody-os"></tbody></table></div>
           </div>
         </div>
 
         <div id="sub-os-fac" class="app-sub-panel no-print" style="display:none;">
-          <div class="card" id="foco-formulario-osg">
+          <div class="card" id="foco-formulario-osg"><input type="hidden" id="osg-id-edicao" value="">
             <h3 class="card-title">Nova Solicitação Corporativa — Facilities</h3>
             <div class="form-grid">
               <div class="form-group"><label>Serviço Requisitado / Título *</label><input type="text" id="osg-requisitado" placeholder="Ex: Substituição de disjuntor"></div>
@@ -90,7 +90,7 @@
               <div class="form-group"><label>Status Atual</label><select id="osg-status" class="form-input-style"><option value="Aberta">Aberta</option><option value="Em Andamento">Em Andamento</option><option value="Concluída">Concluída</option></select></div>
               <div class="form-group"><label>Técnico Atribuído</label><select id="osg-tecnico" class="form-input-style"></select></div>
             </div>
-            <div class="btn-row"><button id="btn-salvar-osg" class="btn-primary">✓ Salvar Ordem Facilities</button></div>
+            <div class="btn-row"><button id="btn-salvar-osg" class="btn-primary">✓ Salvar Ordem Facilities</button><button id="btn-cancelar-edicao-osg" class="btn-secondary" style="display:none;">✕ Cancelar Edição</button></div>
             <p id="msg-osg" class="msg-form"></p>
           </div>
           <div class="card">
@@ -107,6 +107,7 @@
         </div>
 
         <div id="area-os-impressao" class="print-only"></div>
+        <div id="area-osg-impressao" class="print-only"></div>
       </div>
     </main>
   </div>
