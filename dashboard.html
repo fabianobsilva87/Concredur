@@ -49,14 +49,14 @@
           <div class="table-wrap">
             <table>
               <thead><tr><th>Equipamento</th><th>Localização</th><th>Data Programada</th><th>Status</th></tr></thead>
-              <tbody id="tbody-agenda-pmoc"><tr><td colspan="4" class="td-loading">Carregando...</td></tr></tbody>
+              <tbody id="tbody-agenda-pmoc"><tr><td colspan="4" class="td-loading">Carregando cronograma...</td></tr></tbody>
             </table>
           </div>
         </div>
 
         <div class="dash-charts-grid">
           <div class="card"><h3 class="card-title">📈 Volumetria de O.S. — Refrigeração</h3><div class="chart-wrapper"><canvas id="chartStatusOS"></canvas></div></div>
-          <div class="card"><h3 class="card-title">    🔒 Trilha de Auditoria Crítica</h3><div id="dash-atividades">Carregando...</div></div>
+          <div class="card"><h3 class="card-title">🔒 Trilha de Auditoria Crítica</h3><div id="dash-atividades">Carregando trilha...</div></div>
         </div>
       </div>
     </main>
@@ -88,7 +88,7 @@
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
       });
     }
-    setTimeout(inicializarDashboard, 500);
+    setTimeout(inicializarDashboard, 300);
   </script>
 </body>
 </html>
