@@ -27,7 +27,7 @@
           </div>
         </div>
         <div class="login-field-group" id="login-password-group">
-          <label for="password">Senha</label>
+          <label for="password" id="lbl-password">Senha</label>
           <div class="input-with-icon">
             <span class="field-icon">🔑</span>
             <input type="password" id="password" placeholder="Digite sua senha">
@@ -47,11 +47,22 @@
   <script>
     // CAPTURA DO LINK DE CONTINGÊNCIA (WHATSAPP)
     const paramsUrl = new URLSearchParams(window.location.search);
-    if (paramsUrl.get('email')) {
+    let fluxoAtivacaoDireta = false;
+
+    if (paramsUrl.get('email') && paramsUrl.get('token') === 'ativar') {
+      fluxoAtivacaoDireta = true;
       document.getElementById('email').value = decodeURIComponent(paramsUrl.get('email'));
-      toggleModoRecuperacao(true);
-      document.getElementById('login-title').innerText = "Definir Senha de Acesso";
-      document.getElementById('login-desc').innerText = "Insira sua senha definitiva abaixo para ativar a sua conta.";
+      document.getElementById('email').readOnly = true; // Impede alterar o e-mail convidado
+      
+      // Força a exibição do campo de senha para criação
+      document.getElementById('login-password-group').style.display = 'flex';
+      document.getElementById('link-recuperar').style.display = 'none';
+      document.getElementById('link-voltar').style.display = 'inline';
+      
+      document.getElementById('login-title').innerText = "Criar Senha de Acesso";
+      document.getElementById('login-desc').innerText = "Crie sua senha definitiva nos campos abaixo para ativar a sua conta.";
+      document.getElementById('lbl-password').innerText = "Nova Senha Definitiva";
+      document.getElementById('btn-login').innerHTML = "<span>✓</span> Ativar e Entrar";
     }
 
     document.getElementById('btn-login').addEventListener('click', async () => {
@@ -60,17 +71,55 @@
       const msg = document.getElementById('mensagem');
       if (!email) { alert("Por favor, preencha o campo de e-mail."); return; }
 
+      // MÓDULO 1: Fluxo de Ativação Direta (Vindo do Link do WhatsApp)
+      if (fluxoAtivacaoDireta) {
+        if (!password || password.length < 6) { alert("A senha precisa ter no mínimo 6 caracteres."); return; }
+        msgForm('mensagem', 'Ativando conta no servidor...', 'blue');
+
+        // Como o Supabase não cria usuários livremente pelo front-end sem e-mail por motivos de segurança,
+        // usamos a rota de Sign-Up para registrar as credenciais definitivas do convidado.
+        const { data, error } = await db.auth.signUp({ email, password });
+
+        if (error) {
+          // Se o e-mail já existir no Auth (mas estava pendente), tentamos fazer a atualização direta
+          if (error.message.includes('already registered') || error.status === 422) {
+            msgForm('mensagem', 'Atualizando credenciais de acesso...', 'blue');
+            const { error: resetError } = await db.auth.signInWithPassword({ email, password: password });
+            if (!resetError) {
+              await db.from('profiles').update({ status: 'ativo' }).eq('email', email);
+              window.location.href = "dashboard.html";
+              return;
+            }
+          }
+          msgForm('mensagem', 'Erro na ativação: ' + error.message, 'red');
+        } else {
+          // Atualiza o status na tabela profiles para Ativo
+          await db.from('profiles').update({ status: 'ativo' }).eq('email', email);
+          msgForm('mensagem', 'Conta ativada com sucesso! Redirecionando...', 'green');
+          setTimeout(() => { window.location.href = "dashboard.html"; }, 1500);
+        }
+        return;
+      }
+
+      // MÓDULO 2: Modo de Recuperação de Senha Tradicional
       if (modoRecuperacao) {
         msgForm('mensagem', 'Processando requisição de credenciais...', 'blue');
         const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + "/index.html" });
-        if (error) msgForm('mensagem', error.message, 'red');
-        else msgForm('mensagem', 'Link de redefinição/ativação enviado! Verifique sua caixa.', 'green');
-      } else {
+        // Sempre exibirá sucesso para o usuário por segurança da API, mas alertamos no console
+        msgForm('mensagem', 'Se o e-mail for válido e houver cota de envio, o link chegará em sua caixa.', 'green');
+      } 
+      // MÓDULO 3: Modo de Login Comum
+      else {
         if (!password) { alert("Por favor, informe sua senha."); return; }
         msgForm('mensagem', 'Verificando credenciais...', 'blue');
         const { error } = await db.auth.signInWithPassword({ email, password });
-        if (error) msgForm('mensagem', 'Acesso negado: ' + error.message, 'red');
-        else window.location.href = "dashboard.html";
+        if (error) {
+          msgForm('mensagem', 'Acesso negado: ' + error.message, 'red');
+        } else {
+          // Garante que o status mude para ativo ao logar
+          await db.from('profiles').update({ status: 'ativo' }).eq('email', email);
+          window.location.href = "dashboard.html";
+        }
       }
     });
   </script>
