@@ -1487,58 +1487,83 @@ async function carregarUsuariosSistema() {
   const tbody = $('tbody-usuarios-sistema'); if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="5" class="td-loading">Carregando operadores...</td></tr>';
 
-  // Carrega da tabela profiles (inclui o admin logado e todos os perfis)
-  const { data: perfis, error } = await db.from('profiles').select('*').order('email', { ascending: true });
-
-  // Também pega o usuário atual para garantir que o admin apareça mesmo sem registro em profiles
+  // Pega o usuário atual ANTES de qualquer query — nunca falha pois já passou pela sessão
   const { data: { user: userAtual } } = await db.auth.getUser();
 
-  if (error) {
-    tbody.innerHTML = '<tr><td colspan="5" class="td-loading">Erro ao carregar usuários.</td></tr>';
-    return;
-  }
+  // Tenta carregar a tabela profiles — pode falhar se ainda não existir ou RLS bloquear
+  let lista = [];
+  const { data: perfis, error } = await db.from('profiles')
+    .select('*').order('email', { ascending: true });
 
-  // Mescla: garante que o admin logado apareça sempre
-  let lista = perfis || [];
+  if (!error && perfis) {
+    lista = perfis;
+  }
+  // Se deu erro (tabela não existe ainda, RLS, etc.) continua com lista vazia
+  // O admin logado será adicionado abaixo de qualquer forma
+
+  // Garante que o usuário logado apareça sempre no topo, independente do estado da tabela
   const adminNaLista = lista.some(u => u.email === userAtual?.email);
-  if (!adminNaLista && userAtual?.email) {
-    lista = [{ id: userAtual.id, email: userAtual.email, role: 'admin', nome: 'Administrador', cpf: null, status: 'ativo' }, ...lista];
+  if (userAtual?.email && !adminNaLista) {
+    lista = [{
+      id: userAtual.id,
+      email: userAtual.email,
+      role: 'admin',
+      nome: userAtual.user_metadata?.nome || 'Administrador',
+      cpf: null,
+      status: 'ativo',
+      _isCurrentUser: true,
+    }, ...lista];
+  } else if (userAtual?.email) {
+    // Marca o usuário atual dentro da lista existente
+    lista = lista.map(u => u.email === userAtual.email ? { ...u, _isCurrentUser: true } : u);
   }
 
   if (!lista.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="td-loading">Nenhum perfil cadastrado.</td></tr>'; return;
+    tbody.innerHTML = '<tr><td colspan="5" class="td-loading">Nenhum perfil cadastrado ainda.</td></tr>';
+    return;
   }
 
   const roleBadge = {
-    admin:    '<span class="tag-badge danger">🛡️ Admin</span>',
-    master:   '<span class="tag-badge warning">👨‍💻 Master</span>',
-    tecnico:  '<span class="tag-badge">🔬 Técnico</span>',
-    auditor:  '<span class="tag-badge" style="background:#f3e8ff;color:#7c3aed;">👁️ Auditor</span>',
+    admin:   '<span class="tag-badge danger">🛡️ Admin</span>',
+    master:  '<span class="tag-badge warning">👨‍💻 Master</span>',
+    tecnico: '<span class="tag-badge">🔬 Técnico</span>',
+    auditor: '<span class="tag-badge" style="background:#f3e8ff;color:#7c3aed;">👁️ Auditor</span>',
   };
   const statusBadgeUser = {
     ativo:    '<span class="tag-badge success">● Ativo</span>',
-    pendente: '<span class="tag-badge warning">⏳ Aguardando</span>',
+    pendente: '<span class="tag-badge warning">⏳ Aguardando convite</span>',
   };
 
   tbody.innerHTML = lista.map(u => {
-    const isAdmin = u.email === userAtual?.email;
-    const cpfFmt  = u.cpf ? u.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '—';
-    return `<tr${isAdmin ? ' style="background:#f0f7ff;"' : ''}>
+    const isVoce = !!u._isCurrentUser;
+    const cpfFmt = u.cpf ? u.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '—';
+    return `<tr${isVoce ? ' style="background:#f0f7ff;"' : ''}>
       <td>
         <strong>${u.nome || u.email}</strong>
-        ${isAdmin ? '<span class="tag-badge" style="background:#dbeafe;color:#1e40af;margin-left:6px;font-size:10px;">Você</span>' : ''}
+        ${isVoce ? '<span class="tag-badge" style="background:#dbeafe;color:#1e40af;margin-left:6px;font-size:10px;">Você</span>' : ''}
         <br><small style="color:#a0aec0;">${u.email}</small>
       </td>
       <td>${cpfFmt}</td>
-      <td>${roleBadge[u.role] || `<span class="tag-badge">${u.role||'—'}</span>`}</td>
+      <td>${roleBadge[u.role] || `<span class="tag-badge">${u.role || '—'}</span>`}</td>
       <td>${statusBadgeUser[u.status] || statusBadgeUser['ativo']}</td>
       <td>
-        ${isAdmin
+        ${isVoce
           ? '<span style="color:#a0aec0;font-size:12px;">—</span>'
-          : `<button class="btn-excluir" onclick="excluirPerfil('${u.id}','${u.email}')">✕ Revogar</button>`}
+          : `<button class="btn-excluir" onclick="excluirPerfil('${u.id}','${u.email}')">✕ Revogar</button>
+             ${u.status === 'pendente' ? `<button class="btn-reenviar" onclick="reenviarConvite('${u.email}')" style="margin-left:4px;">↺ Reenviar</button>` : ''}`
+        }
       </td>
     </tr>`;
   }).join('');
+
+  // Aviso se a tabela profiles não existir ainda
+  if (error) {
+    const aviso = document.createElement('tr');
+    aviso.innerHTML = `<td colspan="5" style="font-size:11px;color:#d97706;padding:8px 12px;background:#fef3c7;">
+      ⚠️ Tabela <strong>profiles</strong> não encontrada ou sem permissão. Execute o script SQL de migração no Supabase para habilitar o cadastro completo de usuários.
+    </td>`;
+    tbody.appendChild(aviso);
+  }
 }
 
 async function excluirPerfil(id, email) {

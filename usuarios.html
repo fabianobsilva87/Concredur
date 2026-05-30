@@ -10,7 +10,7 @@
 </head>
 <body>
   <div class="app-container">
-    <aside class="sidebar">
+    <aside class="sidebar no-print">
       <div class="sidebar-header">
         <div class="sidebar-logo">🏗️</div><h3>Concredur</h3><p>Gestão de Manutenção</p>
         <div class="user-logged-badge"><span class="user-icon-dot">●</span><span id="user-display-email">carregando...</span></div>
@@ -32,86 +32,264 @@
 
     <main class="main-content">
       <div class="topbar no-print">
-        <button class="btn-refresh" onclick="alternarSubAbasRH('usuarios')">🔒 Perfis Real</button>
+        <button class="btn-refresh" onclick="alternarSubAbasRH('usuarios')">🔒 Usuários do Sistema</button>
         <button class="btn-refresh" style="background:#10b981; border-color:#10b981; color:#fff;" onclick="alternarSubAbasRH('colab')">👥 Colaboradores</button>
-        <button class="btn-refresh" style="background:#4a5568; border-color:#4a5568; color:#fff;" onclick="alternarSubAbasRH('cargo')">🪪 Cargos</button>
+        <button class="btn-refresh" style="background:#4a5568; border-color:#4a5568; color:#fff;" onclick="alternarSubAbasRH('cargo')">🪪 Cargos e Funções</button>
       </div>
 
       <div class="section-content">
+
+        <!-- ===== ABA: USUÁRIOS DO SISTEMA ===== -->
         <div id="sub-rh-usuarios" class="app-sub-panel">
+
           <div class="card">
-            <div class="card-header-admin"><h2>🛡️ Painel Administrativo de Controle de Perfis Reais</h2></div>
-            <div class="admin-split-grid">
+            <!-- Cabeçalho Admin -->
+            <div class="card-header-admin">
+              <h2>🛡️ Controle de Acesso — Convite e Gerenciamento de Usuários</h2>
+              <p>Novos usuários são criados exclusivamente via convite por e-mail. O sistema valida CPF pelo algoritmo da Receita Federal.</p>
+            </div>
+
+            <div class="admin-split-grid" style="margin-top:20px;">
+
+              <!-- Formulário de convite -->
               <div class="admin-form-side">
-                <h3>Criar Credencial Operacional</h3>
-                <div class="form-group"><label>E-mail:</label><input type="email" id="adm-user-email"></div>
-                <div class="form-group" style="margin-top:12px;"><label>Senha Provisória:</label><input type="password" id="adm-user-password"></div>
+                <h3>📨 Convidar Novo Usuário</h3>
+                <p style="font-size:12px;color:#718096;margin-bottom:16px;">O usuário receberá um e-mail para definir sua própria senha antes do primeiro acesso.</p>
+
+                <div class="form-group">
+                  <label>Nome Completo *</label>
+                  <input type="text" id="adm-user-nome" placeholder="Nome completo do usuário">
+                </div>
+
                 <div class="form-group" style="margin-top:12px;">
-                  <label>Perfil Real (Role):</label>
+                  <label>CPF *</label>
+                  <div style="position:relative;">
+                    <input type="text" id="adm-user-cpf" class="input-cpf" placeholder="000.000.000-00" maxlength="14"
+                      style="padding-right:36px;">
+                    <span id="cpf-status-icon" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:16px;"></span>
+                  </div>
+                  <small id="cpf-feedback" style="font-size:11px;color:#a0aec0;margin-top:3px;display:block;">Validação automática pelo algoritmo da Receita Federal</small>
+                </div>
+
+                <div class="form-group" style="margin-top:12px;">
+                  <label>E-mail Corporativo *</label>
+                  <input type="email" id="adm-user-email" placeholder="usuario@empresa.com.br">
+                </div>
+
+                <div class="form-group" style="margin-top:12px;">
+                  <label>Perfil de Acesso *</label>
                   <select id="adm-user-role" class="form-input-style">
-                    <option value="tecnico">🔬 Técnico de Campo</option>
+                    <option value="tecnico">🔬 Técnico de Campo — acesso básico</option>
                     <option value="master">👨‍💻 Técnico Master / Supervisor</option>
-                    <option value="admin">🛡️ Administrador Geral</option>
-                    <option value="auditor">👁️ Auditor (Apenas Leitura)</option>
+                    <option value="admin">🛡️ Administrador Geral — acesso total</option>
+                    <option value="auditor">👁️ Auditor — somente leitura</option>
                   </select>
                 </div>
-                <button id="btn-admin-salvar-usuario" class="btn-primary" style="margin-top:16px; width:100%; background:#10b981;">🚀 Validar Perfil</button>
-                <p id="msg-admin-usuario" class="msg-form"></p>
+
+                <!-- Resumo de permissões por role -->
+                <div id="role-desc" class="role-desc-box" style="margin-top:10px;"></div>
+
+                <button id="btn-admin-salvar-usuario" class="btn-primary" style="margin-top:18px;width:100%;background:#10b981;">
+                  📨 Enviar Convite por E-mail
+                </button>
+                <p id="msg-admin-usuario" class="msg-form" style="font-weight:600;margin-top:10px;"></p>
+
+                <!-- Info sobre segurança -->
+                <div style="margin-top:16px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;font-size:12px;color:#15803d;">
+                  🔐 <strong>Segurança:</strong> Senhas provisórias nunca são criadas pelo administrador.
+                  O usuário define sua própria senha através do link de convite.
+                </div>
               </div>
+
+              <!-- Tabela de usuários -->
               <div class="admin-table-side">
-                <h3>Operadores Cadastrados no Ecossistema</h3>
-                <div class="table-wrap"><table><thead><tr><th>E-mail</th><th>Perfil Real</th><th>Ações</th></tr></thead><tbody id="tbody-usuarios-sistema"></tbody></table></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                  <h3 style="margin:0;">Usuários Cadastrados</h3>
+                  <button class="btn-refresh" style="font-size:11px;padding:5px 10px;" onclick="carregarUsuariosSistema()">↺ Atualizar</button>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Usuário</th>
+                        <th>CPF</th>
+                        <th>Perfil</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbody-usuarios-sistema">
+                      <tr><td colspan="5" class="td-loading">Carregando operadores...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Legenda de status -->
+                <div style="margin-top:12px;font-size:11px;color:#a0aec0;display:flex;gap:14px;flex-wrap:wrap;">
+                  <span>🔵 Destaque = usuário logado atualmente</span>
+                  <span>⏳ Aguardando = convite enviado, aguardando aceite</span>
+                  <span>● Ativo = acesso confirmado</span>
+                </div>
               </div>
+
             </div>
           </div>
         </div>
 
+        <!-- ===== ABA: COLABORADORES ===== -->
         <div id="sub-rh-colab" class="app-sub-panel" style="display:none;">
           <div class="card">
-            <h3 class="card-title">Registrar Novo Técnico / Funcionário</h3>
+            <h3 class="card-title">👷 Registrar Novo Técnico / Colaborador</h3>
+            <p style="font-size:13px;color:#718096;margin-bottom:16px;">
+              Colaboradores são os técnicos de campo vinculados às ordens de serviço e formulários PMOC.
+              Diferente de Usuários do Sistema, não precisam ter acesso de login.
+            </p>
             <div class="form-grid">
-              <div class="form-grid">
-                <div class="form-group"><label>Nome Completo *</label><input type="text" id="colab-nome"></div>
-                <div class="form-group"><label>CPF *</label><input type="text" id="colab-cpf" placeholder="000.000.000-00" maxlength="14"></div>
+              <div class="form-group">
+                <label>Nome Completo *</label>
+                <input type="text" id="colab-nome" placeholder="Nome completo do técnico">
               </div>
-              <div class="form-group" style="margin-top:14px;"><label>Cargo Corporativo</label><select id="colab-funcao" class="form-input-style"></select></div>
+              <div class="form-group">
+                <label>CPF *</label>
+                <div style="position:relative;">
+                  <input type="text" id="colab-cpf" class="input-cpf" placeholder="000.000.000-00" maxlength="14" style="padding-right:36px;">
+                  <span id="colab-cpf-icon" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:16px;"></span>
+                </div>
+                <small style="font-size:11px;color:#a0aec0;margin-top:3px;">Validado pelo algoritmo da Receita Federal</small>
+              </div>
+              <div class="form-group">
+                <label>Cargo / Função</label>
+                <select id="colab-funcao" class="form-input-style">
+                  <option value="">— Selecione um cargo cadastrado —</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Data de Contratação</label>
+                <input type="date" id="colab-contratacao">
+              </div>
             </div>
-            <div class="btn-row"><button id="btn-salvar-colaborador" class="btn-primary">💾 Registrar Técnico</button></div>
+            <div class="btn-row">
+              <button id="btn-salvar-colaborador" class="btn-primary">💾 Registrar Colaborador</button>
+            </div>
             <p id="msg-colaborador" class="msg-form"></p>
           </div>
+
           <div class="card">
             <h3 class="card-title">Técnicos de Campo Homologados</h3>
-            <div class="table-wrap"><table><thead><tr><th>Nome</th><th>CPF</th><th>Função</th><th>Ações</th></tr></thead><tbody id="tbody-colaboradores"></tbody></table></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Nome</th><th>CPF</th><th>Função</th><th>Contratação</th><th>Ações</th></tr>
+                </thead>
+                <tbody id="tbody-colaboradores">
+                  <tr><td colspan="5" class="td-loading">Carregando...</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
+        <!-- ===== ABA: CARGOS / FUNÇÕES ===== -->
         <div id="sub-rh-cargo" class="app-sub-panel" style="display:none;">
           <div class="card">
+            <h3 class="card-title">🪪 Novo Cargo / Função</h3>
             <div class="form-grid">
-              <div class="form-group"><label>Nome do Cargo/Função</label><input type="text" id="func-nome"></div>
-              <div class="form-group"><label>Salário Base (R$)</label><input type="number" id="func-salario"></div>
-              <div class="form-group"><label>Nível Estrutural</label><select id="func-nivel" class="form-input-style"><option value="Auxiliar">Auxiliar</option><option value="Pleno" selected>Pleno</option><option value="Senior">Sênior</option></select></div>
+              <div class="form-group">
+                <label>Nome do Cargo / Função *</label>
+                <input type="text" id="func-nome" placeholder="Ex: Mecânico de Refrigeração">
+              </div>
+              <div class="form-group">
+                <label>Salário Base (R$)</label>
+                <input type="number" id="func-salario" placeholder="Ex: 2800">
+              </div>
+              <div class="form-group">
+                <label>Nível Estrutural</label>
+                <select id="func-nivel" class="form-input-style">
+                  <option value="Auxiliar">Auxiliar / Trainee</option>
+                  <option value="Junior">Júnior</option>
+                  <option value="Pleno" selected>Pleno</option>
+                  <option value="Senior">Sênior</option>
+                  <option value="Master">Master / Supervisor</option>
+                </select>
+              </div>
             </div>
-            <div class="btn-row"><button id="btn-salvar-funcao" class="btn-primary">💾 Salvar Cargo</button></div>
+            <div class="btn-row">
+              <button id="btn-salvar-funcao" class="btn-primary">💾 Salvar Cargo</button>
+            </div>
             <p id="msg-funcao" class="msg-form"></p>
           </div>
           <div class="card">
-            <div class="table-wrap"><table><thead><tr><th>Função</th><th>Nível</th><th>Salário Base</th><th>Ações</th></tr></thead><tbody id="tbody-funcoes"></tbody></table></div>
+            <h3 class="card-title">Funções Cadastradas</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Função</th><th>Nível</th><th>Salário Base</th><th>Ações</th></tr></thead>
+                <tbody id="tbody-funcoes"><tr><td colspan="4" class="td-loading">Carregando...</td></tr></tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
+
+      </div><!-- .section-content -->
     </main>
   </div>
 
   <script src="app.js"></script>
   <script>
-    window.addEventListener('DOMContentLoaded', () => {
-      setTimeout(() => {
-        carregarUsuariosSistema();
-        carregarColaboradores();
-        carregarFuncoes();
-        atualizarSelectFuncoes();
-      }, 400);
+    // Descrições dos perfis de acesso
+    const ROLE_DESC = {
+      tecnico:  { cor:'#dbeafe', txt:'<strong>Técnico de Campo:</strong> pode registrar O.S. e laudos PMOC. Sem acesso ao módulo administrativo.' },
+      master:   { cor:'#fef3c7', txt:'<strong>Master / Supervisor:</strong> acesso completo ao operacional; pode editar O.S. de outros técnicos.' },
+      admin:    { cor:'#fee2e2', txt:'<strong>Administrador:</strong> acesso irrestrito a todos os módulos, incluindo gestão de usuários.' },
+      auditor:  { cor:'#f3e8ff', txt:'<strong>Auditor:</strong> somente leitura. Não pode criar, editar ou excluir registros.' },
+    };
+
+    document.getElementById('adm-user-role')?.addEventListener('change', function() {
+      const box = document.getElementById('role-desc');
+      const d = ROLE_DESC[this.value];
+      if (d) { box.style.cssText = `background:${d.cor};border-radius:6px;padding:10px 12px;font-size:12px;border:1px solid #e2e8f0;`; box.innerHTML = d.txt; }
+      else box.innerHTML = '';
+    });
+
+    // Feedback visual em tempo real no CPF do convite
+    const cpfAdm = document.getElementById('adm-user-cpf');
+    if (cpfAdm) {
+      cpfAdm.addEventListener('input', () => {
+        const icon = document.getElementById('cpf-status-icon');
+        const fb   = document.getElementById('cpf-feedback');
+        const v    = cpfAdm.value;
+        if (v.replace(/\D/g,'').length < 11) { icon.textContent=''; fb.style.color='#a0aec0'; fb.textContent='Validação automática pelo algoritmo da Receita Federal'; return; }
+        if (validarCPF(v)) {
+          icon.textContent = '✅'; cpfAdm.style.borderColor='var(--success)';
+          fb.style.color='var(--success)'; fb.textContent='CPF válido ✓';
+        } else {
+          icon.textContent = '❌'; cpfAdm.style.borderColor='var(--danger)';
+          fb.style.color='var(--danger)'; fb.textContent='CPF inválido — verifique os dígitos';
+        }
+      });
+    }
+
+    // Feedback visual no CPF do colaborador
+    const cpfColab = document.getElementById('colab-cpf');
+    if (cpfColab) {
+      cpfColab.addEventListener('input', () => {
+        const icon = document.getElementById('colab-cpf-icon');
+        if (!icon) return;
+        const v = cpfColab.value;
+        if (v.replace(/\D/g,'').length < 11) { icon.textContent=''; return; }
+        icon.textContent = validarCPF(v) ? '✅' : '❌';
+        cpfColab.style.borderColor = validarCPF(v) ? 'var(--success)' : 'var(--danger)';
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      // Carrega usuários primeiro (aparece na tela principal)
+      await carregarUsuariosSistema();
+      // Carrega o restante em paralelo (abas secundárias)
+      await Promise.all([
+        carregarColaboradores(),
+        carregarFuncoes(),
+        atualizarSelectFuncoes(),
+      ]);
     });
   </script>
 </body>
