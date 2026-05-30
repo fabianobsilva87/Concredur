@@ -45,7 +45,15 @@
 
   <script src="app.js"></script>
   <script>
-    // Gerenciador Local de Login acoplado ao Core
+    // CAPTURA DO LINK DE CONTINGÊNCIA (WHATSAPP)
+    const paramsUrl = new URLSearchParams(window.location.search);
+    if (paramsUrl.get('email')) {
+      document.getElementById('email').value = decodeURIComponent(paramsUrl.get('email'));
+      toggleModoRecuperacao(true);
+      document.getElementById('login-title').innerText = "Definir Senha de Acesso";
+      document.getElementById('login-desc').innerText = "Insira sua senha definitiva abaixo para ativar a sua conta.";
+    }
+
     document.getElementById('btn-login').addEventListener('click', async () => {
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
@@ -53,10 +61,10 @@
       if (!email) { alert("Por favor, preencha o campo de e-mail."); return; }
 
       if (modoRecuperacao) {
-        msgForm('mensagem', 'Disparando link de recuperação...', 'blue');
+        msgForm('mensagem', 'Processando requisição de credenciais...', 'blue');
         const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + "/index.html" });
         if (error) msgForm('mensagem', error.message, 'red');
-        else msgForm('mensagem', 'Link de recuperação enviado com sucesso!', 'green');
+        else msgForm('mensagem', 'Link de redefinição/ativação enviado! Verifique sua caixa.', 'green');
       } else {
         if (!password) { alert("Por favor, informe sua senha."); return; }
         msgForm('mensagem', 'Verificando credenciais...', 'blue');
