@@ -111,7 +111,7 @@
     async function deletarFunc(id) { if(confirm("Deletar função?")) { await db.from('funcoes').delete().eq('id', id); carregarTelasAdmin(); } }
     async function deletarColab(id) { if(confirm("Deletar colaborador?")) { await db.from('colaboradores').delete().eq('id', id); carregarTelasAdmin(); } }
     
-    setTimeout(carregarTelasAdmin, 500);
+    setTimeout(carregarTelasAdmin, 300);
   </script>
 </body>
 </html>
