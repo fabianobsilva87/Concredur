@@ -418,15 +418,173 @@ function renderHistoricoFichas(data) {
 
 // ===================== IMPRESSÃO PMOC & OS =====================
 function emitirRelatorioPMOC(b64) {
-  const f = JSON.parse(decodeURIComponent(escape(atob(b64)))); const eq = f.equipamentos || {};
-  
-  // Tratamento de falhas contra Base64 ausentes ou quebrados em laudos antigos (Evita folhas em branco)
+  const f  = JSON.parse(decodeURIComponent(escape(atob(b64))));
+  const eq = f.equipamentos || {};
+
+  // Extrai metadados das observações
+  const matchData  = (f.observacoes || '').match(/\[DataInspecao:\s*([^\]]+)\]/);
+  const matchFreq  = (f.observacoes || '').match(/\[Frequencia:\s*([^\]]+)\]/);
+  const matchTipo  = (f.observacoes || '').match(/\[TipoEquipamento:\s*([^\]]+)\]/);
+  const matchChk   = (f.observacoes || '').match(/\[Checklist:\s*([^\]]+)\]/);
+  const obsLimpa   = (f.observacoes || '').replace(/\[[^\]]+\]/g, '').trim();
+  const checklist  = matchChk ? (() => { try { return JSON.parse(matchChk[1]); } catch(e) { return {}; } })() : {};
+  const dataInsp   = matchData ? matchData[1] : fmtDate(f.created_at);
+  const freq       = matchFreq ? matchFreq[1] : '—';
+  const tipo       = matchTipo ? matchTipo[1] : '—';
+
+  // Checklist formatado
+  const labelChk = {
+    'limpeza-filtro':'Limpeza de Filtro','limpeza-evaporadora':'Limpeza Evaporadora','limpeza-condensadora':'Limpeza Condensadora',
+    'verificacao-dreno':'Verificação de Dreno','verificacao-eletrica':'Verificação Elétrica','verificacao-fluido':'Verificação de Fluido',
+    'teste-operacao':'Teste de Operação','verificacao-ruidos':'Verificação de Ruídos','limpeza-geral':'Limpeza Geral',
+  };
+  const statusChk = { 'OK':'<span class="ok">✓ OK</span>', 'NOK':'<span class="nok">✗ NOK</span>', 'NA':'<span class="na">N/A</span>' };
+  const chkRows = Object.entries(checklist).map(([k,v]) =>
+    `<tr><td>${labelChk[k] || k}</td><td style="text-align:center;">${statusChk[v] || v}</td></tr>`
+  ).join('');
+
   const assinaturaHTML = (f.assinatura_digital && f.assinatura_digital.includes('data:image'))
-    ? `<div style="text-align:center;margin-top:8px;"><img src="${f.assinatura_digital}" style="max-width:200px;max-height:70px;border:1px dashed #ccc;" alt="Assinatura digital"/></div>`
+    ? `<img src="${f.assinatura_digital}" style="max-width:180px;max-height:60px;" alt="Assinatura"/>`
+    : '<span style="font-size:11px;color:#a0aec0;">Sem assinatura digital</span>';
+
+  const fotoHTML = f.foto_url
+    ? `<div class="laudo-section"><div class="laudo-section-title">Evidência Fotográfica</div><img src="${f.foto_url}" style="max-width:100%;max-height:200px;border-radius:4px;border:1px solid #e2e8f0;"></div>`
     : '';
 
-  const html = `<div class="laudo-wrapper"><div class="laudo-header"><h1>PMOC — CONCREDUR</h1><p>Código: L-PMOC-${f.id.toString().slice(0,6).toUpperCase()}</p></div><div class="laudo-section"><div class="laudo-section-title">IDENTIFICAÇÃO DO ATIVO</div><p>TAG: ${eq.tag || '—'} | Tipo: ${eq.produto || '—'} | Local: ${eq.bloco || '—'}</p></div><div class="laudo-section"><div class="laudo-section-title">RESPONSÁVEL</div><p>Técnico: ${f.tecnico_nome}</p></div>${assinaturaHTML}</div>`;
+  const html = `
+  <div class="laudo-wrapper">
+    <div class="laudo-header">
+      <div>
+        <h1>🏗️ PMOC — CONCREDUR</h1>
+        <p>Plano de Manutenção, Operação e Controle</p>
+      </div>
+      <div class="laudo-header-meta">
+        <strong>Código: L-PMOC-${f.id.toString().slice(0,6).toUpperCase()}</strong><br>
+        Data de Emissão: ${new Date().toLocaleDateString('pt-BR')}<br>
+        Frequência: ${freq}
+      </div>
+    </div>
+
+    <div class="laudo-section">
+      <div class="laudo-section-title">Identificação do Ativo</div>
+      <div class="laudo-grid-3">
+        <div class="laudo-field"><label>TAG</label><span>${eq.tag || '—'}</span></div>
+        <div class="laudo-field"><label>Equipamento</label><span>${eq.produto || tipo}</span></div>
+        <div class="laudo-field"><label>Marca</label><span>${eq.marca || '—'}</span></div>
+        <div class="laudo-field"><label>Potência</label><span>${eq.potencia || '—'}</span></div>
+        <div class="laudo-field"><label>Nº Série</label><span>${eq.nr_serie || '—'}</span></div>
+        <div class="laudo-field"><label>Patrimônio</label><span>${eq.patrimonio || '—'}</span></div>
+        <div class="laudo-field"><label>Bloco</label><span>${eq.bloco || '—'}</span></div>
+        <div class="laudo-field"><label>Setor</label><span>${eq.setor || '—'}</span></div>
+        <div class="laudo-field"><label>Sala</label><span>${eq.sala || '—'}</span></div>
+      </div>
+    </div>
+
+    <div class="laudo-section">
+      <div class="laudo-section-title">Dados da Inspeção</div>
+      <div class="laudo-grid">
+        <div class="laudo-field"><label>Técnico Responsável</label><span>${f.tecnico_nome}</span></div>
+        <div class="laudo-field"><label>Data da Inspeção</label><span>${dataInsp}</span></div>
+      </div>
+    </div>
+
+    ${chkRows ? `
+    <div class="laudo-section">
+      <div class="laudo-section-title">Checklist de Manutenção</div>
+      <table class="laudo-checklist-table">
+        <thead><tr><th>Item Verificado</th><th style="text-align:center;width:80px;">Status</th></tr></thead>
+        <tbody>${chkRows}</tbody>
+      </table>
+    </div>` : ''}
+
+    ${obsLimpa ? `
+    <div class="laudo-section">
+      <div class="laudo-section-title">Observações Técnicas</div>
+      <p style="font-size:12px;line-height:1.6;">${obsLimpa}</p>
+    </div>` : ''}
+
+    ${fotoHTML}
+
+    <div class="laudo-section">
+      <div class="laudo-footer">
+        <div style="font-size:10px;color:#718096;">
+          Documento gerado pelo Sistema Concredur<br>
+          ${new Date().toLocaleString('pt-BR')}
+        </div>
+        <div class="laudo-assinatura-box">
+          ${assinaturaHTML}
+          <div class="laudo-assinatura-linha">${f.tecnico_nome}<br>Técnico Responsável</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
   imprimir('area-laudo-impressao', html);
+}
+
+function emitirRelatorioOS(os) {
+  const eq  = os.equipamentos  || {};
+  const col = os.colaboradores || {};
+  const html = `
+  <div class="laudo-wrapper">
+    <div class="laudo-header">
+      <div>
+        <h1>🛠️ Ordem de Serviço — CONCREDUR</h1>
+        <p>Registro Técnico de Manutenção</p>
+      </div>
+      <div class="laudo-header-meta">
+        <strong>Código: OS-AC-${os.id.toString().slice(0,5).toUpperCase()}</strong><br>
+        Abertura: ${fmtDate(os.created_at)}<br>
+        Emissão: ${new Date().toLocaleDateString('pt-BR')}
+      </div>
+    </div>
+
+    <div class="laudo-section">
+      <div class="laudo-section-title">Ativo / Equipamento</div>
+      <div class="laudo-grid">
+        <div class="laudo-field"><label>TAG</label><span>${eq.tag || '—'}</span></div>
+        <div class="laudo-field"><label>Equipamento</label><span>${eq.produto || '—'}</span></div>
+        <div class="laudo-field"><label>Localização</label><span>${eq.bloco || '—'} ${eq.setor ? '— ' + eq.setor : ''}</span></div>
+        <div class="laudo-field"><label>Nº Série</label><span>${eq.nr_serie || '—'}</span></div>
+      </div>
+    </div>
+
+    <div class="laudo-section">
+      <div class="laudo-section-title">Dados da Ordem</div>
+      <div class="laudo-grid-3">
+        <div class="laudo-field"><label>Técnico</label><span>${col.nome || '—'}</span></div>
+        <div class="laudo-field"><label>Tipo</label><span>${os.tipo_os || '—'}</span></div>
+        <div class="laudo-field"><label>Status</label><span>${os.status_os || '—'}</span></div>
+      </div>
+    </div>
+
+    <div class="laudo-section">
+      <div class="laudo-section-title">Descrição da Ocorrência / Sintomas</div>
+      <p style="font-size:12px;line-height:1.7;min-height:50px;">${os.descricao_defeito || 'Não informado.'}</p>
+    </div>
+
+    <div class="laudo-section">
+      <div class="laudo-section-title">Diagnóstico Técnico / Ações Executadas</div>
+      <p style="font-size:12px;line-height:1.7;min-height:60px;">${os.laudo_tecnico || 'Não informado.'}</p>
+    </div>
+
+    ${os.foto_url ? `<div class="laudo-section"><div class="laudo-section-title">Evidência Fotográfica</div><img src="${os.foto_url}" style="max-width:100%;max-height:200px;border-radius:4px;border:1px solid #e2e8f0;"></div>` : ''}
+
+    <div class="laudo-section">
+      <div class="laudo-footer">
+        <div style="font-size:10px;color:#718096;">
+          Sistema Concredur — Gestão de Manutenção<br>
+          ${new Date().toLocaleString('pt-BR')}
+        </div>
+        <div class="laudo-assinatura-box">
+          <div style="height:50px;border-bottom:1px solid #1a202c;margin-bottom:4px;"></div>
+          <div class="laudo-assinatura-linha">${col.nome || 'Técnico Responsável'}</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  imprimir('area-os-impressao', html);
 }
 
 // ===================== ORDENS DE SERVIÇO =====================
@@ -440,8 +598,10 @@ if ($('btn-salvar-os')) {
 }
 async function carregarOrdensServico() {
   const tbody = $('tbody-os'); if (!tbody) return;
-  const { data } = await db.from('ordens_servico').select('*, equipamentos(tag), colaboradores(nome)').order('created_at', { ascending: false });
-  tbody.innerHTML = (data || []).map(os => `<tr>
+  const { data } = await db.from('ordens_servico').select('*, equipamentos(tag, produto, bloco, setor, nr_serie), colaboradores(nome)').order('created_at', { ascending: false });
+  tbody.innerHTML = (data || []).map(os => {
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(os))));
+    return `<tr>
     <td><strong>OS-AC-${os.id.toString().slice(0,5).toUpperCase()}</strong></td>
     <td>${fmtDate(os.created_at)}</td>
     <td><span class="tag-badge">${os.equipamentos?.tag || '—'}</span></td>
@@ -449,10 +609,11 @@ async function carregarOrdensServico() {
     <td>${os.tipo_os}</td>
     <td>${statusBadge(os.status_os)}</td>
     <td style="display:flex;gap:4px;flex-wrap:wrap;">
-      <button class="btn-secondary" style="padding:4px 10px;font-size:11px;" onclick="editarOS('${os.id}','${os.equipamento_id || ''}','${os.colaborador_id || ''}','${os.tipo_os}','${os.status_os}',\`${(os.descricao_defeito||'').replace(/`/g,'')}\`,\`${(os.laudo_tecnico||'').replace(/`/g,'')}\`)">✏️ Editar</button>
+      <button class="btn-primary" style="padding:4px 10px;font-size:11px;" onclick="emitirRelatorioOS(JSON.parse(decodeURIComponent(escape(atob('${b64}')))))">🖨️ Imprimir</button>
+      <button class="btn-secondary" style="padding:4px 10px;font-size:11px;" onclick="editarOS('${os.id}','${os.equipamento_id || ''}','${os.colaborador_id || ''}','${os.tipo_os}','${os.status_os}',\`${(os.descricao_defeito||'').replace(/\`/g,'')}\`,\`${(os.laudo_tecnico||'').replace(/\`/g,'')}\`)">✏️ Editar</button>
       <button class="btn-excluir" style="padding:4px 10px;font-size:11px;" onclick="excluirOS('${os.id}')">✕ Excluir</button>
     </td>
-  </tr>`).join('');
+  </tr>`;}).join('');
 }
 
 // ===================== FACILITIES =====================
