@@ -45,7 +45,7 @@
 
   <script src="app.js"></script>
   <script>
-    db.auth.getSession().then(({ data }) => { if (data.session) window.location.href = "dashboard.html"; });
+    let modoRecuperacao = false;
 
     function toggleModoRecuperacao(ativar) {
       modoRecuperacao = activar;
@@ -69,15 +69,26 @@
 
     document.getElementById('btn-login').addEventListener('click', async () => {
       const email = document.getElementById('email').value.trim();
-      if (!email) { alert("Informe o e-mail."); return; }
+      const msg = document.getElementById('mensagem');
+      if (!email) { alert("Por favor, informe o e-mail."); return; }
+      
       if (modoRecuperacao) {
+        msg.style.color = "#1a56db";
+        msg.innerText = "Disparando e-mail de recuperação...";
         const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + "/index.html" });
-        if (error) document.getElementById('mensagem').innerText = error.message;
-        else document.getElementById('mensagem').innerText = "Link de recuperação enviado!";
+        if (error) { msg.style.color = "#dc2626"; msg.innerText = error.message; }
+        else { msg.style.color = "#059669"; msg.innerText = "Link enviado com sucesso!"; }
       } else {
+        msg.style.color = "#1a56db";
+        msg.innerText = "Autenticando...";
         const { error } = await db.auth.signInWithPassword({ email, password: document.getElementById('password').value });
-        if (error) document.getElementById('mensagem').innerText = "Acesso negado: dados incorretos.";
-        else window.location.href = "dashboard.html";
+        if (error) {
+          msg.style.color = "#dc2626";
+          msg.innerText = "Erro: Usuário ou senha inválidos.";
+        } else {
+          msg.innerText = "";
+          window.location.href = "dashboard.html";
+        }
       }
     });
   </script>
