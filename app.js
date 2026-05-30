@@ -106,12 +106,21 @@ async function uploadFoto(file, pasta, msgId) {
 
 // ===================== SESSÃO & ROTEAMENTO =====================
 async function verificarSessaoGlobal() {
-  const { data: { user }, error } = await db.auth.getUser();
   const pag = window.location.pathname.split('/').pop();
+  const ehPaginaLogin = (pag === '' || pag === 'index.html');
+
+  // Na página de login, NÃO redireciona automaticamente.
+  // O próprio index.html controla o fluxo após signOut garantido.
+  if (ehPaginaLogin) {
+    if ($('user-display-email')) $('user-display-email').innerText = '';
+    return;
+  }
+
+  // Nas demais páginas: verifica sessão e redireciona se não autenticado
+  const { data: { user }, error } = await db.auth.getUser();
   if (!user || error) {
-    if (pag !== '' && pag !== 'index.html') window.location.href = 'index.html';
+    window.location.href = 'index.html';
   } else {
-    if (pag === '' || pag === 'index.html') window.location.href = 'dashboard.html';
     if ($('user-display-email')) $('user-display-email').innerText = user.email;
   }
 }
