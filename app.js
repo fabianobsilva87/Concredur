@@ -13,25 +13,24 @@ function statusBadge(status) {
 }
 
 // ====================================================================
-// 🔒 CHECAGEM DE SESSÃO SEVERA (APENAS NAS SUBPÁGINAS)
+// 🔒 CHECAGEM DE SESSÃO INTELIGENTE (EVITA LOOP DE REDIRECIONAMENTO)
 // ====================================================================
 async function verificarSessaoGlobal() {
   const { data: { session } } = await db.auth.getSession();
   
-  // Pega o nome do arquivo atual
+  // Isola o nome do arquivo atual para o roteador
   const paginaAtual = window.location.pathname.split("/").pop();
 
-  // SE NÃO HOUVER SESSÃO e o usuário NÃO estiver na tela de login, manda de volta para o index
   if (!session) {
+    // Se não estiver logado e não for a tela de login, manda para o index
     if (paginaAtual !== "" && paginaAtual !== "index.html") {
       window.location.href = "index.html";
     }
   } else {
-    // SE HOUVER SESSÃO e o usuário tentar entrar no index.html, pula direto para o dashboard
+    // Se estiver logado e tentar abrir o index, pula direto para o dashboard
     if (paginaAtual === "" || paginaAtual === "index.html") {
       window.location.href = "dashboard.html";
     }
-    // Injeta o e-mail no cabeçalho se o elemento existir
     if (document.getElementById('user-display-email')) {
       document.getElementById('user-display-email').innerText = session.user.email;
     }
@@ -45,5 +44,5 @@ async function executarLogout() {
   }
 }
 
-// Executa a validação de forma segura
+// Execução segura da sessão
 verificarSessaoGlobal();
