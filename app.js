@@ -309,7 +309,7 @@ async function atualizarSelectFuncoes() {
   const sel = $('colab-funcao'); if (!sel) return;
   const { data } = await db.from('funcoes').select('id, nome');
   sel.innerHTML = '<option value="">-- Selecione uma Função --</option>';
-  (data || []).forEach(f => { sel.innerHTML += `<option value="${f.id}">${f.nome}</option>'; });
+  (data || []).forEach(f => { sel.innerHTML += `<option value="${f.id}">${f.nome}</option>`; });
 }
 async function carregarColaboradores() {
   const tbody = $('tbody-colaboradores'); if (!tbody) return;
