@@ -1,8 +1,4 @@
 // ===================== SUPABASE CONFIG =====================
-// ⚠️  SEGURANÇA:
-//   A ANON KEY abaixo é segura para o front-end pois é somente leitura pública.
-//   O acesso real aos dados é controlado por Row Level Security (RLS) no Supabase.
-//   NUNCA exponha a SERVICE_ROLE_KEY no front-end.
 const SUPABASE_URL      = "https://nweligwbglblbncaegir.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53ZWxpZ3diZ2xibGJuY2FlZ2lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwMzAzNTgsImV4cCI6MjA5NTYwNjM1OH0.6eKcn40QmcfvHKAxuDH3kB6vHBJUu5LUVzfr27dvbKk";
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -123,16 +119,17 @@ if ($('btn-logout')) {
 }
 
 function toggleModoRecuperacao(ativar) {
-  modoRecuperacao = activar;
-  if ($('login-title')) $('login-title').innerText = activar ? 'Recuperação de Acesso' : 'Acesso ao Sistema';
-  if ($('login-desc')) $('login-desc').innerText = activar ? 'Digite seu e-mail para receber o link de redefinição.' : 'Informe suas credenciais para continuar';
-  if ($('login-password-group')) $('login-password-group').style.display = activar ? 'none' : 'flex';
-  if ($('link-recuperar')) $('link-recuperar').style.display = activar ? 'none' : 'inline';
-  if ($('link-voltar')) $('link-voltar').style.display = activar ? 'inline' : 'none';
-  if ($('btn-login')) $('btn-login').querySelector('span').nextSibling.textContent = activar ? ' Enviar Link' : ' Entrar no Sistema';
+  modoRecuperacao = ativar;
+  if ($('login-title')) $('login-title').innerText = ativar ? 'Recuperação de Acesso' : 'Acesso ao Sistema';
+  if ($('login-desc')) $('login-desc').innerText = ativar ? 'Digite seu e-mail para receber o link de redefinição.' : 'Informe suas credenciais para continuar';
+  if ($('login-password-group')) $('login-password-group').style.display = ativar ? 'none' : 'flex';
+  if ($('link-recuperar')) $('link-recuperar').style.display = ativar ? 'none' : 'inline';
+  if ($('link-voltar')) $('link-voltar').style.display = ativar ? 'inline' : 'none';
+  if ($('btn-login')) $('btn-login').querySelector('span').nextSibling.textContent = ativar ? ' Enviar Link' : ' Entrar no Sistema';
 }
 
 function inicializarCanvasAssinatura() {
+  canvas = document.getElementById('canvas-sandbox');
   canvas = document.getElementById('canvas-assinatura');
   if (!canvas) return;
   ctx = canvas.getContext('2d');
@@ -253,7 +250,7 @@ function filtrarEquipamentos(delta) {
     const critCls = eq.criticidade === 'Alta' ? 'danger' : eq.criticidade === 'Baixa' ? 'success' : '';
     return `<tr>
       <td><span class="tag-badge">${eq.tag}</span></td>
-      <td>move<strong>${eq.produto || '—'}</strong><br><small style="color:#a0aec0">${eq.marca || ''}</small></td>
+      <td><strong>${eq.produto || '—'}</strong><br><small style="color:#a0aec0">${eq.marca || ''}</small></td>
       <td>${eq.bloco || '—'} / ${eq.setor || '—'}<br><small style="color:#a0aec0">${eq.sala || ''}</small></td>
       <td><span class="tag-badge ${critCls}">Classe ${eq.criticidade || 'Média'}</span></td>
       <td>${eq.qrcode_token ? `<button class="btn-primary" style="padding:3px 8px;font-size:11px;" onclick="exibirJanelaQRCode('${eq.qrcode_token}','${eq.tag}')">👁️ QR</button>` : '—'}</td>
@@ -335,7 +332,7 @@ if ($('btn-salvar-funcao')) {
 if ($('btn-salvar-ficha')) {
   $('btn-salvar-ficha').addEventListener('click', async () => {
     const equipamento_id = $('pmoc-equipamento')?.value; const tecnico_id = $('pmoc-tecnico')?.value;
-    if (!equipamento_id || !tecnico_id) { msgForm('msg-ficha', 'Preencha os campos obrigatórios.', 'red'); return; }
+    if (!equipamento_id || !tecnico_id) { msgForm('msg-sandbox-log', 'Preencha os campos obrigatórios.', 'red'); msgForm('msg-ficha', 'Preencha os campos obrigatórios.', 'red'); return; }
     msgForm('msg-ficha', 'Salvando...', 'blue');
     const freq = $('pmoc-frequencia')?.value || 'M'; const dataInsp = $('pmoc-data')?.value || hoje();
     const cat = $('pmoc-equipamento').options[$('pmoc-equipamento').selectedIndex]?.dataset?.categoria || 'OUT';
@@ -432,19 +429,20 @@ async function carregarCentralUnificadaOS() {
   tbody.innerHTML = linhas.map(l => `<tr><td><strong>${l.id}</strong></td><td>${fmtDate(l.data)}</td><td>${l.mod}</td><td>${l.cat || '—'}</td><td>${statusBadge(l.st)}</td></tr>`).join('');
 }
 
-// ===================== GESTÃO DE USUÁRIOS =====================
+// ===================== GESTÃO DE USUÁRIOS (ROTA MÓVEL COMPLETA) =====================
 if ($('btn-admin-salvar-usuario')) {
   $('btn-admin-salvar-usuario').addEventListener('click', async () => {
     const email = $('adm-user-email')?.value.trim(); const cpf = $('adm-user-cpf')?.value.trim();
     const role = $('adm-user-role')?.value; const nome = $('adm-user-nome')?.value.trim();
     if ($('wrapper-link-ativacao')) $('wrapper-link-ativacao').style.display = 'none';
     if (!email || !nome || !cpf || !validarCPF(cpf)) { msgForm('msg-admin-usuario', 'Campos obrigatórios inválidos.', 'red'); return; }
-    msgForm('msg-admin-usuario', 'Cadastrando operador...', 'blue');
+    msgForm('msg-admin-usuario', 'Inserindo credenciais no banco público...', 'blue');
 
     const novoId = crypto.randomUUID();
     const { error } = await db.from('profiles').insert([{ id: novoId, email, nome, role, cpf: cpf.replace(/\D/g, ''), status: 'pendente' }]);
     if (error) { msgForm('msg-admin-usuario', 'Erro: ' + error.message, 'red'); return; }
 
+    // Rota móvel contornando restrições de SMTP
     const tokenWhatsApp = `${window.location.origin}/index.html?email=${encodeURIComponent(email)}&token=ativar_direto`;
     if ($('adm-link-gerado')) $('adm-link-gerado').value = tokenWhatsApp;
     if ($('wrapper-link-ativacao')) $('wrapper-link-ativacao').style.display = 'block';
@@ -458,7 +456,7 @@ if ($('btn-admin-salvar-usuario')) {
 async function carregarUsuariosSistema() {
   const tbody = $('tbody-usuarios-sistema'); if (!tbody) return;
   const { data: { user: userAtual } } = await db.auth.getUser();
-  const { data: perfis, error } = await db.from('profiles').select('*').order('email', { ascending: true });
+  const { data: perfis } = await db.from('profiles').select('*').order('email', { ascending: true });
 
   let lista = perfis || [];
   const adminNaLista = lista.some(u => u.email === userAtual?.email);
@@ -468,54 +466,28 @@ async function carregarUsuariosSistema() {
     lista = lista.map(u => u.email === userAtual.email ? { ...u, _isCurrentUser: true } : u);
   }
 
-  const roleBadge = {
-    admin:   '<span class="tag-badge danger">🛡️ Admin</span>',
-    master:  '<span class="tag-badge warning">👨‍💻 Master</span>',
-    tecnico: '<span class="tag-badge">🔬 Técnico</span>',
-    auditor: '<span class="tag-badge" style="background:#f3e8ff;color:#7c3aed;">👁️ Auditor</span>',
-  };
-
-  const statusBadgeUser = {
-    ativo:    '<span class="tag-badge success">● Ativo</span>',
-    pendente: '<span class="tag-badge warning">⏳ Aguardando</span>',
-  };
+  const roleBadge = { admin: '<span class="tag-badge danger">🛡️ Admin</span>', master: '<span class="tag-badge warning">👨‍💻 Master</span>', tecnico: '<span class="tag-badge">🔬 Técnico</span>', auditor: '<span class="tag-badge" style="background:#f3e8ff;color:#7c3aed;">👁️ Auditor</span>' };
+  const statusBadgeUser = { ativo: '<span class="tag-badge success">● Ativo</span>', pendente: '<span class="tag-badge warning">⏳ Aguardando</span>' };
 
   tbody.innerHTML = lista.map(u => {
     const isVoce = !!u._isCurrentUser;
-    const cpfFmt = u.cpf ? u.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '—';
     return `<tr${isVoce ? ' style="background:#f0f7ff;"' : ''}>
       <td><strong>${u.nome || u.email}</strong>${isVoce ? '<span class="tag-badge" style="background:#dbeafe;color:#1e40af;margin-left:6px;font-size:10px;">Você</span>' : ''}<br><small style="color:#a0aec0;">${u.email}</small></td>
-      <td>${cpfFmt}</td>
+      <td>${u.cpf ? u.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '—'}</td>
       <td>${roleBadge[u.role] || `<span>${u.role || '—'}</span>`}</td>
       <td>${statusBadgeUser[u.status] || statusBadgeUser['ativo']}</td>
-      <td>
-        ${isVoce
-          ? '<span style="color:#a0aec0;font-size:12px;">—</span>'
-          : `<button class="btn-excluir" onclick="excluirPerfil('${u.id}','${u.email}')">✕ Revogar</button>
-             ${u.status === 'pendente' ? `<button class="btn-primary" style="padding:3px 8px;font-size:11px;margin-left:4px;background:#d97706;border-color:#d97706;" onclick="reenviarConvite('${u.email}')">↺ Link</button>` : ''}`
-        }
-      </td>
+      <td>${isVoce ? '—' : `<button class="btn-excluir" onclick="excluirPerfil('${u.id}','${u.email}')">✕ Revogar</button> ${u.status === 'pendente' ? `<button class="btn-primary" style="padding:3px 8px;font-size:11px;margin-left:4px;background:#d97706;border-color:#d97706;" onclick="reenviarConvite('${u.email}')">↺ Link</button>` : ''}`}</td>
     </tr>`;
   }).join('');
 }
 
-// RESTAURADA A AÇÃO COMPLETA DE EXCLUSÃO (REVOGAÇÃO DE ACESSO)
 async function excluirPerfil(id, email) {
-  if (!confirm(`Tem certeza de que deseja revogar o acesso e excluir permanentemente o perfil de "${email}"?`)) return;
-  const { error } = await db.from('profiles').delete().eq('id', id);
-  if (!error) {
-    alert(`Acesso de ${email} revogado com sucesso!`);
-    carregarUsuariosSistema();
-  } else {
-    alert("Inconsistência ao excluir usuário: " + error.message);
-  }
+  if (confirm(`Revogar acesso de "${email}"?`)) { await db.from('profiles').delete().eq('id', id); carregarUsuariosSistema(); }
 }
-
 function reenviarConvite(email) {
   if ($('wrapper-link-ativacao') && $('adm-link-gerado')) {
     $('adm-link-gerado').value = `${window.location.origin}/index.html?email=${encodeURIComponent(email)}&token=ativar_direto`;
-    $('wrapper-link-ativacao').style.display = 'block';
-    $('wrapper-link-ativacao').scrollIntoView({ behavior: 'smooth' });
+    $('wrapper-link-ativacao').style.display = 'block'; $('wrapper-link-ativacao').scrollIntoView({ behavior: 'smooth' });
   }
 }
 
