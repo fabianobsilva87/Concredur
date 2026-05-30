@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Concredur — Acesso Integrado</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22Manutencao%20Concredur%22,%22short_name%22:%22Concredur%22,%22start_url%22:%22index.html%22,%22display%22:%22standalone%22,%22background_color%22:%22%23072d6e%22,%22theme_color%22:%22%231a56db%22}" />
+</head>
+<body>
+  <div class="login-page-wrapper">
+    <div class="login-brand-area">
+      <div class="login-logo-icon">🏗️</div>
+      <div class="login-brand-name">MANUTENÇÃO <span>CONCREDUR</span></div>
+      <div class="login-brand-sub">Sistema Integrado de Gestão de Manutenção</div>
+    </div>
+    <div class="login-card-panel">
+      <h2 id="login-title">Acesso ao Sistema</h2>
+      <p class="login-subtitle" id="login-desc">Informe suas credenciais para continuar</p>
+      <div class="login-form-inputs">
+        <div class="login-field-group">
+          <label for="email">Usuário / E-mail</label>
+          <div class="input-with-icon">
+            <span class="field-icon">👤</span>
+            <input type="email" id="email" placeholder="Digite seu e-mail" required>
+          </div>
+        </div>
+        <div class="login-field-group" id="login-password-group">
+          <label for="password">Senha</label>
+          <div class="input-with-icon">
+            <span class="field-icon">🔑</span>
+            <input type="password" id="password" placeholder="Digite sua senha">
+          </div>
+        </div>
+      </div>
+      <button id="btn-login" class="btn-login-submit"><span>➔</span> Entrar no Sistema</button>
+      <div class="login-card-links">
+        <a href="#" class="forgot-password-link" id="link-recuperar" onclick="toggleModoRecuperacao(true)">Recuperar Senha?</a>
+        <a href="#" class="forgot-password-link" id="link-voltar" style="display:none;" onclick="toggleModoRecuperacao(false)">Voltar ao Login</a>
+      </div>
+      <p id="mensagem" class="erro"></p>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://nweligwbglblbncaegir.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53ZWxpZ3diZ2xibGJuY2FlZ2lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwMzAzNTgsImV4cCI6MjA5NTYwNjM1OH0.6eKcn40QmcfvHKAxuDH3kB6vHBJUu5LUVzfr27dvbKk";
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let modoRecuperacao = false;
+
+    db.auth.getSession().then(({ data }) => { if (data.session) window.location.href = "pages/dashboard.html"; });
+
+    function toggleModoRecuperacao(ativar) {
+      modoRecuperacao = activar;
+      document.getElementById('mensagem').innerText = '';
+      if (ativar) {
+        document.getElementById('login-title').innerText = "Recuperar Senha";
+        document.getElementById('login-desc').innerText = "Informe seu e-mail para receber as instruções";
+        document.getElementById('login-password-group').style.display = "none";
+        document.getElementById('btn-login').innerHTML = "<span>✉</span> Enviar Link";
+        document.getElementById('link-recuperar').style.display = "none";
+        document.getElementById('link-voltar').style.display = "block";
+      } else {
+        document.getElementById('login-title').innerText = "Acesso ao Sistema";
+        document.getElementById('login-desc').innerText = "Informe suas credenciais para continuar";
+        document.getElementById('login-password-group').style.display = "flex";
+        document.getElementById('btn-login').innerHTML = "<span>➔</span> Entrar no Sistema";
+        document.getElementById('link-recuperar').style.display = "block";
+        document.getElementById('link-voltar').style.display = "none";
+      }
+    }
+
+    document.getElementById('btn-login').addEventListener('click', async () => {
+      const email = document.getElementById('email').value.trim();
+      if (!email) { alert("Informe o e-mail."); return; }
+      if (modoRecuperacao) {
+        const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+        if (error) document.getElementById('mensagem').innerText = error.message;
+        else document.getElementById('mensagem').innerText = "Link de recuperação enviado!";
+      } else {
+        const { error } = await db.auth.signInWithPassword({ email, password: document.getElementById('password').value });
+        if (error) document.getElementById('mensagem').innerText = "Acesso negado: dados incorretos.";
+        else window.location.href = "pages/dashboard.html";
+      }
+    });
+  </script>
+</body>
+</html>
