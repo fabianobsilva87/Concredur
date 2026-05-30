@@ -286,8 +286,8 @@
                 </select>
               </div>
               <div class="form-group" style="grid-column: span 2;">
-                <label>Foto da Inspeção (Opcional)</label>
-                <input type="file" id="pmoc-foto" accept="image/*" class="form-input-style">
+                <label>Foto da Inspeção (Opcional - Suporta Câmera Móvel):</label>
+                <input type="file" id="pmoc-foto" accept="image/*" capture="environment" class="form-input-style">
               </div>
             </div>
             <div class="pmoc-checklist-container">
@@ -399,9 +399,9 @@
       <div id="section-ordens" class="app-section" style="display:none;">
         <div class="topbar no-print"><h2>Ordens de Serviço — Ar Condicionado</h2></div>
         <div class="section-content">
-          <div class="card no-print">
-            <h3 class="card-title">Abertura / Registro de Ordem de Serviço</h3>
-            <div class="form-grid">
+          <div class="card no-print" id="foco-formulario-os">
+            <h3 class="card-title" id="titulo-formulario-os">Abertura / Registro de Ordem de Serviço</h3>
+            <input type="hidden" id="os-id-edicao" value=""> <div class="form-grid">
               <div class="form-group">
                 <label>Equipamento Vinculado (TAG)</label>
                 <select id="os-equipamento" class="form-input-style">
@@ -439,9 +439,14 @@
                 <label>Laudo Técnico / Atividades Executadas</label>
                 <textarea id="os-laudo" rows="3" placeholder="Insira o detalhamento do serviço realizado..."></textarea>
               </div>
+              <div class="form-group" style="grid-column: span 2;">
+                <label>Anexar Foto de Evidência Técnica (Aciona a câmera do celular):</label>
+                <input type="file" id="os-foto" accept="image/*" capture="environment" class="form-input-style">
+              </div>
             </div>
             <div class="btn-row">
               <button id="btn-salvar-os" class="btn-primary">✓ Salvar Ordem de Serviço</button>
+              <button id="btn-cancelar-edicao-os" class="btn-secondary" style="display:none;">Cancelar Edição</button>
             </div>
             <p id="msg-os" class="msg-form"></p>
           </div>
@@ -473,9 +478,9 @@
       <div id="section-os-grid" class="app-section" style="display:none;">
         <div class="topbar no-print"><h2>Ordem de Serviço — Facilities / Geral</h2></div>
         <div class="section-content">
-          <div class="card no-print">
-            <h3 class="card-title">Nova O.S. Geral</h3>
-            <div class="form-grid">
+          <div class="card no-print" id="foco-formulario-osg">
+            <h3 class="card-title" id="titulo-formulario-osg">Nova O.S. Geral</h3>
+            <input type="hidden" id="osg-id-edicao" value=""> <div class="form-grid">
               <div class="form-group">
                 <label>Serviço Requisitado / Título</label>
                 <input type="text" id="osg-requisitado" placeholder="Ex: Reparo em tomada, Vazamento...">
@@ -549,9 +554,14 @@
                 <label>Observações</label>
                 <textarea id="osg-obs" rows="2" placeholder="Informações adicionais..."></textarea>
               </div>
+              <div class="form-group" style="grid-column: span 2;">
+                <label>Anexar Foto de Evidência Geral (Aciona a câmera do celular):</label>
+                <input type="file" id="osg-foto" accept="image/*" capture="environment" class="form-input-style">
+              </div>
             </div>
             <div class="btn-row">
               <button id="btn-salvar-osg" class="btn-primary">✓ Salvar O.S. Geral</button>
+              <button id="btn-cancelar-edicao-osg" class="btn-secondary" style="display:none;">Cancelar Edição</button>
             </div>
             <p id="msg-osg" class="msg-form"></p>
           </div>
