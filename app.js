@@ -3,18 +3,6 @@
 //   A ANON KEY abaixo é segura para o front-end pois é somente leitura pública.
 //   O acesso real aos dados é controlado por Row Level Security (RLS) no Supabase.
 //   NUNCA exponha a SERVICE_ROLE_KEY no front-end.
-//
-//   Políticas RLS recomendadas para este projeto:
-//   - profiles:       SELECT/INSERT/UPDATE apenas para auth.role() = 'authenticated'
-//   - equipamentos:   SELECT público, INSERT/UPDATE/DELETE exigem autenticação
-//   - fichas_pmoc:    SELECT/INSERT exigem autenticação, DELETE restrito a admin
-//   - ordens_servico: SELECT/INSERT exigem autenticação
-//   - colaboradores:  SELECT/INSERT/DELETE exigem autenticação
-//
-//   Para habilitar RLS no Supabase Dashboard:
-//   1. Acesse Table Editor → selecione a tabela → "RLS" → Enable
-//   2. Crie políticas em Authentication → Policies
-//
 const SUPABASE_URL      = "https://nweligwbglblbncaegir.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53ZWxpZ3diZ2xibGJuY2FlZ2lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwMzAzNTgsImV4cCI6MjA5NTYwNjM1OH0.6eKcn40QmcfvHKAxuDH3kB6vHBJUu5LUVzfr27dvbKk";
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -50,18 +38,13 @@ function msgForm(id, texto, cor) {
 }
 
 // ===================== COMPRESSÃO E UPLOAD DE FOTO =====================
-// Limite e qualidade configuráveis em um único lugar
 const FOTO_CONFIG = {
-  maxWidth:    1280,   // px — largura máxima após redimensionamento
-  maxHeight:   1280,   // px — altura máxima após redimensionamento
-  qualidade:   0.78,   // JPEG quality 0–1 (0.78 ≈ ~70–80 kB para fotos comuns de campo)
-  maxBytes:    800_000 // 800 kB — rejeita o arquivo se, mesmo após compressão, ainda estiver grande
+  maxWidth:    1280,   
+  maxHeight:   1280,   
+  qualidade:   0.78,   
+  maxBytes:    800_000 
 };
 
-/**
- * Comprime um File de imagem usando Canvas e retorna um Blob JPEG redimensionado.
- * Mantém a proporção original; não faz upscale se a imagem já for menor que o limite.
- */
 function comprimirImagem(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -70,7 +53,6 @@ function comprimirImagem(file) {
       const img = new Image();
       img.onerror = () => reject(new Error('Arquivo não é uma imagem válida.'));
       img.onload = () => {
-        // Calcula as novas dimensões mantendo proporção
         let { width, height } = img;
         const { maxWidth, maxHeight } = FOTO_CONFIG;
 
@@ -84,7 +66,6 @@ function comprimirImagem(file) {
         canvas.width  = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        // Fundo branco para imagens com canal alpha (PNG transparente → JPEG)
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
@@ -104,30 +85,17 @@ function comprimirImagem(file) {
   });
 }
 
-/**
- * Comprime a imagem e faz upload para o bucket fotos-pmoc.
- * Retorna a URL pública ou null em caso de erro.
- * @param {File|null} file  — arquivo selecionado pelo input
- * @param {string}    pasta — subpasta dentro do bucket (ex: 'pmoc', 'os_clima')
- * @param {string}    [msgId] — ID do elemento <p> para exibir progresso (opcional)
- */
 async function uploadFoto(file, pasta, msgId) {
   if (!file) return null;
 
-  // Só comprime imagens; outros tipos de arquivo passam direto (improvável mas seguro)
   let blob = file;
   if (file.type.startsWith('image/')) {
     try {
       if (msgId) msgForm(msgId, '🗜️ Comprimindo imagem...', 'blue');
       blob = await comprimirImagem(file);
-
-      if (blob.size > FOTO_CONFIG.maxBytes) {
-        if (msgId) msgForm(msgId, `⚠️ Imagem ainda grande após compressão (${(blob.size/1024).toFixed(0)} kB). Verifique a câmera.`, 'red');
-        // Não bloqueia — faz upload mesmo assim, apenas avisa
-      }
     } catch (err) {
       console.warn('Compressão falhou, usando arquivo original:', err.message);
-      blob = file; // fallback seguro
+      blob = file; 
     }
   }
 
@@ -147,8 +115,6 @@ async function uploadFoto(file, pasta, msgId) {
 
 // ===================== SESSÃO & ROTEAMENTO =====================
 async function verificarSessaoGlobal() {
-  // getUser() valida o token junto ao servidor, rejeitando tokens locais expirados.
-  // getSession() confia apenas no storage local e pode aceitar sessões já inválidas.
   const { data: { user }, error } = await db.auth.getUser();
   const pag = window.location.pathname.split('/').pop();
   if (!user || error) {
@@ -168,13 +134,13 @@ if ($('btn-logout')) {
 
 // ===================== MODO RECUPERAÇÃO DE SENHA =====================
 function toggleModoRecuperacao(ativar) {
-  modoRecuperacao = ativar;
-  if ($('login-title')) $('login-title').innerText = ativar ? 'Recuperação de Acesso' : 'Acesso ao Sistema';
-  if ($('login-desc')) $('login-desc').innerText = ativar ? 'Digite seu e-mail para receber o link de redefinição.' : 'Informe suas credenciais para continuar';
-  if ($('login-password-group')) $('login-password-group').style.display = ativar ? 'none' : 'flex';
-  if ($('link-recuperar')) $('link-recuperar').style.display = ativar ? 'none' : 'inline';
-  if ($('link-voltar')) $('link-voltar').style.display = ativar ? 'inline' : 'none';
-  if ($('btn-login')) $('btn-login').querySelector('span').nextSibling.textContent = ativar ? ' Enviar Link' : ' Entrar no Sistema';
+  modoRecuperacao = activar;
+  if ($('login-title')) $('login-title').innerText = activar ? 'Recuperação de Acesso' : 'Acesso ao Sistema';
+  if ($('login-desc')) $('login-desc').innerText = activar ? 'Digite seu e-mail para receber o link de redefinição.' : 'Informe suas credenciais para continuar';
+  if ($('login-password-group')) $('login-password-group').style.display = activar ? 'none' : 'flex';
+  if ($('link-recuperar')) $('link-recuperar').style.display = activar ? 'none' : 'inline';
+  if ($('link-voltar')) $('link-voltar').style.display = activar ? 'inline' : 'none';
+  if ($('btn-login')) $('btn-login').querySelector('span').nextSibling.textContent = activar ? ' Enviar Link' : ' Entrar no Sistema';
 }
 
 // ===================== CANVAS DE ASSINATURA DIGITAL =====================
@@ -201,8 +167,6 @@ function inicializarCanvasAssinatura() {
 }
 function limparCanvasAssinatura() { if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
-// Máscara CPF via classe .input-cpf — veja bloco GESTÃO DE USUÁRIOS abaixo
-
 // ===================== CRITICIDADE =====================
 function calcularCriticidadeFluxograma() {
   const el = (id) => $(id);
@@ -217,7 +181,6 @@ function calcularCriticidadeFluxograma() {
 }
 
 // ===================== TOGGLE CHECKLIST PMOC =====================
-// Hierarquia cumulativa: A inclui S+T+M | S inclui T+M | T inclui M | M só M
 const FREQ_HIERARQUIA = { M: ['M'], T: ['M','T'], S: ['M','T','S'], A: ['M','T','S','A'] };
 
 function toggleItemsPorFrequencia() {
@@ -237,8 +200,7 @@ function toggleItemsPorFrequencia() {
   });
 }
 
-// ===================== EQUIPAMENTOS — CAMPOS CONDICIONAIS POR CATEGORIA =====================
-// Mapa: categoria → campos extras que ela usa (para coleta no save)
+// ===================== EQUIPAMENTOS — CATEGORIAS & MAPEAMENTO =====================
 const EQ_CAMPOS_EXTRAS = {
   AC:   ['eq-potencia','eq-ciclo','eq-tensao','eq-gas','eq-instalacao-ac','eq-validade'],
   BEB:  ['eq-cap-beb','eq-tipo-beb','eq-filtro-beb','eq-validade-filtro-beb','eq-lacre-beb','eq-validade-lacre-beb'],
@@ -247,25 +209,31 @@ const EQ_CAMPOS_EXTRAS = {
   OUT:  [],
 };
 
-// Ícones e labels das categorias
 const EQ_CATEGORIA_LABEL = {
   AC: '❄️ Ar Condicionado', BEB: '💧 Bebedouro',
-  CLIM: '🌀 Climatizador', VEN: '💨 Ventilador/Exaustor', OUT: '🔧 Outros',
+  CLIM: '🌀 Climatizador Evaporativo', VEN: '💨 Ventilador/Exaustor', OUT: '🔧 Outros',
 };
 
 function toggleCamposEquipamento() {
   const cat = $('eq-categoria')?.value || '';
 
-  // Oculta todos os blocos condicionais
   document.querySelectorAll('.eq-campo-condicional').forEach(el => el.style.display = 'none');
-  // Limpa todos os campos extras ao trocar de categoria
-  Object.values(EQ_CAMPOS_EXTRAS).flat().forEach(id => { if ($(id)) $(id).value = ''; });
+  
+  // Limpeza segura tratando nós de data nativos
+  Object.values(EQ_CAMPOS_EXTRAS).flat().forEach(id => { 
+    const el = $(id);
+    if (el) {
+      if (el.type === 'month' || el.type === 'date') {
+        el.value = '';
+      } else {
+        el.value = '';
+      }
+    }
+  });
 
-  if (!cat) return; // Nenhuma categoria selecionada — mantém tudo oculto
+  if (!cat) return;
 
-  // Mostra bloco específico da categoria
   document.querySelectorAll(`.eq-campo-${cat}`).forEach(el => el.style.display = 'block');
-  // Mostra sempre localização e criticidade
   document.querySelectorAll('.eq-campo-localizacao, .eq-campo-criticidade').forEach(el => el.style.display = 'block');
 }
 
@@ -278,7 +246,6 @@ if ($('btn-salvar')) {
     if (!cat)  { msgForm('msg-equipamento', 'Selecione a categoria do ativo.', 'red'); return; }
     msgForm('msg-equipamento', 'Salvando...', 'blue');
 
-    // Coleta campos comuns
     const payload = {
       tag, categoria: cat,
       marca:       $('eq-marca')?.value.trim()      || null,
@@ -292,7 +259,6 @@ if ($('btn-salvar')) {
       criticidade: calcularCriticidadeFluxograma(),
     };
 
-    // Coleta campos extras da categoria — armazenados em JSONB extras_tecnico
     const extras = {};
     (EQ_CAMPOS_EXTRAS[cat] || []).forEach(id => {
       const el = $(id); if (!el || !el.value.trim()) return;
@@ -300,7 +266,6 @@ if ($('btn-salvar')) {
     });
     if (Object.keys(extras).length) payload.extras_tecnico = extras;
 
-    // Potência e validade no nível raiz para compatibilidade
     if ($('eq-potencia')?.value)   payload.potencia = $('eq-potencia').value.trim();
     if ($('eq-validade')?.value)   payload.validade = $('eq-validade').value.trim();
 
@@ -310,6 +275,7 @@ if ($('btn-salvar')) {
     setTimeout(() => location.href = 'gerir-equipamentos.html', 1200);
   });
 }
+
 if ($('btn-limpar')) {
   $('btn-limpar').addEventListener('click', () => {
     if ($('eq-categoria')) $('eq-categoria').value = '';
@@ -320,7 +286,7 @@ if ($('btn-limpar')) {
   });
 }
 
-// ===================== EQUIPAMENTOS — LISTAGEM + PAGINAÇÃO + QR =====================
+// ===================== EQUIPAMENTOS — LISTAGEM + PAGINAÇÃO =====================
 async function carregarEquipamentos() {
   const { data } = await db.from('equipamentos').select('*').order('tag', { ascending: true });
   globalEquipamentos = data || [];
@@ -416,18 +382,15 @@ async function atualizarSelectEquipamentos() {
   });
 }
 
-// Detecta tipo do equipamento selecionado e exibe checklist correto no PMOC
 function onEquipamentoSelecionado() {
   const sel = $('pmoc-equipamento');
   if (!sel) return;
   const opt = sel.options[sel.selectedIndex];
   const cat = opt?.dataset?.categoria || '';
 
-  // Limpa todos os checklists
   ['AC','BEB','CLIM','VEN','OUT'].forEach(t => {
     const el = $('checklist-' + t);
     if (el) el.style.display = 'none';
-    // Limpa radios do checklist oculto
     if (el) el.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
   });
 
@@ -444,7 +407,6 @@ function onEquipamentoSelecionado() {
   const alvo = $('checklist-' + cat) || $('checklist-OUT');
   if (alvo) alvo.style.display = 'block';
 
-  // Atualiza badge de tipo
   const badge = $('pmoc-tipo-badge');
   const labelEl = $('pmoc-tipo-label');
   if (badge && labelEl) {
@@ -452,7 +414,6 @@ function onEquipamentoSelecionado() {
     badge.style.display = 'block';
   }
 
-  // Re-aplica toggle de frequência ao trocar equipamento
   toggleItemsPorFrequencia();
 }
 
@@ -461,26 +422,23 @@ async function carregarAtivoViaTokenQRCode(token) {
   if (data && $('pmoc-equipamento')) $('pmoc-equipamento').value = data.id;
 }
 
-// Verificar modo edição de equipamento
+// Edição de Equipamento - IIFE
 (async () => {
   const params = new URLSearchParams(window.location.search);
   const editId = params.get('edit');
   if (editId && $('eq-tag')) {
     const { data } = await db.from('equipamentos').select('*').eq('id', editId).single();
     if (data) {
-      // Preenche categoria primeiro para mostrar campos corretos
       if ($('eq-categoria') && data.categoria) {
         $('eq-categoria').value = data.categoria;
         toggleCamposEquipamento();
       }
-      // Campos base
       const mapa = { tag:'tag', marca:'marca', potencia:'potencia', serie:'nr_serie',
         patrimonio:'patrimonio', produto:'produto', bloco:'bloco', setor:'setor',
         sala:'sala', instituicao:'instituicao', validade:'validade' };
       Object.entries(mapa).forEach(([htmlK, dbK]) => {
         if ($('eq-' + htmlK) && data[dbK]) $('eq-' + htmlK).value = data[dbK];
       });
-      // Campos extras do JSONB
       if (data.extras_tecnico) {
         Object.entries(data.extras_tecnico).forEach(([k, v]) => {
           const el = $('eq-' + k); if (el) el.value = v;
@@ -509,7 +467,7 @@ async function carregarAtivoViaTokenQRCode(token) {
             extras_tecnico: Object.keys(extras).length ? extras : null,
           };
           await db.from('equipamentos').update(payload).eq('id', editId);
-          msgForm('msg-equipamento', '✓ Equipamento atualizado!', 'green');
+          msgForm('msg-equipamento', '✓ Equipamento updated!', 'green');
           setTimeout(() => location.href = 'gerir-equipamentos.html', 1000);
         };
       }
@@ -545,6 +503,7 @@ async function carregarColaboradores() {
       </tr>`).join('')
     : '<tr><td colspan="4" class="td-loading">Nenhum colaborador cadastrado.</td></tr>';
 }
+
 async function excluirColaborador(id) {
   if (confirm('Remover colaborador?')) { await db.from('colaboradores').delete().eq('id', id); carregarColaboradores(); }
 }
@@ -560,24 +519,25 @@ async function carregarFuncoes() {
       </tr>`).join('')
     : '<tr><td colspan="4" class="td-loading">Nenhuma função cadastrada.</td></tr>';
 }
+
 async function excluirFuncao(id) {
   if (confirm('Remover função?')) { await db.from('funcoes').delete().eq('id', id); carregarFuncoes(); }
 }
 
-// Listeners de formulário — RH
 if ($('btn-salvar-colaborador')) {
   $('btn-salvar-colaborador').addEventListener('click', async () => {
     const nome = $('colab-nome')?.value.trim();
     const cpf  = $('colab-cpf')?.value.trim();
     if (!nome)              { msgForm('msg-colaborador', 'Nome completo é obrigatório.', 'red'); return; }
     if (!cpf)               { msgForm('msg-colaborador', 'CPF é obrigatório.', 'red'); return; }
-    if (!validarCPF(cpf))   { msgForm('msg-colaborador', '❌ CPF inválido. Verifique os dígitos verificadores (padrão Receita Federal).', 'red'); return; }
+    if (!validarCPF(cpf))   { msgForm('msg-colaborador', '❌ CPF inválido.', 'red'); return; }
     const cpfLimpo = cpf.replace(/\D/g, '');
     const { error } = await db.from('colaboradores').insert([{ nome, cpf: cpfLimpo, funcao_id: $('colab-funcao')?.value || null }]);
-    if (!error) { msgForm('msg-colaborador', '✓ Colaborador salvo!', 'green'); carregarColaboradores(); atualizarSelectColaboradores(); if ($('colab-nome')) $('colab-nome').value = ''; if ($('colab-cpf')) $('colab-cpf').value = ''; }
+    if (!error) { msgForm('msg-colaborador', '✓ Técnico salvo!', 'green'); carregarColaboradores(); atualizarSelectColaboradores(); if ($('colab-nome')) $('colab-nome').value = ''; if ($('colab-cpf')) $('colab-cpf').value = ''; }
     else msgForm('msg-colaborador', 'Erro: ' + error.message, 'red');
   });
 }
+
 if ($('btn-salvar-funcao')) {
   $('btn-salvar-funcao').addEventListener('click', async () => {
     const nome = $('func-nome')?.value.trim();
@@ -600,36 +560,27 @@ if ($('btn-salvar-ficha')) {
     const dataInsp = $('pmoc-data')?.value || hoje();
     const obs = $('pmoc-obs')?.value.trim() || '';
 
-    // Detecta categoria do equipamento selecionado
     const selEq = $('pmoc-equipamento');
     const catOpt = selEq?.options[selEq.selectedIndex];
     const cat = catOpt?.dataset?.categoria || 'OUT';
 
-    // Coleta checklist — todos os campos possíveis de TODOS os tipos
-    // (campos não exibidos ficam NA — sem impacto no laudo pois são filtrados)
     const TODOS_CAMPOS_CHECKLIST = [
-      // AC
       'fil_01','bio_01','bio_02','mec_01','fil_02','bio_03','ele_01','ele_02','mec_02',
       'ref_01','ref_02','ele_03','ele_04','mec_03','bio_04','ins_01',
       'ref_03','mec_04','mec_05','ele_05','ele_06','bio_05','ins_02','ins_03',
-      // BEB
       'beb_01','beb_02','beb_03','beb_04','beb_05','beb_06','beb_07','beb_08',
       'beb_09','beb_10','beb_11','beb_12','beb_13','beb_14','beb_15',
-      // CLIM
       'clm_01','clm_02','clm_03','clm_04','clm_05','clm_06','clm_07','clm_08','clm_09',
       'clm_10','clm_11','clm_12','clm_13','clm_14','clm_15','clm_16',
-      // VEN
       'ven_01','ven_02','ven_03','ven_04','ven_05','ven_06','ven_07','ven_08','ven_09','ven_10',
-      // OUT/GER
       'ger_01','ger_02','ger_03','ger_04','ger_05',
     ];
     const checklistResult = {};
     TODOS_CAMPOS_CHECKLIST.forEach(campo => {
       const sel = document.querySelector(`input[name="${campo}"]:checked`);
-      if (sel) checklistResult[campo] = sel.value; // só salva os que foram marcados
+      if (sel) checklistResult[campo] = sel.value;
     });
 
-    // Assinatura digital
     let assinaturaBase64 = null;
     if (canvas && ctx) {
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -649,7 +600,7 @@ if ($('btn-salvar-ficha')) {
       observacoes: obsCompleto, user_id: user?.id,
     };
     if (foto_url) payload.foto_url = foto_url;
-    if (assinaturaBase64) payload.assinatura_digital = assinaturaBase64;
+    if (assinaturaBase64) payload.assinatura_digital = signatureBase64;
 
     const { error } = await db.from('fichas_pmoc').insert([payload]);
     if (error) { msgForm('msg-ficha', 'Erro: ' + error.message, 'red'); return; }
@@ -663,7 +614,7 @@ if ($('btn-salvar-ficha')) {
   });
 }
 
-let _fichasCache = []; // cache para filtro local
+let _fichasCache = [];
 
 async function carregarHistoricoFichas() {
   const tbody = $('tbody-fichas'); if (!tbody) return;
@@ -740,21 +691,18 @@ function emitirRelatorioPMOC(b64) {
 
   const matchTipoImp = obs.match(/\[TipoEquipamento:\s*([^\]]+)\]/);
   const tipoEq = matchTipoImp ? matchTipoImp[1] : (f.equipamentos?.categoria || 'OUT');
-  const tipoLabelImp = { AC:'\u2744\ufe0f Ar Condicionado / Split', BEB:'\ud83d\udca7 Bebedouro', CLIM:'\ud83c\udf00 Climatizador Evaporativo', VEN:'\ud83d\udca8 Ventilador / Exaustor', OUT:'\ud83d\udd27 Equipamento Geral' }[tipoEq] || 'Equipamento';
+  const tipoLabelImp = { AC:'❄️ Ar Condicionado / Split', BEB:'💧 Bebedouro', CLIM:'🌀 Climatizador Evaporativo', VEN:'💨 Ventilador / Exaustor', OUT:'🔧 Equipamento Geral' }[tipoEq] || 'Equipamento';
 
   const nomes = {
-    // AC — Mensal
     fil_01:'[FIL-01] Filtros de Ar (G4/F7/F9) — Higienização/Substituição',
     bio_01:'[BIO-01] Bandeja de Condensados — Pastilha Sanitizante',
     bio_02:'[BIO-02] Rede de Drenagem — Desobstrução e Teste de Escoamento',
     mec_01:'[MEC-01] Conjunto Ventilação — Ruídos, Coxins e Fixadores',
-    // AC — Trimestral
     fil_02:'[FIL-02] Diferencial de Pressão de Filtros — Manômetro',
     bio_03:'[BIO-03] Serpentinas — Limpeza Química por Pressão',
     ele_01:'[ELE-01] Medição de Corrente/Tensão dos Compressores',
     ele_02:'[ELE-02] Reaperto dos Bornes de Comando e Potência',
     mec_02:'[MEC-02] Lubrificação de Rolamentos e Buchas do Motoventilador',
-    // AC — Semestral
     ref_01:'[REF-01] Verificação de Carga de Gás Refrigerante',
     ref_02:'[REF-02] Verificação de Vazamentos no Circuito Frigorífico',
     ele_03:'[ELE-03] Medição de Isolamento Elétrico (Megôhmetro)',
@@ -762,7 +710,6 @@ function emitirRelatorioPMOC(b64) {
     mec_03:'[MEC-03] Inspeção e Substituição de Correias e Polias',
     bio_04:'[BIO-04] Coleta de Amostra de Água — Análise Microbiológica',
     ins_01:'[INS-01] Inspeção Estrutural — Suportes, Fixações e Isolamento Térmico',
-    // AC — Anual
     ref_03:'[REF-03] Substituição de Gás Refrigerante e Registro ART',
     mec_04:'[MEC-04] Substituição de Rolamentos, Buchas e Selos Mecânicos',
     mec_05:'[MEC-05] Limpeza e Inspeção do Compressor — Óleo e Visor',
@@ -771,7 +718,6 @@ function emitirRelatorioPMOC(b64) {
     bio_05:'[BIO-05] Higienização Completa — Laudos Microbiológicos',
     ins_02:'[INS-02] Revisão Geral do PMOC — Documentação e ART',
     ins_03:'[INS-03] Análise de Desempenho — Delta T, COP e Eficiência',
-    // BEB
     beb_01:'[BEB-01] Limpeza Externa — Gabinete, Torneiras e Bica',
     beb_02:'[BEB-02] Verificação do Sistema de Refrigeração (temperatura)',
     beb_03:'[BEB-03] Inspeção Visual de Vazamentos nas Conexões',
@@ -787,7 +733,6 @@ function emitirRelatorioPMOC(b64) {
     beb_13:'[BEB-13] Revisão Completa do Sistema de Refrigeração',
     beb_14:'[BEB-14] Substituição de Vedações, O-rings e Torneiras',
     beb_15:'[BEB-15] Laudo Sanitário Anual — Documentação ANVISA',
-    // CLIM
     clm_01:'[CLM-01] Limpeza do Reservatório — Remoção de Lodo e Calcário',
     clm_02:'[CLM-02] Limpeza e Inspeção do Painel Evaporativo',
     clm_03:'[CLM-03] Verificação de Nível e Funcionamento da Boia',
@@ -804,7 +749,6 @@ function emitirRelatorioPMOC(b64) {
     clm_14:'[CLM-14] Substituição do Painel Evaporativo',
     clm_15:'[CLM-15] Revisão Geral da Bomba — Impelidor, Eixo e Vedação',
     clm_16:'[CLM-16] Laudo Técnico Anual — Relatório de Qualidade da Água',
-    // VEN
     ven_01:'[VEN-01] Limpeza das Pás/Hélice e Grelha de Proteção',
     ven_02:'[VEN-02] Verificação de Ruídos, Vibração e Folgas Mecânicas',
     ven_03:'[VEN-03] Verificação de Fixação — Parafusos e Suportes',
@@ -815,7 +759,6 @@ function emitirRelatorioPMOC(b64) {
     ven_08:'[VEN-08] Análise de Vibração — Verificação de Desbalanceamento',
     ven_09:'[VEN-09] Substituição de Rolamentos e Buchas Desgastados',
     ven_10:'[VEN-10] Balanceamento Dinâmico das Pás/Hélice',
-    // GER
     ger_01:'[GER-01] Inspeção Visual Geral — Conservação e Integridade',
     ger_02:'[GER-02] Limpeza Geral — Remoção de Poeira e Oxidação',
     ger_03:'[GER-03] Verificação de Fixação — Suportes e Estrutura',
@@ -827,9 +770,6 @@ function emitirRelatorioPMOC(b64) {
   if (matchChk) {
     try {
       const chk = JSON.parse(matchChk[1]);
-      // Mapa completo de grupos por tipo de equipamento e frequência.
-      // Cada entrada define label, campos e a quais categorias pertence.
-      // Um grupo só aparece no laudo se ao menos um de seus campos foi marcado (≠ ausente).
       const GRUPOS_POR_TIPO = {
         AC: [
           { label: '🔧 Rotinas Mensais',     campos: ['fil_01','bio_01','bio_02','mec_01'] },
@@ -860,12 +800,10 @@ function emitirRelatorioPMOC(b64) {
         ],
       };
 
-      // Seleciona os grupos do tipo detectado; cai em AC como fallback seguro.
-      const grupos = GRUPOS_POR_TIPO[tipoEq] || GRUPOS_POR_TIPO['AC'];
+      const grupos = GRUPOS_POR_TIPO[tipoEq] || GRUPOS_POR_TIPO['OUT'];
 
       let allRows = '';
       grupos.forEach(g => {
-        // Renderiza o grupo apenas se ao menos um campo foi efetivamente marcado
         const camposPresentes = g.campos.filter(k => k in chk);
         if (!camposPresentes.length) return;
 
@@ -888,7 +826,7 @@ function emitirRelatorioPMOC(b64) {
   }
 
   const assinaturaHTML = f.assinatura_digital
-    ? `<div style="text-align:center;margin-top:8px;"><img src="${f.assinatura_digital}" style="max-width:200px;max-height:70px;border:1px dashed #ccc;" alt="Assinatura digital"/></div>`
+    ? `<div style="text-align:center;margin-top:8px;"><img src="${f.assinatura_digital}" style="max-width:200px;max-height:70px;border:1px dashed #ccc;" alt="Assinatura"/></div>`
     : '';
 
   const html = `
@@ -897,9 +835,8 @@ function emitirRelatorioPMOC(b64) {
       <div class="empresa">MANUTENÇÃO CONCREDUR — Sistema Integrado de Gestão</div>
       <h1>FORMULÁRIO DE MANUTENÇÃO PREVENTIVA — PMOC</h1>
       <div class="doc-id">Código: ${laudoID} &nbsp;|&nbsp; ${tipoLabelImp}</div>
-      <div class="doc-sub">Conforme Portaria MS nº 3.523/98 &nbsp;|&nbsp; Frequência: ${freq} &nbsp;|&nbsp; Data da Inspeção: ${dataFmt}</div>
+      <div class="doc-sub">Conforme Portaria MS nº 3.523/98 &nbsp;|&nbsp; Frequência: ${freq} &nbsp;|&nbsp; Data: ${dataFmt}</div>
     </div>
-
     <div class="laudo-section">
       <div class="laudo-section-title">1. IDENTIFICAÇÃO DO ATIVO</div>
       <div class="info-grid">
@@ -915,7 +852,6 @@ function emitirRelatorioPMOC(b64) {
         <div class="info-item"><span class="info-label">Instituição:</span><span class="info-value">${eq.instituicao||'—'}</span></div>
       </div>
     </div>
-
     <div class="laudo-section">
       <div class="laudo-section-title">2. RESPONSÁVEL TÉCNICO</div>
       <div class="info-grid">
@@ -923,19 +859,15 @@ function emitirRelatorioPMOC(b64) {
         <div class="info-item"><span class="info-label">Data da Inspeção:</span><span class="info-value">${dataFmt}</span></div>
       </div>
     </div>
-
     ${checklistHTML}
-
     ${obsLimpa ? `<div class="laudo-section">
-      <div class="laudo-section-title">4. OBSERVAÇÕES TÉCNICAS / ANOMALIAS</div>
+      <div class="laudo-section-title">4. OBSERVAÇÕES TÉCNICAS</div>
       <div class="laudo-obs">${obsLimpa}</div>
     </div>` : ''}
-
     ${f.foto_url ? `<div class="laudo-section laudo-foto">
       <div class="laudo-section-title">5. EVIDÊNCIA FOTOGRÁFICA</div>
-      <img src="${f.foto_url}" alt="Foto da inspeção"/>
+      <img src="${f.foto_url}" alt="Foto"/>
     </div>` : ''}
-
     <div class="laudo-footer">
       <div class="assinatura-box">
         ${assinaturaHTML}
@@ -944,13 +876,10 @@ function emitirRelatorioPMOC(b64) {
       </div>
       <div class="assinatura-box">
         <div class="assinatura-linha" style="margin-top:60px;"></div>
-        <div class="assinatura-label">Supervisor / Gestor da Unidade</div>
+        <div class="assinatura-label">Supervisor / Gestor</div>
       </div>
     </div>
-
-    <div class="laudo-rodape">
-      Documento gerado em ${new Date().toLocaleString('pt-BR')} &nbsp;|&nbsp; ${laudoID} &nbsp;|&nbsp; Manutenção Concredur
-    </div>
+    <div class="laudo-rodape">Gerado em ${new Date().toLocaleString('pt-BR')} &nbsp;|&nbsp; ${laudoID}</div>
   </div>`;
 
   imprimir('area-laudo-impressao', html);
@@ -1042,7 +971,6 @@ function prepararEdicaoOS(b64) {
   if ($('foco-formulario-os')) $('foco-formulario-os').scrollIntoView({ behavior: 'smooth' });
 }
 
-// ===================== IMPRESSÃO O.S. AC =====================
 function emitirLaudoOS(b64, numOS) {
   const os = JSON.parse(decodeURIComponent(escape(atob(b64))));
   const html = `
@@ -1059,7 +987,7 @@ function emitirLaudoOS(b64, numOS) {
         <div class="info-item"><span class="info-label">Número O.S.:</span><span class="info-value"><strong>${numOS}</strong></span></div>
         <div class="info-item"><span class="info-label">Status:</span><span class="info-value"><strong>${os.status_os}</strong></span></div>
         <div class="info-item"><span class="info-label">Tipo:</span><span class="info-value">${os.tipo_os}</span></div>
-        <div class="info-item"><span class="info-label">Data de Abertura:</span><span class="info-value">${fmtDate(os.created_at)}</span></div>
+        <div class="info-item"><span class="info-label">Data:</span><span class="info-value">${fmtDate(os.created_at)}</span></div>
         <div class="info-item"><span class="info-label">Equipamento (TAG):</span><span class="info-value">${os.equipamentos?.tag||'—'}</span></div>
         <div class="info-item"><span class="info-label">Técnico:</span><span class="info-value">${os.colaboradores?.nome||'—'}</span></div>
       </div>
@@ -1069,18 +997,17 @@ function emitirLaudoOS(b64, numOS) {
       <div class="laudo-obs">${os.descricao_defeito||'—'}</div>
     </div>
     <div class="laudo-section">
-      <div class="laudo-section-title">3. LAUDO TÉCNICO / ATIVIDADES EXECUTADAS</div>
+      <div class="laudo-section-title">3. LAUDO TÉCNICO</div>
       <div class="laudo-obs">${os.laudo_tecnico||'Em andamento.'}</div>
     </div>
     ${os.foto_url ? `<div class="laudo-section laudo-foto">
       <div class="laudo-section-title">4. EVIDÊNCIA FOTOGRÁFICA</div>
-      <img src="${os.foto_url}" alt="Evidência técnica"/>
+      <img src="${os.foto_url}" alt="Evidência"/>
     </div>` : ''}
     <div class="laudo-footer">
-      <div class="assinatura-box"><div class="assinatura-linha" style="margin-top:60px;"></div><div class="assinatura-label">Técnico Responsável</div></div>
-      <div class="assinatura-box"><div class="assinatura-linha" style="margin-top:60px;"></div><div class="assinatura-label">Responsável pelo Setor / Aceite</div></div>
+      <div class="assinatura-box"><div class="assinatura-linha" style="margin-top:60px;"></div><div class="assinatura-label">Técnico</div></div>
+      <div class="assinatura-box"><div class="assinatura-linha" style="margin-top:60px;"></div><div class="assinatura-label">Responsável</div></div>
     </div>
-    <div class="laudo-rodape">${numOS} &nbsp;|&nbsp; Manutenção Concredur &nbsp;|&nbsp; ${new Date().toLocaleDateString('pt-BR')}</div>
   </div>`;
   imprimir('area-os-impressao', html);
 }
@@ -1168,7 +1095,6 @@ function prepararEdicaoOSG(b64) {
   if ($('foco-formulario-osg')) $('foco-formulario-osg').scrollIntoView({ behavior: 'smooth' });
 }
 
-// ===================== IMPRESSÃO O.S. GERAL =====================
 function imprimirOSGeral(b64) {
   const os = JSON.parse(decodeURIComponent(escape(atob(b64))));
   const numOS = os.numero_os || 'OSG-' + os.id.toString().slice(0,5).toUpperCase();
@@ -1202,18 +1128,13 @@ function imprimirOSGeral(b64) {
       <p style="font-size:12px;"><strong>Especialidades:</strong> ${(os.areas_servico||[]).join(', ')||'—'}</p>
     </div>
     <div class="laudo-section">
-      <div class="laudo-section-title">3. FALHA RELATADA / SERVIÇO SOLICITADO</div>
+      <div class="laudo-section-title">3. FALHA RELATADA</div>
       <div class="laudo-obs">${os.falha_relatada||'—'}</div>
     </div>
     ${os.foto_url ? `<div class="laudo-section laudo-foto">
       <div class="laudo-section-title">4. EVIDÊNCIA FOTOGRÁFICA</div>
       <img src="${os.foto_url}" alt="Evidência"/>
     </div>` : ''}
-    <div class="laudo-footer">
-      <div class="assinatura-box"><div class="assinatura-linha" style="margin-top:60px;"></div><div class="assinatura-label">Técnico Executante</div></div>
-      <div class="assinatura-box"><div class="assinatura-linha" style="margin-top:60px;"></div><div class="assinatura-label">Responsável / Aceite</div></div>
-    </div>
-    <div class="laudo-rodape">${numOS} &nbsp;|&nbsp; Manutenção Concredur &nbsp;|&nbsp; ${new Date().toLocaleDateString('pt-BR')}</div>
   </div>`;
   imprimir('area-osg-impressao', html);
 }
@@ -1245,7 +1166,6 @@ async function carregarCentralUnificadaOS() {
     }).join(''); return;
   }
 
-  // Fallback direto nas tabelas
   const [{ data: ac }, { data: g }] = await Promise.all([
     db.from('ordens_servico').select('id,created_at,tipo_os,status_os,descricao_defeito').order('created_at',{ascending:false}).limit(40),
     db.from('ordens_servico_geral').select('id,created_at,tipo_manutencao,status_os,servico_requisitado,numero_os').order('created_at',{ascending:false}).limit(40),
@@ -1267,7 +1187,6 @@ async function carregarCentralUnificadaOS() {
 
 // ===================== DASHBOARD — GRÁFICOS & KPIs =====================
 async function renderizarGraficosDashboard() {
-  // KPIs
   const [
     { count: catv }, { count: cfch },
     { count: cab }, { count: cfc }
@@ -1282,7 +1201,6 @@ async function renderizarGraficosDashboard() {
   if ($('dash-txt-os-abertas'))  $('dash-txt-os-abertas').innerText  = cab  ?? 0;
   if ($('dash-txt-os-fechadas')) $('dash-txt-os-fechadas').innerText = cfc  ?? 0;
 
-  // Gráfico 1 — O.S. AC por status
   const { data: dadosOS } = await db.from('ordens_servico').select('status_os');
   const contOS = {}; (dadosOS||[]).forEach(r => { contOS[r.status_os] = (contOS[r.status_os]||0)+1; });
   const ctxOS = $('chartStatusOS');
@@ -1298,7 +1216,6 @@ async function renderizarGraficosDashboard() {
     });
   }
 
-  // Gráfico 2 — Criticidade
   const { data: dadosCrit } = await db.from('equipamentos').select('criticidade');
   const contCrit = {}; (dadosCrit||[]).forEach(r => { const k=r.criticidade||'Média'; contCrit[k]=(contCrit[k]||0)+1; });
   const ctxCrit = $('chartCriticidade');
@@ -1314,7 +1231,6 @@ async function renderizarGraficosDashboard() {
     });
   }
 
-  // Gráfico 3 — O.S. Geral por status
   const { data: dadosOSG } = await db.from('ordens_servico_geral').select('status_os');
   const contOSG = {}; (dadosOSG||[]).forEach(r => { contOSG[r.status_os]=(contOSG[r.status_os]||0)+1; });
   const ctxOSG = $('chartStatusOSG');
@@ -1330,7 +1246,6 @@ async function renderizarGraficosDashboard() {
     });
   }
 
-  // Logs de auditoria ou fallback
   const { data: logs, error: logsErr } = await db.from('logs_auditoria').select('*').order('created_at',{ascending:false}).limit(5);
   const container = $('dash-atividades');
   if (!container) return;
@@ -1340,7 +1255,6 @@ async function renderizarGraficosDashboard() {
       `<div class="dash-atividade-item"><span>🔒</span><span><strong>${l.usuario_email||'Sistema'}</strong>: ${l.acao} em <em>${l.tabela}</em></span><span style="margin-left:auto;font-size:11px;color:#a0aec0;">${fmtDate(l.created_at)}</span></div>`
     ).join('');
   } else {
-    // Fallback: últimas O.S.
     const { data: atv } = await db.from('ordens_servico')
       .select('created_at, status_os, descricao_defeito, equipamentos(tag)')
       .order('created_at',{ascending:false}).limit(5);
@@ -1355,7 +1269,6 @@ async function renderizarGraficosDashboard() {
 
 async function carregarAgendaManutencoes() {
   const tbody = $('tbody-agenda-pmoc'); if (!tbody) return;
-  // Tenta tabela cronograma; se não existir, usa fichas PMOC recentes
   const { data, error } = await db.from('cronograma_pmoc')
     .select('*, equipamentos(tag, bloco, setor)').order('data_prevista',{ascending:true}).limit(6);
 
@@ -1367,7 +1280,6 @@ async function carregarAgendaManutencoes() {
       <td>${statusBadge(c.status)}</td>
     </tr>`).join('');
   } else {
-    // Fallback: últimos laudos
     const { data: fichas } = await db.from('fichas_pmoc')
       .select('*, equipamentos(tag, bloco, setor)').order('created_at',{ascending:false}).limit(6);
     tbody.innerHTML = (fichas||[]).length
@@ -1381,21 +1293,18 @@ async function carregarAgendaManutencoes() {
   }
 }
 
-// ===================== VALIDAÇÃO CPF — ALGORITMO RECEITA FEDERAL =====================
+// ===================== VALIDAÇÃO CPF =====================
 function validarCPF(cpf) {
   const s = cpf.replace(/\D/g, '');
   if (s.length !== 11) return false;
-  // Rejeita sequências repetidas (000...000, 111...111, ...)
   if (/^(\d)\1{10}$/.test(s)) return false;
 
-  // Valida 1º dígito verificador
   let soma = 0;
   for (let i = 0; i < 9; i++) soma += parseInt(s[i]) * (10 - i);
   let resto = (soma * 10) % 11;
   if (resto === 10 || resto === 11) resto = 0;
   if (resto !== parseInt(s[9])) return false;
 
-  // Valida 2º dígito verificador
   soma = 0;
   for (let i = 0; i < 10; i++) soma += parseInt(s[i]) * (11 - i);
   resto = (soma * 10) % 11;
@@ -1412,24 +1321,19 @@ function formatarCPF(valor) {
     .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
 }
 
-// Aplica máscara CPF em todos os campos com essa classe
 document.querySelectorAll('.input-cpf').forEach(el => {
   el.addEventListener('input', (e) => { e.target.value = formatarCPF(e.target.value); });
   el.addEventListener('blur', (e) => {
     const val = e.target.value;
     if (val && !validarCPF(val)) {
       e.target.style.borderColor = 'var(--danger)';
-      e.target.title = 'CPF inválido';
     } else {
       e.target.style.borderColor = '';
-      e.target.title = '';
     }
   });
 });
 
-// ===================== GESTÃO DE USUÁRIOS — CONVITE POR E-MAIL + CPF =====================
-
-// Envia convite via Supabase Auth (e-mail de convite oficial)
+// ===================== GESTÃO DE USUÁRIOS — CONVITE NATIVO =====================
 if ($('btn-admin-salvar-usuario')) {
   $('btn-admin-salvar-usuario').addEventListener('click', async () => {
     const email  = $('adm-user-email')?.value.trim();
@@ -1437,54 +1341,41 @@ if ($('btn-admin-salvar-usuario')) {
     const role   = $('adm-user-role')?.value;
     const nome   = $('adm-user-nome')?.value.trim();
 
-    // Validações
-    if (!email) { msgForm('msg-admin-usuario', 'E-mail é obrigatório.', 'red'); return; }
-    if (!cpf || !validarCPF(cpf)) {
-      msgForm('msg-admin-usuario', '❌ CPF inválido. Verifique os dígitos verificadores.', 'red'); return;
-    }
-    if (!nome) { msgForm('msg-admin-usuario', 'Nome completo é obrigatório.', 'red'); return; }
+    if (!email || !nome) { msgForm('msg-admin-usuario', 'Nome e E-mail são obrigatórios.', 'red'); return; }
+    if (!cpf || !validarCPF(cpf)) { msgForm('msg-admin-usuario', '❌ CPF inválido.', 'red'); return; }
 
-    msgForm('msg-admin-usuario', '📨 Enviando convite...', 'blue');
+    msgForm('msg-admin-usuario', '📨 Processando convite...', 'blue');
 
-    // Chama a Edge Function no servidor — ela usa SERVICE_ROLE_KEY para disparar
-    // o convite real via auth.admin.inviteUserByEmail, que cria o usuário em auth.users
-    // e envia o e-mail oficial do Supabase com link para definição de senha.
-    const { data: { session } } = await db.auth.getSession();
-    const token = session?.access_token;
+    const novoId = crypto.randomUUID();
+    const cpfLimpo = cpf.replace(/\D/g, '');
 
-    const resp = await fetch(
-      `${db.supabaseUrl}/functions/v1/convidar-usuario`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type':  'application/json',
-          'Authorization': `Bearer ${token}`,
-          'apikey':        db.supabaseKey,
-        },
-        body: JSON.stringify({
-          email,
-          nome,
-          role,
-          cpf,
-          redirectTo: `${window.location.origin}/index.html`,
-        }),
-      }
-    );
+    const { error: dbError } = await db.from('profiles').insert([{
+      id: novoId,
+      email,
+      nome,
+      role,
+      cpf: cpfLimpo,
+      status: 'pendente'
+    }]);
 
-    const resultado = await resp.json();
-
-    if (!resp.ok) {
-      msgForm('msg-admin-usuario', '❌ ' + (resultado.error || 'Erro ao enviar convite.'), 'red');
+    if (dbError) {
+      msgForm('msg-admin-usuario', '❌ Erro ao registrar perfil: ' + dbError.message, 'red');
       return;
     }
 
-    msgForm('msg-admin-usuario',
-      `✅ Convite enviado para ${email}! O usuário receberá o e-mail para definir a senha.`,
-      'green');
+    const { error: authError } = await db.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/index.html`
+    });
+
+    if (authError) {
+      msgForm('msg-admin-usuario', '❌ Perfil criado, mas erro no e-mail: ' + authError.message, 'red');
+      return;
+    }
+
+    msgForm('msg-admin-usuario', `✅ Convite enviado com sucesso para ${email}!`, 'green');
+    
     ['adm-user-email','adm-user-cpf','adm-user-nome'].forEach(id => { if ($(id)) $(id).value = ''; });
-    // Limpa ícones de validação
     const icon = $('cpf-status-icon'); if (icon) icon.textContent = '';
-    const fb = $('cpf-feedback'); if (fb) { fb.style.color='#a0aec0'; fb.textContent='Validação automática pelo algoritmo da Receita Federal'; }
     await carregarUsuariosSistema();
   });
 }
@@ -1493,22 +1384,15 @@ async function carregarUsuariosSistema() {
   const tbody = $('tbody-usuarios-sistema'); if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="5" class="td-loading">Carregando operadores...</td></tr>';
 
-  // Pega o usuário atual ANTES de qualquer query — nunca falha pois já passou pela sessão
   const { data: { user: userAtual } } = await db.auth.getUser();
 
-  // Tenta carregar a tabela profiles — pode falhar se ainda não existir ou RLS bloquear
   let lista = [];
-  const { data: perfis, error } = await db.from('profiles')
-    .select('*').order('email', { ascending: true });
+  const { data: perfis, error } = await db.from('profiles').select('*').order('email', { ascending: true });
 
   if (!error && perfis) {
     lista = perfis;
-  } else if (error) {
-    // Loga o erro real para diagnóstico no console do navegador (F12 → Console)
-    console.error('[profiles] Erro ao carregar:', error.code, error.message, error.details);
   }
 
-  // Garante que o usuário logado apareça sempre no topo, independente do estado da tabela
   const adminNaLista = lista.some(u => u.email === userAtual?.email);
   if (userAtual?.email && !adminNaLista) {
     lista = [{
@@ -1521,12 +1405,11 @@ async function carregarUsuariosSistema() {
       _isCurrentUser: true,
     }, ...lista];
   } else if (userAtual?.email) {
-    // Marca o usuário atual dentro da lista existente
     lista = lista.map(u => u.email === userAtual.email ? { ...u, _isCurrentUser: true } : u);
   }
 
   if (!lista.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="td-loading">Nenhum perfil cadastrado ainda.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="td-loading">Nenhum perfil cadastrado.</td></tr>';
     return;
   }
 
@@ -1557,27 +1440,17 @@ async function carregarUsuariosSistema() {
         ${isVoce
           ? '<span style="color:#a0aec0;font-size:12px;">—</span>'
           : `<button class="btn-excluir" onclick="excluirPerfil('${u.id}','${u.email}')">✕ Revogar</button>
-             ${u.status === 'pendente' ? `<button class="btn-reenviar" onclick="reenviarConvite('${u.email}')" style="margin-left:4px;">↺ Reenviar</button>` : ''}`
+             ${u.status === 'pendente' ? `<button class="btn-primary" style="padding:3px 6px;font-size:11px;margin-left:4px;" onclick="reenviarConvite('${u.email}')">↺ Reenviar</button>` : ''}`
         }
       </td>
     </tr>`;
   }).join('');
-
-  // Aviso se a tabela profiles não existir ainda
-  if (error) {
-    const aviso = document.createElement('tr');
-    aviso.innerHTML = `<td colspan="5" style="font-size:11px;color:#d97706;padding:8px 12px;background:#fef3c7;">
-      ⚠️ Tabela <strong>profiles</strong> não encontrada ou sem permissão. Execute o script SQL de migração no Supabase para habilitar o cadastro completo de usuários.
-    </td>`;
-    tbody.appendChild(aviso);
-  }
 }
 
 async function excluirPerfil(id, email) {
-  if (!confirm(`Revogar acesso de "${email}"?\nEsta ação não pode ser desfeita.`)) return;
+  if (!confirm(`Revogar acesso de "${email}"?`)) return;
   const { error } = await db.from('profiles').delete().eq('id', id);
   if (!error) carregarUsuariosSistema();
-  else alert('Erro ao revogar: ' + error.message);
 }
 
 async function reenviarConvite(email) {
@@ -1585,7 +1458,7 @@ async function reenviarConvite(email) {
   const { error } = await db.auth.resetPasswordForEmail(email, {
     redirectTo: window.location.origin + '/index.html',
   });
-  if (!error) msgForm('msg-admin-usuario', `✅ Convite reenviado para ${email}!`, 'green');
+  if (!error) msgForm('msg-admin-usuario', `✅ Convite reenviado!`, 'green');
   else msgForm('msg-admin-usuario', 'Erro: ' + error.message, 'red');
 }
 
@@ -1607,9 +1480,8 @@ function alternarSubAbasRH(modo) {
   if ($('sub-rh-cargo'))    $('sub-rh-cargo').style.display    = modo === 'cargo'    ? 'block' : 'none';
 }
 
-// ===================== MOTOR DE IMPRESSÃO =====================
+// ===================== MOTOR UNIVERSAL DE IMPRESSÃO =====================
 function imprimir(areaId, html) {
-  // Limpa todas as áreas antes de injetar o novo conteúdo
   document.querySelectorAll('.print-only').forEach(el => { el.innerHTML = ''; });
 
   const area = $(areaId);
@@ -1618,53 +1490,9 @@ function imprimir(areaId, html) {
 
   window.print();
 
-  // Libera o HTML da memória assim que o diálogo de impressão é dispensado.
-  // afterprint é suportado por todos os navegadores modernos (Chrome, Firefox, Edge, Safari).
   const limpar = () => {
     area.innerHTML = '';
     window.removeEventListener('afterprint', limpar);
   };
   window.addEventListener('afterprint', limpar);
 }
-
-// ===================== ESTILOS IMPRESSÃO (INJETADOS VIA JS) =====================
-// Os estilos de impressão ficam no style.css — este bloco garante a área visível
-(function injetarEstilosImpressao() {
-  if (document.getElementById('style-print-inject')) return;
-  const s = document.createElement('style');
-  s.id = 'style-print-inject';
-  s.textContent = `
-    @media print {
-      body > * { display: none !important; }
-      .print-only { display: block !important; position: fixed; inset: 0; background: #fff; padding: 20px 30px; font-family: Arial, sans-serif; color: #000; z-index: 99999; overflow: visible; }
-      .print-only .laudo-wrapper { max-width: 760px; margin: 0 auto; }
-      .print-only .laudo-header { border-bottom: 3px double #000; padding-bottom: 12px; margin-bottom: 18px; text-align: center; }
-      .print-only .empresa { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #333; margin-bottom: 5px; }
-      .print-only h1 { font-size: 14px; font-weight: 700; color: #000; margin: 4px 0 2px; }
-      .print-only .doc-id { font-size: 12px; font-weight: 700; color: #333; }
-      .print-only .doc-sub { font-size: 10px; color: #666; margin-top: 3px; }
-      .print-only .laudo-section { margin-bottom: 16px; page-break-inside: avoid; }
-      .print-only .laudo-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; background: #1a3a6b; color: #fff; padding: 5px 10px; margin-bottom: 8px; letter-spacing: .4px; }
-      .print-only .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px; }
-      .print-only .info-item { display: flex; gap: 4px; padding: 3px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px; }
-      .print-only .info-label { font-weight: 700; color: #333; min-width: 140px; }
-      .print-only .info-value { color: #000; }
-      .print-only .laudo-obs { background: #f8fafc; border: 1px solid #ddd; padding: 10px; border-radius: 3px; font-size: 12px; white-space: pre-wrap; line-height: 1.6; }
-      .print-only .laudo-foto { text-align: center; }
-      .print-only .laudo-foto img { max-width: 300px; max-height: 220px; border: 1px solid #ccc; object-fit: contain; }
-      .print-only .laudo-footer { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-      .print-only .assinatura-box { text-align: center; }
-      .print-only .assinatura-linha { border-top: 1px solid #000; }
-      .print-only .assinatura-label { font-size: 11px; color: #444; margin-top: 5px; }
-      .print-only .laudo-rodape { margin-top: 24px; text-align: center; font-size: 10px; color: #999; border-top: 1px solid #ddd; padding-top: 8px; }
-      .print-only .checklist-print-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-      .print-only .checklist-print-table th { background: #4a5568; color: #fff; padding: 5px 10px; text-align: left; }
-      .print-only .checklist-print-table td { padding: 5px 10px; border-bottom: 1px solid #e2e8f0; }
-      .print-only .check-c  { color: #059669; font-weight: 700; text-align: center; }
-      .print-only .check-nc { color: #dc2626; font-weight: 700; text-align: center; }
-      .print-only .check-na { color: #718096; text-align: center; }
-      .print-only .dash-atividade-item { display: flex; gap: 8px; padding: 6px; margin-bottom: 4px; border-left: 3px solid #3b82f6; font-size: 12px; }
-      @page { margin: 14mm; size: A4 portrait; }
-    }`;
-  document.head.appendChild(s);
-})();
