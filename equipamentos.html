@@ -130,7 +130,7 @@
 
     function gerarEtiquetaQR(token, tag) {
       const alvo = document.getElementById('qrcode-temp-generator'); alvo.innerHTML = '';
-      new QRCode(alvo, { text: window.location.origin + "/pmoc.html?token=" + token, width: 128, height: 128 });
+      new QRCode(alvo, { text: window.location.origin + window.location.pathname.replace("equipamentos.html", "pmoc.html") + "?token=" + token, width: 128, height: 128 });
       setTimeout(() => {
         const src = alvo.querySelector('img').src;
         const w = window.open("", "_blank", "width=300,height=300");
@@ -139,7 +139,7 @@
     }
 
     async function excluirAtivo(id) { if(confirm("Deseja deletar?")) { await db.from('equipamentos').delete().eq('id', id); carregarAtivos(); } }
-    setTimeout(carregarAtivos, 500);
+    setTimeout(carregarAtivos, 300);
   </script>
 </body>
 </html>
