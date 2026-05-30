@@ -371,10 +371,15 @@ if ($('btn-salvar-ficha')) {
     if (foto_url) payload.foto_url = foto_url; 
     if (assinaturaBase64) payload.assinatura_digital = assinaturaBase64; // Correção da colisão de variáveis (Blindado)
 
-    const { error } = await db.from('fichas_pmoc').insert([payload]);
+    const idEdicao = $('pmoc-id-edicao')?.value;
+    const { error } = idEdicao
+      ? await db.from('fichas_pmoc').update(payload).eq('id', idEdicao)
+      : await db.from('fichas_pmoc').insert([payload]);
     if (error) { msgForm('msg-ficha', 'Erro: ' + error.message, 'red'); return; }
-    msgForm('msg-ficha', '✓ PMOC salvo!', 'green'); limparCanvasAssinatura(); if ($('pmoc-obs')) $('pmoc-obs').value = '';
+    msgForm('msg-ficha', idEdicao ? '✓ Ficha atualizada!' : '✓ PMOC salvo!', 'green');
+    limparCanvasAssinatura(); if ($('pmoc-obs')) $('pmoc-obs').value = '';
     document.querySelectorAll('.pmoc-checklist-container input[type="radio"]').forEach(r => r.checked = false);
+    resetarFormPMOC();
     carregarHistoricoFichas(); alternarSubAbasPMOC('hist');
   });
 }
@@ -402,7 +407,11 @@ function renderHistoricoFichas(data) {
       <td><small>${tipo}</small></td>
       <td>${f.tecnico_nome}</td>
       <td><span class="tag-badge">${freq}</span></td>
-      <td><button class="btn-primary" style="padding:4px 12px;font-size:12px;" onclick="emitirRelatorioPMOC('${btoa(unescape(encodeURIComponent(JSON.stringify(f))))}')">🖨️ Emitir</button></td>
+      <td style="display:flex;gap:4px;flex-wrap:wrap;">
+        <button class="btn-primary" style="padding:4px 10px;font-size:11px;" onclick="emitirRelatorioPMOC('${btoa(unescape(encodeURIComponent(JSON.stringify(f))))}')">🖨️ Emitir</button>
+        <button class="btn-secondary" style="padding:4px 10px;font-size:11px;" onclick="editarFichaPMOC('${f.id}')">✏️ Editar</button>
+        <button class="btn-excluir" style="padding:4px 10px;font-size:11px;" onclick="excluirFichaPMOC('${f.id}')">✕ Excluir</button>
+      </td>
     </tr>`;
   }).join('');
 }
@@ -432,7 +441,18 @@ if ($('btn-salvar-os')) {
 async function carregarOrdensServico() {
   const tbody = $('tbody-os'); if (!tbody) return;
   const { data } = await db.from('ordens_servico').select('*, equipamentos(tag), colaboradores(nome)').order('created_at', { ascending: false });
-  tbody.innerHTML = (data || []).map(os => `<tr><td><strong>OS-AC-${os.id.toString().slice(0,5).toUpperCase()}</strong></td><td>${fmtDate(os.created_at)}</td><td><span class="tag-badge">${os.equipamentos?.tag || '—'}</span></td><td>${os.colaboradores?.nome || '—'}</td><td>${os.tipo_os}</td><td>${statusBadge(os.status_os)}</td></tr>`).join('');
+  tbody.innerHTML = (data || []).map(os => `<tr>
+    <td><strong>OS-AC-${os.id.toString().slice(0,5).toUpperCase()}</strong></td>
+    <td>${fmtDate(os.created_at)}</td>
+    <td><span class="tag-badge">${os.equipamentos?.tag || '—'}</span></td>
+    <td>${os.colaboradores?.nome || '—'}</td>
+    <td>${os.tipo_os}</td>
+    <td>${statusBadge(os.status_os)}</td>
+    <td style="display:flex;gap:4px;flex-wrap:wrap;">
+      <button class="btn-secondary" style="padding:4px 10px;font-size:11px;" onclick="editarOS('${os.id}','${os.equipamento_id || ''}','${os.colaborador_id || ''}','${os.tipo_os}','${os.status_os}',\`${(os.descricao_defeito||'').replace(/`/g,'')}\`,\`${(os.laudo_tecnico||'').replace(/`/g,'')}\`)">✏️ Editar</button>
+      <button class="btn-excluir" style="padding:4px 10px;font-size:11px;" onclick="excluirOS('${os.id}')">✕ Excluir</button>
+    </td>
+  </tr>`).join('');
 }
 
 // ===================== FACILITIES =====================
@@ -446,7 +466,16 @@ if ($('btn-salvar-osg')) {
 async function carregarOSGeral() {
   const tbody = $('tbody-osg'); if (!tbody) return;
   const { data } = await db.from('ordens_servico_geral').select('*').order('created_at', { ascending: false });
-  tbody.innerHTML = (data || []).map(os => `<tr><td><strong>${os.numero_os || 'OSG'}</strong></td><td>${fmtDate(os.created_at)}</td><td>${os.setor}</td><td>${statusBadge(os.status_os)}</td></tr>`).join('');
+  tbody.innerHTML = (data || []).map(os => `<tr>
+    <td><strong>${os.numero_os || 'OSG'}</strong></td>
+    <td>${fmtDate(os.created_at)}</td>
+    <td>${os.setor || '—'}</td>
+    <td>${statusBadge(os.status_os)}</td>
+    <td style="display:flex;gap:4px;flex-wrap:wrap;">
+      <button class="btn-secondary" style="padding:4px 10px;font-size:11px;" onclick="editarOSG('${os.id}','${(os.setor||'').replace(/'/g,'')}','${(os.servico_requisitado||'').replace(/'/g,'')}','${os.status_os}')">✏️ Editar</button>
+      <button class="btn-excluir" style="padding:4px 10px;font-size:11px;" onclick="excluirOSG('${os.id}')">✕ Excluir</button>
+    </td>
+  </tr>`).join('');
 }
 
 async function carregarCentralUnificadaOS() {
@@ -834,4 +863,143 @@ async function carregarAlertasVencimento() {
   }).join('');
 
   painel.style.display = 'block';
+}
+
+// ===================== EDIÇÃO E EXCLUSÃO — PMOC =====================
+async function editarFichaPMOC(id) {
+  const ficha = _fichasCache.find(f => f.id == id);
+  if (!ficha) { alert('Ficha não encontrada no cache. Recarregue a página.'); return; }
+
+  // Extrai dados das observações
+  const matchObs  = ficha.observacoes?.match(/\[DataInspecao:\s*([^\]]+)\]/);
+  const matchFreq = ficha.observacoes?.match(/\[Frequencia:\s*([^\]]+)\]/);
+  const freqMap   = { Mensal: 'M', Trimestral: 'T', Semestral: 'S', Anual: 'A' };
+  const obsLimpa  = (ficha.observacoes || '').replace(/\[[^\]]+\]/g, '').trim();
+
+  // Preenche o formulário
+  if ($('pmoc-equipamento')) $('pmoc-equipamento').value = ficha.equipamento_id || '';
+  if ($('pmoc-data'))        $('pmoc-data').value        = matchObs ? matchObs[1] : '';
+  if ($('pmoc-frequencia'))  $('pmoc-frequencia').value  = freqMap[matchFreq?.[1]] || 'M';
+  if ($('pmoc-obs'))         $('pmoc-obs').value         = obsLimpa;
+
+  // Guarda o ID e muda título
+  if ($('pmoc-id-edicao'))   $('pmoc-id-edicao').value  = id;
+  const titulo = $('titulo-formulario-pmoc') || document.querySelector('#sub-pmoc-form h3');
+  if (titulo) titulo.innerText = '✏️ Editando Ficha PMOC — ' + (ficha.equipamentos?.tag || id.toString().slice(0,6).toUpperCase());
+
+  const btnSalvar = $('btn-salvar-ficha');
+  if (btnSalvar) { btnSalvar.innerText = '💾 Salvar Alterações'; btnSalvar.style.background = '#d97706'; }
+
+  // Mostra botão cancelar
+  let btnCancelar = $('btn-cancelar-edicao-pmoc');
+  if (!btnCancelar) {
+    btnCancelar = document.createElement('button');
+    btnCancelar.id = 'btn-cancelar-edicao-pmoc';
+    btnCancelar.className = 'btn-secondary';
+    btnCancelar.innerText = '✕ Cancelar';
+    btnCancelar.onclick = resetarFormPMOC;
+    btnSalvar?.parentNode?.appendChild(btnCancelar);
+  }
+  btnCancelar.style.display = 'inline-block';
+
+  // Navega para o formulário
+  alternarSubAbasPMOC('form');
+  document.getElementById('sub-pmoc-form')?.scrollIntoView({ behavior: 'smooth' });
+}
+
+function resetarFormPMOC() {
+  if ($('pmoc-id-edicao')) $('pmoc-id-edicao').value = '';
+  if ($('pmoc-obs'))       $('pmoc-obs').value = '';
+  if ($('pmoc-data'))      $('pmoc-data').value = '';
+  const titulo = $('titulo-formulario-pmoc') || document.querySelector('#sub-pmoc-form h3');
+  if (titulo) titulo.innerText = '📋 Novo Laudo PMOC';
+  const btnSalvar = $('btn-salvar-ficha');
+  if (btnSalvar) { btnSalvar.innerText = '✓ Registrar Ficha PMOC'; btnSalvar.style.background = ''; }
+  const btnCancelar = $('btn-cancelar-edicao-pmoc');
+  if (btnCancelar) btnCancelar.style.display = 'none';
+}
+
+async function excluirFichaPMOC(id) {
+  const ficha = _fichasCache.find(f => f.id == id);
+  const tag = ficha?.equipamentos?.tag || id.toString().slice(0,6).toUpperCase();
+  if (!confirm(`Excluir ficha PMOC do equipamento ${tag}? Esta ação não pode ser desfeita.`)) return;
+  const { error } = await db.from('fichas_pmoc').delete().eq('id', id);
+  if (error) { alert('Erro ao excluir: ' + error.message); return; }
+  carregarHistoricoFichas();
+}
+
+// ===================== EDIÇÃO E EXCLUSÃO — OS AC =====================
+async function editarOS(id, equipId, colabId, tipo, status, defeito, laudo) {
+  if ($('os-id-edicao'))    $('os-id-edicao').value    = id;
+  if ($('os-equipamento'))  $('os-equipamento').value  = equipId;
+  if ($('os-tecnico'))      $('os-tecnico').value      = colabId;
+  if ($('os-tipo'))         $('os-tipo').value         = tipo;
+  if ($('os-status'))       $('os-status').value       = status;
+  if ($('os-defeito'))      $('os-defeito').value      = defeito;
+  if ($('os-laudo'))        $('os-laudo').value        = laudo;
+
+  const titulo = $('titulo-formulario-os');
+  if (titulo) titulo.innerText = '✏️ Editando O.S. — ' + 'OS-AC-' + id.toString().slice(0,5).toUpperCase();
+
+  const btnSalvar = $('btn-salvar-os');
+  if (btnSalvar) { btnSalvar.innerText = '💾 Salvar Alterações'; btnSalvar.style.background = '#d97706'; }
+
+  const btnCancelar = $('btn-cancelar-edicao-os');
+  if (btnCancelar) btnCancelar.style.display = 'inline-block';
+
+  document.getElementById('foco-formulario-os')?.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function excluirOS(id) {
+  if (!confirm(`Excluir OS-AC-${id.toString().slice(0,5).toUpperCase()}? Esta ação não pode ser desfeita.`)) return;
+  const { error } = await db.from('ordens_servico').delete().eq('id', id);
+  if (error) { alert('Erro ao excluir: ' + error.message); return; }
+  carregarOrdensServico(); carregarCentralUnificadaOS();
+}
+
+// Cancelar edição OS AC
+if ($('btn-cancelar-edicao-os')) {
+  $('btn-cancelar-edicao-os').addEventListener('click', () => {
+    resetarFormOS();
+    const titulo = $('titulo-formulario-os');
+    if (titulo) titulo.innerText = 'Abertura / Atualização de O.S. Técnica';
+    const btnSalvar = $('btn-salvar-os');
+    if (btnSalvar) { btnSalvar.innerText = '✓ Registrar Ordem de Serviço'; btnSalvar.style.background = ''; }
+    const btnCancelar = $('btn-cancelar-edicao-os');
+    if (btnCancelar) btnCancelar.style.display = 'none';
+  });
+}
+
+// ===================== EDIÇÃO E EXCLUSÃO — OS FACILITIES =====================
+async function editarOSG(id, setor, servico, status) {
+  if ($('osg-id-edicao'))        $('osg-id-edicao').value        = id;
+  if ($('osg-setor'))            $('osg-setor').value            = setor;
+  if ($('osg-requisitado'))      $('osg-requisitado').value      = servico;
+  if ($('osg-status'))           $('osg-status').value           = status;
+
+  const btnSalvar = $('btn-salvar-osg');
+  if (btnSalvar) { btnSalvar.innerText = '💾 Salvar Alterações'; btnSalvar.style.background = '#d97706'; }
+
+  const btnCancelar = $('btn-cancelar-edicao-osg');
+  if (btnCancelar) btnCancelar.style.display = 'inline-block';
+
+  document.getElementById('foco-formulario-osg')?.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function excluirOSG(id) {
+  if (!confirm(`Excluir esta O.S. de Facilities? Esta ação não pode ser desfeita.`)) return;
+  const { error } = await db.from('ordens_servico_geral').delete().eq('id', id);
+  if (error) { alert('Erro ao excluir: ' + error.message); return; }
+  carregarOSGeral(); carregarCentralUnificadaOS();
+}
+
+// Cancelar edição OSG
+if ($('btn-cancelar-edicao-osg')) {
+  $('btn-cancelar-edicao-osg').addEventListener('click', () => {
+    resetarFormOSG();
+    const btnSalvar = $('btn-salvar-osg');
+    if (btnSalvar) { btnSalvar.innerText = '✓ Salvar Ordem Facilities'; btnSalvar.style.background = ''; }
+    const btnCancelar = $('btn-cancelar-edicao-osg');
+    if (btnCancelar) btnCancelar.style.display = 'none';
+  });
 }
