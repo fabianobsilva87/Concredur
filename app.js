@@ -744,3 +744,107 @@ async function carregarAgendaManutencoes() {
     </tr>`;
   }).join('');
 }
+
+// ===================== ALERTAS DE VENCIMENTO =====================
+async function carregarAlertasVencimento() {
+  const painel = $('painel-alertas-vencimento');
+  const lista  = $('lista-alertas-vencimento');
+  const badge  = $('badge-alertas-count');
+  const sub    = $('txt-alerta-subtitulo');
+  if (!painel || !lista) return;
+
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const em30 = new Date(hoje); em30.setDate(em30.getDate() + 30);
+
+  // Busca fichas PMOC com proxima_manutencao definida
+  const { data: fichas } = await db.from('fichas_pmoc')
+    .select('proxima_manutencao, equipamentos(tag, bloco, produto, categoria)')
+    .not('proxima_manutencao', 'is', null)
+    .lte('proxima_manutencao', em30.toISOString().split('T')[0])
+    .order('proxima_manutencao', { ascending: true });
+
+  // Busca equipamentos do tipo bebedouro com validade de filtro
+  const { data: bebs } = await db.from('equipamentos')
+    .select('tag, bloco, validade_filtro, validade_lacre')
+    .eq('categoria', 'Bebedouro')
+    .not('validade_filtro', 'is', null);
+
+  const alertas = [];
+
+  // Processar fichas PMOC
+  (fichas || []).forEach(f => {
+    const dt = new Date(f.proxima_manutencao + 'T00:00:00');
+    const diff = Math.ceil((dt - hoje) / (1000 * 60 * 60 * 24));
+    if (diff > 30) return;
+    alertas.push({
+      tipo: diff < 0 ? 'vencida' : diff <= 7 ? 'urgente' : 'proxima',
+      diff,
+      tag: f.equipamentos?.tag || '—',
+      local: f.equipamentos?.bloco || '—',
+      descricao: `Manutenção PMOC — ${f.equipamentos?.produto || f.equipamentos?.categoria || 'Equipamento'}`,
+      data: f.proxima_manutencao,
+    });
+  });
+
+  // Processar bebedouros — filtro
+  (bebs || []).forEach(b => {
+    if (!b.validade_filtro) return;
+    const dt = new Date(b.validade_filtro + 'T00:00:00');
+    const diff = Math.ceil((dt - hoje) / (1000 * 60 * 60 * 24));
+    if (diff > 30) return;
+    alertas.push({
+      tipo: diff < 0 ? 'vencida' : diff <= 7 ? 'urgente' : 'proxima',
+      diff,
+      tag: b.tag || '—',
+      local: b.bloco || '—',
+      descricao: 'Troca de Filtro — Bebedouro',
+      data: b.validade_filtro,
+    });
+  });
+
+  // Processar bebedouros — lacre
+  (bebs || []).forEach(b => {
+    if (!b.validade_lacre) return;
+    const dt = new Date(b.validade_lacre + 'T00:00:00');
+    const diff = Math.ceil((dt - hoje) / (1000 * 60 * 60 * 24));
+    if (diff > 30) return;
+    alertas.push({
+      tipo: diff < 0 ? 'vencida' : diff <= 7 ? 'urgente' : 'proxima',
+      diff,
+      tag: b.tag || '—',
+      local: b.bloco || '—',
+      descricao: 'Renovação de Lacre — Bebedouro',
+      data: b.validade_lacre,
+    });
+  });
+
+  if (alertas.length === 0) { painel.style.display = 'none'; return; }
+
+  // Ordena: vencidas primeiro, depois por proximidade
+  alertas.sort((a, b) => a.diff - b.diff);
+
+  badge.textContent = alertas.length + (alertas.length === 1 ? ' alerta' : ' alertas');
+
+  const vencidas = alertas.filter(a => a.diff < 0).length;
+  const urgentes = alertas.filter(a => a.diff >= 0 && a.diff <= 7).length;
+  sub.textContent = [
+    vencidas ? `${vencidas} vencida(s)` : '',
+    urgentes ? `${urgentes} urgente(s) esta semana` : '',
+  ].filter(Boolean).join(' · ') || 'Itens que requerem atenção imediata';
+
+  const corTipo = { vencida: { bg:'#fef2f2', borda:'#ef4444', txt:'#991b1b', label:'VENCIDA' }, urgente: { bg:'#fff7ed', borda:'#f97316', txt:'#c2410c', label:'URGENTE' }, proxima: { bg:'#fefce8', borda:'#eab308', txt:'#854d0e', label:'ATENÇÃO' } };
+
+  lista.innerHTML = alertas.map(a => {
+    const c = corTipo[a.tipo];
+    const diffTxt = a.diff < 0 ? `Venceu há ${Math.abs(a.diff)} dia(s)` : a.diff === 0 ? 'Vence HOJE' : `Vence em ${a.diff} dia(s)`;
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:${c.bg};border:1px solid ${c.borda};border-radius:8px;flex-wrap:wrap;">
+      <span style="background:${c.borda};color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;white-space:nowrap;">${c.label}</span>
+      <span style="font-size:13px;font-weight:700;color:#1a202c;">${a.tag}</span>
+      <span style="font-size:12px;color:#4a5568;flex:1;">${a.descricao} — ${a.local}</span>
+      <span style="font-size:12px;color:${c.txt};font-weight:600;white-space:nowrap;">${diffTxt}</span>
+      <span style="font-size:11px;color:#a0aec0;">${fmtDate(a.data)}</span>
+    </div>`;
+  }).join('');
+
+  painel.style.display = 'block';
+}
