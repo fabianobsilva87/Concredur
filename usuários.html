@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Concredur — Usuários & RH</title>
+    <title>Concredur — Administração</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -13,64 +13,88 @@
     <aside class="sidebar">
       <div class="sidebar-header">
         <div class="sidebar-logo">🏗️</div><h3>Concredur</h3><p>Gestão de Manutenção</p>
+        <div class="user-logged-badge"><span class="user-icon-dot">●</span><span id="user-display-email">...</span></div>
       </div>
       <nav>
         <div class="nav-label">Visão Geral</div>
         <div class="nav-item" onclick="location.href='dashboard.html'"><span>📊</span> Dashboard Geral</div>
         <div class="nav-label">Refrigeração</div>
-        <div class="nav-item" onclick="location.href='equipamentos.html'"><span>⚙️</span> Ativos & QR Code</div>
+        <div class="nav-item" onclick="location.href='equipamentos.html'"><span>➕</span> Novo Ativo</div>
+        <div class="nav-item" onclick="location.href='gerir-equipamentos.html'"><span>⚙️</span> Gerenciamento de Ativos</div>
         <div class="nav-item" onclick="location.href='pmoc.html'"><span>📋</span> Formulário PMOC</div>
         <div class="nav-label">Manutenção</div>
         <div class="nav-item" onclick="location.href='os.html'"><span>🛠️</span> Ordens de Serviço</div>
         <div class="nav-label">Administração</div>
         <div class="nav-item active" onclick="location.href='usuarios.html'"><span>👥</span> Gestão de Usuários</div>
       </nav>
+      <div class="sidebar-footer"><button id="btn-logout" class="btn-sair">⬅ Sair</button></div>
     </aside>
 
     <main class="main-content">
       <div class="topbar no-print">
-        <h2>👥 Administração de Usuários, Cargos e Governança</h2>
-        <div class="topbar-right" style="display: flex; align-items: center; gap: 16px;">
-          <span id="user-display-email">carregando...</span>
-          <button class="btn-primary" style="background: var(--danger); padding: 6px 12px; font-size: 12px;" onclick="executarLogout()">🚪 Sair</button>
-        </div>
+        <button class="btn-refresh" onclick="alternarSubAbasRH('usuarios')">🔒 Perfis Real</button>
+        <button class="btn-refresh" style="background:#10b981; border-color:#10b981; color:#fff;" onclick="alternarSubAbasRH('colab')">👥 Colaboradores</button>
+        <button class="btn-refresh" style="background:#4a5568; border-color:#4a5568; color:#fff;" onclick="alternarSubAbasRH('cargo')">🪪 Cargos</button>
       </div>
+
       <div class="section-content">
-        <div class="card">
-          <h3 class="card-title">🔑 Usuários Corporativos Homologados</h3>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>E-mail do Operador</th><th>Status do Perfil</th></tr></thead>
-              <tbody id="tbody-usuarios-sistema"></tbody>
-            </table>
+        <div id="sub-rh-usuarios" class="app-sub-panel">
+          <div class="card">
+            <div class="card-header-admin"><h2>🛡️ Painel Administrativo de Controle de Perfis Reais</h2></div>
+            <div class="admin-split-grid">
+              <div class="admin-form-side">
+                <h3>Criar Credencial Operacional</h3>
+                <div class="form-group"><label>E-mail:</label><input type="email" id="adm-user-email"></div>
+                <div class="form-group" style="margin-top:12px;"><label>Senha Provisória:</label><input type="password" id="adm-user-password"></div>
+                <div class="form-group" style="margin-top:12px;">
+                  <label>Perfil Real (Role):</label>
+                  <select id="adm-user-role" class="form-input-style">
+                    <option value="tecnico">🔬 Técnico de Campo</option>
+                    <option value="master">👨‍💻 Técnico Master / Supervisor</option>
+                    <option value="admin">🛡️ Administrador Geral</option>
+                    <option value="auditor">👁️ Auditor (Apenas Leitura)</option>
+                  </select>
+                </div>
+                <button id="btn-admin-salvar-usuario" class="btn-primary" style="margin-top:16px; width:100%; background:#10b981;">🚀 Validar Perfil</button>
+                <p id="msg-admin-usuario" class="msg-form"></p>
+              </div>
+              <div class="admin-table-side">
+                <h3>Operadores Cadastrados no Ecossistema</h3>
+                <div class="table-wrap"><table><thead><tr><th>E-mail</th><th>Perfil Real</th><th>Ações</th></tr></thead><tbody id="tbody-usuarios-sistema"></tbody></table></div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="card">
-          <h3 class="card-title">🧑‍🔧 Adicionar Técnico / Colaborador</h3>
-          <div class="form-grid">
-            <div class="form-group"><label>Nome Completo *</label><input type="text" id="colab-nome" placeholder="Nome"></div>
-            <div class="form-group"><label>CPF *</label><input type="text" id="colab-cpf" placeholder="000.000.000-00" maxlength="14"></div>
-            <div class="form-group" style="grid-column: span 2;"><label>Cargo Vinculado</label><select id="colab-funcao" class="form-input-style"></select></div>
+        <div id="sub-rh-colab" class="app-sub-panel" style="display:none;">
+          <div class="card">
+            <h3 class="card-title">Registrar Novo Técnico / Funcionário</h3>
+            <div class="form-grid">
+              <div class="form-group"><label>Nome Completo *</label><input type="text" id="colab-nome"></div>
+              <div class="form-group"><label>CPF *</label><input type="text" id="colab-cpf" placeholder="000.000.000-00" maxlength="14"></div>
+              <div class="form-group"><label>Cargo Corporativo</label><select id="colab-funcao" class="form-input-style"></select></div>
+            </div>
+            <div class="btn-row"><button id="btn-salvar-colaborador" class="btn-primary">💾 Registrar Técnico</button></div>
+            <p id="msg-colaborador" class="msg-form"></p>
           </div>
-          <div class="btn-row" style="margin-top:10px;"><button id="btn-salvar-colab" class="btn-primary">Registrar Colaborador</button></div>
-          <div class="table-wrap" style="margin-top:20px;">
-            <table>
-              <thead><tr><th>Nome</th><th>CPF</th><th>Função</th><th>Ações</th></tr></thead>
-              <tbody id="tbody-colaboradores"></tbody>
-            </table>
+          <div class="card">
+            <h3 class="card-title">Técnicos de Campo Homologados</h3>
+            <div class="table-wrap"><table><thead><tr><th>Nome</th><th>CPF</th><th>Função</th><th>Admissão</th><th>Ações</th></tr></thead><tbody id="tbody-colaboradores"></tbody></table></div>
           </div>
         </div>
 
-        <div class="card">
-          <h3 class="card-title">💼 Organograma de Cargos</h3>
-          <div class="form-grid"><div class="form-group" style="grid-column: span 2;"><label>Função Técnica *</label><input type="text" id="func-nome" placeholder="Ex: Supervisor Geral"></div></div>
-          <div class="btn-row" style="margin-top:10px;"><button id="btn-salvar-func" class="btn-primary">Salvar Função</button></div>
-          <div class="table-wrap" style="margin-top:20px;">
-            <table>
-              <thead><tr><th>ID Sequencial</th><th>Nome da Função</th><th>Ações</th></tr></thead>
-              <tbody id="tbody-funcoes"></tbody>
-            </table>
+        <div id="sub-rh-cargo" class="app-sub-panel" style="display:none;">
+          <div class="card">
+            <div class="form-grid">
+              <div class="form-group"><label>Nome do Cargo/Função</label><input type="text" id="func-nome"></div>
+              <div class="form-group"><label>Salário Base (R$)</label><input type="number" id="func-salario"></div>
+              <div class="form-group"><label>Nível Estrutural</label><select id="func-nivel" class="form-input-style"><option value="Auxiliar">Auxiliar</option><option value="Pleno" selected>Pleno</option><option value="Senior">Sênior</option></select></div>
+            </div>
+            <div class="btn-row"><button id="btn-salvar-funcao" class="btn-primary">💾 Salvar Cargo</button></div>
+            <p id="msg-funcao" class="msg-form"></p>
+          </div>
+          <div class="card">
+            <table class="table-wrap"><table><thead><tr><th>Função</th><th>Nível</th><th>Salário Base</th><th>Ações</th></tr></thead><tbody id="tbody-funcoes"></tbody></table></div>
           </div>
         </div>
       </div>
@@ -79,39 +103,14 @@
 
   <script src="app.js"></script>
   <script>
-    document.getElementById('colab-cpf').addEventListener('input', (e) => {
-      let v = e.target.value.replace(/\D/g, "").slice(0, 11);
-      v = v.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2");
-      e.target.value = v;
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        carregarUsuariosSistema();
+        carregarColaboradores();
+        carregarFuncoes();
+        atualizarSelectFuncoes();
+      }, 400);
     });
-
-    async function carregarTelasAdmin() {
-      const [{ data: func }, { data: colabs }, { data: logs }] = await Promise.all([
-        db.from('funcoes').select('*').order('nome', { ascending: true }),
-        db.from('colaboradores').select('*, funcoes(nome)'),
-        db.from('logs_auditoria').select('usuario_email')
-      ]);
-
-      document.getElementById('colab-funcao').innerHTML = (func || []).map(f => `<option value="${f.id}">${f.nome}</option>`).join('');
-      document.getElementById('tbody-funcoes').innerHTML = (func || []).map(f => `<tr><td>${f.id.slice(0,6)}</td><td>${f.nome}</td><td><button class="btn-excluir" onclick="deletarFunc('${f.id}')">✕</button></td></tr>`).join('');
-      document.getElementById('tbody-colaboradores').innerHTML = (colabs || []).map(c => `<tr><td><strong>${c.nome}</strong></td><td>${c.cpf}</td><td><span class="tag-badge">${c.funcoes?.nome || '—'}</span></td><td><button class="btn-excluir" onclick="deletarColab('${c.id}')">✕</button></td></tr>`).join('');
-      
-      const unicos = [...new Set((logs || []).map(l => l.usuario_email).filter(Boolean))];
-      document.getElementById('tbody-usuarios-sistema').innerHTML = unicos.map(em => `<tr><td><strong>${em}</strong></td><td><span class="tag-badge success">Perfil Autenticado</span></td></tr>`).join('');
-    }
-
-    document.getElementById('btn-salvar-func').addEventListener('click', async () => {
-      await db.from('funcoes').insert([{ nome: document.getElementById('func-nome').value.trim() }]); location.reload();
-    });
-
-    document.getElementById('btn-salvar-colab').addEventListener('click', async () => {
-      await db.from('colaboradores').insert([{ nome: document.getElementById('colab-nome').value.trim(), cpf: document.getElementById('colab-cpf').value, funcao_id: document.getElementById('colab-funcao').value }]); location.reload();
-    });
-
-    async function deletarFunc(id) { if(confirm("Deletar função?")) { await db.from('funcoes').delete().eq('id', id); carregarTelasAdmin(); } }
-    async function deletarColab(id) { if(confirm("Deletar colaborador?")) { await db.from('colaboradores').delete().eq('id', id); carregarTelasAdmin(); } }
-    
-    setTimeout(carregarTelasAdmin, 300);
   </script>
 </body>
 </html>
