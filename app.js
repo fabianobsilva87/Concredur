@@ -118,45 +118,106 @@ function calcularCriticidadeFluxograma() {
 }
 
 // ===================== TOGGLE CHECKLIST PMOC =====================
+// Hierarquia cumulativa: A inclui S+T+M | S inclui T+M | T inclui M | M só M
+const FREQ_HIERARQUIA = { M: ['M'], T: ['M','T'], S: ['M','T','S'], A: ['M','T','S','A'] };
+
 function toggleItemsPorFrequencia() {
-  const freq = $('pmoc-frequencia')?.value;
-  document.querySelectorAll('.freq-item-t').forEach(el => {
-    el.style.display = freq === 'T' ? '' : 'none';
-    if (freq !== 'T') el.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
+  const freq = $('pmoc-frequencia')?.value || 'M';
+  const ativas = FREQ_HIERARQUIA[freq] || ['M'];
+
+  [
+    { cls: 'freq-item-t', fq: 'T' },
+    { cls: 'freq-item-s', fq: 'S' },
+    { cls: 'freq-item-a', fq: 'A' },
+  ].forEach(({ cls, fq }) => {
+    const mostrar = ativas.includes(fq);
+    document.querySelectorAll('.' + cls).forEach(el => {
+      el.style.display = mostrar ? '' : 'none';
+      if (!mostrar) el.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
+    });
   });
+}
+
+// ===================== EQUIPAMENTOS — CAMPOS CONDICIONAIS POR CATEGORIA =====================
+// Mapa: categoria → campos extras que ela usa (para coleta no save)
+const EQ_CAMPOS_EXTRAS = {
+  AC:   ['eq-potencia','eq-ciclo','eq-tensao','eq-gas','eq-instalacao-ac','eq-validade'],
+  BEB:  ['eq-cap-beb','eq-tipo-beb','eq-filtro-beb','eq-validade-filtro-beb','eq-lacre-beb','eq-validade-lacre-beb'],
+  CLIM: ['eq-vazao-clim','eq-tipo-clim','eq-painel-clim','eq-validade-painel-clim','eq-tensao-clim','eq-consumo-clim'],
+  VEN:  ['eq-potencia','eq-tipo-ven','eq-diametro-ven','eq-tensao-ven'],
+  OUT:  [],
+};
+
+// Ícones e labels das categorias
+const EQ_CATEGORIA_LABEL = {
+  AC: '❄️ Ar Condicionado', BEB: '💧 Bebedouro',
+  CLIM: '🌀 Climatizador', VEN: '💨 Ventilador/Exaustor', OUT: '🔧 Outros',
+};
+
+function toggleCamposEquipamento() {
+  const cat = $('eq-categoria')?.value || '';
+
+  // Oculta todos os blocos condicionais
+  document.querySelectorAll('.eq-campo-condicional').forEach(el => el.style.display = 'none');
+  // Limpa todos os campos extras ao trocar de categoria
+  Object.values(EQ_CAMPOS_EXTRAS).flat().forEach(id => { if ($(id)) $(id).value = ''; });
+
+  if (!cat) return; // Nenhuma categoria selecionada — mantém tudo oculto
+
+  // Mostra bloco específico da categoria
+  document.querySelectorAll(`.eq-campo-${cat}`).forEach(el => el.style.display = 'block');
+  // Mostra sempre localização e criticidade
+  document.querySelectorAll('.eq-campo-localizacao, .eq-campo-criticidade').forEach(el => el.style.display = 'block');
 }
 
 // ===================== EQUIPAMENTOS — CADASTRO =====================
 if ($('btn-salvar')) {
   $('btn-salvar').addEventListener('click', async () => {
-    const tag = $('eq-tag').value.trim();
-    if (!tag) { msgForm('msg-equipamento', 'TAG é obrigatória.', 'red'); return; }
+    const tag = $('eq-tag')?.value.trim();
+    const cat = $('eq-categoria')?.value;
+    if (!tag)  { msgForm('msg-equipamento', 'TAG é obrigatória.',      'red'); return; }
+    if (!cat)  { msgForm('msg-equipamento', 'Selecione a categoria do ativo.', 'red'); return; }
     msgForm('msg-equipamento', 'Salvando...', 'blue');
+
+    // Coleta campos comuns
     const payload = {
-      tag,
-      marca:       $('eq-marca')?.value.trim()       || null,
-      potencia:    $('eq-potencia')?.value.trim()    || null,
+      tag, categoria: cat,
+      marca:       $('eq-marca')?.value.trim()      || null,
+      produto:     $('eq-produto')?.value.trim()    || null,
       nr_serie:    $('eq-serie')?.value.trim()       || null,
-      patrimonio:  $('eq-patrimonio')?.value.trim()  || null,
-      produto:     $('eq-produto')?.value.trim()     || null,
-      bloco:       $('eq-bloco')?.value.trim()       || null,
-      setor:       $('eq-setor')?.value.trim()       || null,
-      sala:        $('eq-sala')?.value.trim()        || null,
-      instituicao: $('eq-instituicao')?.value.trim() || null,
-      validade:    $('eq-validade')?.value.trim()    || null,
+      patrimonio:  $('eq-patrimonio')?.value.trim() || null,
+      bloco:       $('eq-bloco')?.value.trim()      || null,
+      setor:       $('eq-setor')?.value.trim()      || null,
+      sala:        $('eq-sala')?.value.trim()       || null,
+      instituicao: $('eq-instituicao')?.value.trim()|| null,
       criticidade: calcularCriticidadeFluxograma(),
     };
+
+    // Coleta campos extras da categoria — armazenados em JSONB extras_tecnico
+    const extras = {};
+    (EQ_CAMPOS_EXTRAS[cat] || []).forEach(id => {
+      const el = $(id); if (!el || !el.value.trim()) return;
+      extras[id.replace('eq-','')] = el.value.trim();
+    });
+    if (Object.keys(extras).length) payload.extras_tecnico = extras;
+
+    // Potência e validade no nível raiz para compatibilidade
+    if ($('eq-potencia')?.value)   payload.potencia = $('eq-potencia').value.trim();
+    if ($('eq-validade')?.value)   payload.validade = $('eq-validade').value.trim();
+
     const { error } = await db.from('equipamentos').insert([payload]);
     if (error) { msgForm('msg-equipamento', 'Erro: ' + error.message, 'red'); return; }
-    msgForm('msg-equipamento', '✓ Equipamento salvo!', 'green');
+    msgForm('msg-equipamento', '✓ Equipamento salvo com sucesso!', 'green');
     setTimeout(() => location.href = 'gerir-equipamentos.html', 1200);
   });
 }
 if ($('btn-limpar')) {
   $('btn-limpar').addEventListener('click', () => {
-    document.querySelectorAll('#eq-tag,#eq-marca,#eq-potencia,#eq-serie,#eq-patrimonio,#eq-produto,#eq-bloco,#eq-setor,#eq-sala,#eq-instituicao,#eq-validade')
-      .forEach(el => { if (el) el.value = ''; });
+    if ($('eq-categoria')) $('eq-categoria').value = '';
+    document.querySelectorAll('input[id^="eq-"], select[id^="eq-"]')
+      .forEach(el => { el.value = ''; });
     if ($('label-criticidade-calculada')) $('label-criticidade-calculada').innerText = 'Classe Média (B)';
+    toggleCamposEquipamento();
   });
 }
 
@@ -243,11 +304,57 @@ function exibirJanelaQRCode(token, tag) {
 }
 
 async function atualizarSelectEquipamentos() {
-  const { data } = await db.from('equipamentos').select('id, tag, produto');
+  const { data } = await db.from('equipamentos').select('id, tag, produto, categoria');
   ['pmoc-equipamento', 'os-equipamento'].map($).filter(Boolean).forEach(sel => {
     sel.innerHTML = '<option value="">-- Selecione o Ativo --</option>';
-    (data || []).forEach(e => { sel.innerHTML += `<option value="${e.id}">${e.tag} — ${e.produto || ''}</option>`; });
+    (data || []).forEach(e => {
+      const opt = document.createElement('option');
+      opt.value = e.id;
+      opt.textContent = `${e.tag} — ${e.produto || ''}`;
+      opt.dataset.categoria = e.categoria || 'OUT';
+      sel.appendChild(opt);
+    });
   });
+}
+
+// Detecta tipo do equipamento selecionado e exibe checklist correto no PMOC
+function onEquipamentoSelecionado() {
+  const sel = $('pmoc-equipamento');
+  if (!sel) return;
+  const opt = sel.options[sel.selectedIndex];
+  const cat = opt?.dataset?.categoria || '';
+
+  // Limpa todos os checklists
+  ['AC','BEB','CLIM','VEN','OUT'].forEach(t => {
+    const el = $('checklist-' + t);
+    if (el) el.style.display = 'none';
+    // Limpa radios do checklist oculto
+    if (el) el.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
+  });
+
+  const placeholder = $('checklist-placeholder');
+
+  if (!cat || cat === '') {
+    if (placeholder) placeholder.style.display = 'block';
+    if ($('pmoc-tipo-badge')) $('pmoc-tipo-badge').style.display = 'none';
+    return;
+  }
+
+  if (placeholder) placeholder.style.display = 'none';
+
+  const alvo = $('checklist-' + cat) || $('checklist-OUT');
+  if (alvo) alvo.style.display = 'block';
+
+  // Atualiza badge de tipo
+  const badge = $('pmoc-tipo-badge');
+  const labelEl = $('pmoc-tipo-label');
+  if (badge && labelEl) {
+    labelEl.textContent = EQ_CATEGORIA_LABEL[cat] || 'Outro';
+    badge.style.display = 'block';
+  }
+
+  // Re-aplica toggle de frequência ao trocar equipamento
+  toggleItemsPorFrequencia();
 }
 
 async function carregarAtivoViaTokenQRCode(token) {
@@ -262,22 +369,45 @@ async function carregarAtivoViaTokenQRCode(token) {
   if (editId && $('eq-tag')) {
     const { data } = await db.from('equipamentos').select('*').eq('id', editId).single();
     if (data) {
-      ['tag','marca','potencia','serie','patrimonio','produto','bloco','setor','sala','instituicao','validade'].forEach(k => {
-        const dbKey = k === 'serie' ? 'nr_serie' : k;
-        if ($('eq-' + k)) $('eq-' + k).value = data[dbKey] || '';
+      // Preenche categoria primeiro para mostrar campos corretos
+      if ($('eq-categoria') && data.categoria) {
+        $('eq-categoria').value = data.categoria;
+        toggleCamposEquipamento();
+      }
+      // Campos base
+      const mapa = { tag:'tag', marca:'marca', potencia:'potencia', serie:'nr_serie',
+        patrimonio:'patrimonio', produto:'produto', bloco:'bloco', setor:'setor',
+        sala:'sala', instituicao:'instituicao', validade:'validade' };
+      Object.entries(mapa).forEach(([htmlK, dbK]) => {
+        if ($('eq-' + htmlK) && data[dbK]) $('eq-' + htmlK).value = data[dbK];
       });
-      if ($('msg-equipamento')) $('msg-equipamento').innerText = '(Modo Edição — salvar substituirá o registro)';
+      // Campos extras do JSONB
+      if (data.extras_tecnico) {
+        Object.entries(data.extras_tecnico).forEach(([k, v]) => {
+          const el = $('eq-' + k); if (el) el.value = v;
+        });
+      }
+
+      if ($('msg-equipamento')) $('msg-equipamento').innerText = '✏️ Modo Edição — salvar irá atualizar o registro';
       if ($('btn-salvar')) {
         $('btn-salvar').innerText = '💾 Atualizar Equipamento';
         $('btn-salvar').onclick = async (ev) => {
           ev.stopImmediatePropagation();
+          const cat = $('eq-categoria')?.value || data.categoria;
+          const extras = {};
+          (EQ_CAMPOS_EXTRAS[cat] || []).forEach(id => {
+            const el = $(id); if (!el || !el.value.trim()) return;
+            extras[id.replace('eq-','')] = el.value.trim();
+          });
           const payload = {
-            tag: $('eq-tag').value.trim(), marca: $('eq-marca').value.trim(),
-            potencia: $('eq-potencia').value.trim(), nr_serie: $('eq-serie').value.trim(),
-            patrimonio: $('eq-patrimonio').value.trim(), produto: $('eq-produto').value.trim(),
-            bloco: $('eq-bloco').value.trim(), setor: $('eq-setor').value.trim(),
-            sala: $('eq-sala').value.trim(), instituicao: $('eq-instituicao').value.trim(),
-            validade: $('eq-validade').value.trim(), criticidade: calcularCriticidadeFluxograma(),
+            tag: $('eq-tag').value.trim(), categoria: cat,
+            marca: $('eq-marca')?.value.trim()||null, produto: $('eq-produto')?.value.trim()||null,
+            nr_serie: $('eq-serie')?.value.trim()||null, patrimonio: $('eq-patrimonio')?.value.trim()||null,
+            potencia: $('eq-potencia')?.value.trim()||null, validade: $('eq-validade')?.value.trim()||null,
+            bloco: $('eq-bloco')?.value.trim()||null, setor: $('eq-setor')?.value.trim()||null,
+            sala: $('eq-sala')?.value.trim()||null, instituicao: $('eq-instituicao')?.value.trim()||null,
+            criticidade: calcularCriticidadeFluxograma(),
+            extras_tecnico: Object.keys(extras).length ? extras : null,
           };
           await db.from('equipamentos').update(payload).eq('id', editId);
           msgForm('msg-equipamento', '✓ Equipamento atualizado!', 'green');
@@ -368,21 +498,33 @@ if ($('btn-salvar-ficha')) {
     const dataInsp = $('pmoc-data')?.value || hoje();
     const obs = $('pmoc-obs')?.value.trim() || '';
 
-    // Coleta checklist
-    const checkItems = [
-      { nome: '[FIL-01] Filtros de Ar (G4/F7/F9)',          campo: 'fil_01' },
-      { nome: '[BIO-01] Bandeja condensado / Pastilha',      campo: 'bio_01' },
-      { nome: '[BIO-02] Dreno e escoamento de água',         campo: 'bio_02' },
-      { nome: '[MEC-01] Ruídos e fixação do motoventilador', campo: 'mec_01' },
-      { nome: '[FIL-02] Diferencial de pressão dos filtros', campo: 'fil_02' },
-      { nome: '[BIO-03] Limpeza química das serpentinas',    campo: 'bio_03' },
-      { nome: '[ELE-01] Medição elétrica do compressor',     campo: 'ele_01' },
-      { nome: '[ELE-02] Reaperto de contatos e painel',      campo: 'ele_02' },
+    // Detecta categoria do equipamento selecionado
+    const selEq = $('pmoc-equipamento');
+    const catOpt = selEq?.options[selEq.selectedIndex];
+    const cat = catOpt?.dataset?.categoria || 'OUT';
+
+    // Coleta checklist — todos os campos possíveis de TODOS os tipos
+    // (campos não exibidos ficam NA — sem impacto no laudo pois são filtrados)
+    const TODOS_CAMPOS_CHECKLIST = [
+      // AC
+      'fil_01','bio_01','bio_02','mec_01','fil_02','bio_03','ele_01','ele_02','mec_02',
+      'ref_01','ref_02','ele_03','ele_04','mec_03','bio_04','ins_01',
+      'ref_03','mec_04','mec_05','ele_05','ele_06','bio_05','ins_02','ins_03',
+      // BEB
+      'beb_01','beb_02','beb_03','beb_04','beb_05','beb_06','beb_07','beb_08',
+      'beb_09','beb_10','beb_11','beb_12','beb_13','beb_14','beb_15',
+      // CLIM
+      'clm_01','clm_02','clm_03','clm_04','clm_05','clm_06','clm_07','clm_08','clm_09',
+      'clm_10','clm_11','clm_12','clm_13','clm_14','clm_15','clm_16',
+      // VEN
+      'ven_01','ven_02','ven_03','ven_04','ven_05','ven_06','ven_07','ven_08','ven_09','ven_10',
+      // OUT/GER
+      'ger_01','ger_02','ger_03','ger_04','ger_05',
     ];
     const checklistResult = {};
-    checkItems.forEach(item => {
-      const sel = document.querySelector(`input[name="${item.campo}"]:checked`);
-      checklistResult[item.campo] = sel ? sel.value : 'NA';
+    TODOS_CAMPOS_CHECKLIST.forEach(campo => {
+      const sel = document.querySelector(`input[name="${campo}"]:checked`);
+      if (sel) checklistResult[campo] = sel.value; // só salva os que foram marcados
     });
 
     // Assinatura digital
@@ -393,7 +535,8 @@ if ($('btn-salvar-ficha')) {
       if (hasPixels) assinaturaBase64 = canvas.toDataURL('image/png');
     }
 
-    const obsCompleto = `[DataInspecao: ${dataInsp}]\n[Frequencia: ${freq === 'T' ? 'Trimestral' : 'Mensal'}]\n[Checklist: ${JSON.stringify(checklistResult)}]\n${obs}`;
+    const freqLabel = { M: 'Mensal', T: 'Trimestral', S: 'Semestral', A: 'Anual' }[freq] || 'Mensal';
+    const obsCompleto = `[DataInspecao: ${dataInsp}]\n[Frequencia: ${freqLabel}]\n[TipoEquipamento: ${cat}]\n[Checklist: ${JSON.stringify(checklistResult)}]\n${obs}`;
 
     const foto_url = await uploadFoto($('pmoc-foto')?.files[0], 'pmoc');
     const { data: colab } = await db.from('colaboradores').select('nome').eq('id', tecnico_id).single();
@@ -418,27 +561,55 @@ if ($('btn-salvar-ficha')) {
   });
 }
 
+let _fichasCache = []; // cache para filtro local
+
 async function carregarHistoricoFichas() {
   const tbody = $('tbody-fichas'); if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="6" class="td-loading">Carregando histórico...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" class="td-loading">Carregando histórico...</td></tr>';
   const { data } = await db.from('fichas_pmoc')
-    .select('*, equipamentos(tag, marca, potencia, nr_serie, patrimonio, produto, bloco, setor, sala, instituicao)')
+    .select('*, equipamentos(tag, marca, potencia, nr_serie, patrimonio, produto, bloco, setor, sala, instituicao, categoria)')
     .order('created_at', { ascending: false });
 
-  if (!data || !data.length) { tbody.innerHTML = '<tr><td colspan="6" class="td-loading">Nenhum laudo encontrado.</td></tr>'; return; }
+  _fichasCache = data || [];
+  renderizarHistoricoFichas(_fichasCache);
+}
+
+function filtrarHistoricoFichas() {
+  const tag  = ($('filtro-hist-tag')?.value  || '').toLowerCase();
+  const tipo = $('filtro-hist-tipo')?.value  || '';
+  const freq = $('filtro-hist-freq')?.value  || '';
+
+  const filtrado = _fichasCache.filter(f => {
+    const fTag  = (f.equipamentos?.tag || '').toLowerCase().includes(tag);
+    const fTipo = !tipo || (f.observacoes || '').includes(`[TipoEquipamento: ${tipo}]`);
+    const fFreq = !freq || (f.observacoes || '').includes(`[Frequencia: ${freq}]`);
+    return fTag && fTipo && fFreq;
+  });
+  renderizarHistoricoFichas(filtrado);
+}
+
+function renderizarHistoricoFichas(data) {
+  const tbody = $('tbody-fichas'); if (!tbody) return;
+  if (!data.length) { tbody.innerHTML = '<tr><td colspan="7" class="td-loading">Nenhum laudo encontrado.</td></tr>'; return; }
 
   tbody.innerHTML = data.map(f => {
     const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(f))));
     const matchData = f.observacoes?.match(/\[DataInspecao:\s*([\d-]+)\]/);
     const dataFmt = matchData ? fmtDate(matchData[1]) : fmtDate(f.created_at);
-    const freq = f.observacoes?.includes('Trimestral') ? 'Trimestral' : 'Mensal';
+    const matchFreqHist = f.observacoes?.match(/\[Frequencia:\s*([^\]]+)\]/);
+    const freq = matchFreqHist ? matchFreqHist[1] : 'Mensal';
+    const freqBadgeCls = freq === 'Anual' ? 'danger' : freq === 'Semestral' ? 'semestral' : freq === 'Trimestral' ? 'andamento' : 'success';
+    const matchTipo = f.observacoes?.match(/\[TipoEquipamento:\s*([^\]]+)\]/);
+    const tipo = matchTipo ? matchTipo[1] : (f.equipamentos?.categoria || 'OUT');
+    const tipoLabel = { AC:'❄️ A.C.', BEB:'💧 Beb.', CLIM:'🌀 Clim.', VEN:'💨 Vent.', OUT:'🔧 Geral' }[tipo] || tipo;
     const laudoID = 'L-PMOC-' + f.id.toString().slice(0,6).toUpperCase();
     return `<tr>
       <td><strong>${laudoID}</strong></td>
       <td>${dataFmt}</td>
       <td><span class="tag-badge">${f.equipamentos?.tag || '—'}</span></td>
+      <td><small>${tipoLabel}</small></td>
       <td>${f.tecnico_nome}</td>
-      <td>${freq}</td>
+      <td><span class="tag-badge ${freqBadgeCls}">${freq}</span></td>
       <td>
         <button class="btn-primary" style="padding:4px 12px;font-size:12px;" onclick="emitirRelatorioPMOC('${b64}')">🖨️ Emitir</button>
       </td>
@@ -461,33 +632,128 @@ function emitirRelatorioPMOC(b64) {
   let obsLimpa    = obs
     .replace(/\[DataInspecao:[^\]]+\]/g, '')
     .replace(/\[Frequencia:[^\]]+\]/g, '')
+    .replace(/\[TipoEquipamento:[^\]]+\]/g, '')
     .replace(/\[Checklist:[^\]]+\]/g, '')
     .trim();
 
+  const matchTipoImp = obs.match(/\[TipoEquipamento:\s*([^\]]+)\]/);
+  const tipoEq = matchTipoImp ? matchTipoImp[1] : (f.equipamentos?.categoria || 'OUT');
+  const tipoLabelImp = { AC:'\u2744\ufe0f Ar Condicionado / Split', BEB:'\ud83d\udca7 Bebedouro', CLIM:'\ud83c\udf00 Climatizador Evaporativo', VEN:'\ud83d\udca8 Ventilador / Exaustor', OUT:'\ud83d\udd27 Equipamento Geral' }[tipoEq] || 'Equipamento';
+
   const nomes = {
-    fil_01:'[FIL-01] Filtros de Ar (G4/F7/F9)',
-    bio_01:'[BIO-01] Bandeja condensado / Pastilha',
-    bio_02:'[BIO-02] Dreno e escoamento de água',
-    mec_01:'[MEC-01] Ruídos e fixação do motoventilador',
-    fil_02:'[FIL-02] Diferencial de pressão dos filtros',
-    bio_03:'[BIO-03] Limpeza química das serpentinas',
-    ele_01:'[ELE-01] Medição elétrica do compressor',
-    ele_02:'[ELE-02] Reaperto de contatos e painel',
+    // AC — Mensal
+    fil_01:'[FIL-01] Filtros de Ar (G4/F7/F9) — Higienização/Substituição',
+    bio_01:'[BIO-01] Bandeja de Condensados — Pastilha Sanitizante',
+    bio_02:'[BIO-02] Rede de Drenagem — Desobstrução e Teste de Escoamento',
+    mec_01:'[MEC-01] Conjunto Ventilação — Ruídos, Coxins e Fixadores',
+    // AC — Trimestral
+    fil_02:'[FIL-02] Diferencial de Pressão de Filtros — Manômetro',
+    bio_03:'[BIO-03] Serpentinas — Limpeza Química por Pressão',
+    ele_01:'[ELE-01] Medição de Corrente/Tensão dos Compressores',
+    ele_02:'[ELE-02] Reaperto dos Bornes de Comando e Potência',
+    mec_02:'[MEC-02] Lubrificação de Rolamentos e Buchas do Motoventilador',
+    // AC — Semestral
+    ref_01:'[REF-01] Verificação de Carga de Gás Refrigerante',
+    ref_02:'[REF-02] Verificação de Vazamentos no Circuito Frigorífico',
+    ele_03:'[ELE-03] Medição de Isolamento Elétrico (Megôhmetro)',
+    ele_04:'[ELE-04] Teste dos Dispositivos de Proteção',
+    mec_03:'[MEC-03] Inspeção e Substituição de Correias e Polias',
+    bio_04:'[BIO-04] Coleta de Amostra de Água — Análise Microbiológica',
+    ins_01:'[INS-01] Inspeção Estrutural — Suportes, Fixações e Isolamento Térmico',
+    // AC — Anual
+    ref_03:'[REF-03] Substituição de Gás Refrigerante e Registro ART',
+    mec_04:'[MEC-04] Substituição de Rolamentos, Buchas e Selos Mecânicos',
+    mec_05:'[MEC-05] Limpeza e Inspeção do Compressor — Óleo e Visor',
+    ele_05:'[ELE-05] Revisão de Capacitores e Contatores Desgastados',
+    ele_06:'[ELE-06] Termografia Elétrica do Painel e Cabos',
+    bio_05:'[BIO-05] Higienização Completa — Laudos Microbiológicos',
+    ins_02:'[INS-02] Revisão Geral do PMOC — Documentação e ART',
+    ins_03:'[INS-03] Análise de Desempenho — Delta T, COP e Eficiência',
+    // BEB
+    beb_01:'[BEB-01] Limpeza Externa — Gabinete, Torneiras e Bica',
+    beb_02:'[BEB-02] Verificação do Sistema de Refrigeração (temperatura)',
+    beb_03:'[BEB-03] Inspeção Visual de Vazamentos nas Conexões',
+    beb_04:'[BEB-04] Verificação e Higienização da Bandeja Coletora',
+    beb_05:'[BEB-05] Higienização Interna com Solução Sanitizante',
+    beb_06:'[BEB-06] Limpeza e Verificação do Reservatório Interno',
+    beb_07:'[BEB-07] Verificação de Carga de Gás / Compressor',
+    beb_08:'[BEB-08] Verificação de Validade do Elemento Filtrante',
+    beb_09:'[BEB-09] Substituição do Elemento Filtrante',
+    beb_10:'[BEB-10] Análise Microbiológica da Água (laudo laboratorial)',
+    beb_11:'[BEB-11] Verificação e Regulagem da Temperatura de Saída',
+    beb_12:'[BEB-12] Aplicação de Lacre e Registro de Sanitização',
+    beb_13:'[BEB-13] Revisão Completa do Sistema de Refrigeração',
+    beb_14:'[BEB-14] Substituição de Vedações, O-rings e Torneiras',
+    beb_15:'[BEB-15] Laudo Sanitário Anual — Documentação ANVISA',
+    // CLIM
+    clm_01:'[CLM-01] Limpeza do Reservatório — Remoção de Lodo e Calcário',
+    clm_02:'[CLM-02] Limpeza e Inspeção do Painel Evaporativo',
+    clm_03:'[CLM-03] Verificação de Nível e Funcionamento da Boia',
+    clm_04:"[CLM-04] Verificação da Bomba d\'Água — Funcionamento e Fluxo",
+    clm_05:'[CLM-05] Inspeção do Ventilador Axial — Ruídos e Fixação',
+    clm_06:'[CLM-06] Limpeza Química do Reservatório — Descalcificação',
+    clm_07:'[CLM-07] Limpeza dos Distribuidores de Água (aspersores)',
+    clm_08:'[CLM-08] Medição de Corrente do Motor e da Bomba',
+    clm_09:'[CLM-09] Lubrificação de Rolamentos do Motor e da Bomba',
+    clm_10:'[CLM-10] Inspeção do Painel Evaporativo — Avaliação para Substituição',
+    clm_11:'[CLM-11] Análise Microbiológica da Água (Controle de Legionela)',
+    clm_12:'[CLM-12] Verificação do Sistema Elétrico — Quadro e Proteções',
+    clm_13:'[CLM-13] Tratamento Biocida — Produto Antiincrustante',
+    clm_14:'[CLM-14] Substituição do Painel Evaporativo',
+    clm_15:'[CLM-15] Revisão Geral da Bomba — Impelidor, Eixo e Vedação',
+    clm_16:'[CLM-16] Laudo Técnico Anual — Relatório de Qualidade da Água',
+    // VEN
+    ven_01:'[VEN-01] Limpeza das Pás/Hélice e Grelha de Proteção',
+    ven_02:'[VEN-02] Verificação de Ruídos, Vibração e Folgas Mecânicas',
+    ven_03:'[VEN-03] Verificação de Fixação — Parafusos e Suportes',
+    ven_04:'[VEN-04] Lubrificação dos Rolamentos/Buchas com Graxa',
+    ven_05:'[VEN-05] Medição de Corrente do Motor (amperagem)',
+    ven_06:'[VEN-06] Reaperto das Conexões Elétricas no Quadro',
+    ven_07:'[VEN-07] Medição de Isolamento Elétrico (Megôhmetro)',
+    ven_08:'[VEN-08] Análise de Vibração — Verificação de Desbalanceamento',
+    ven_09:'[VEN-09] Substituição de Rolamentos e Buchas Desgastados',
+    ven_10:'[VEN-10] Balanceamento Dinâmico das Pás/Hélice',
+    // GER
+    ger_01:'[GER-01] Inspeção Visual Geral — Conservação e Integridade',
+    ger_02:'[GER-02] Limpeza Geral — Remoção de Poeira e Oxidação',
+    ger_03:'[GER-03] Verificação de Fixação — Suportes e Estrutura',
+    ger_04:'[GER-04] Verificação Elétrica — Conexões e Proteções',
+    ger_05:'[GER-05] Teste de Funcionamento e Parâmetros Operacionais',
   };
 
   let checklistHTML = '';
   if (matchChk) {
     try {
       const chk = JSON.parse(matchChk[1]);
-      const rows = Object.entries(chk).map(([k, v]) => {
-        const cls = v === 'C' ? 'check-c' : v === 'NC' ? 'check-nc' : 'check-na';
-        return `<tr><td>${nomes[k] || k}</td><td class="${cls}"><strong>${v}</strong></td></tr>`;
-      }).join('');
+      // Agrupa por categoria/frequência para exibição limpa
+      const grupos = [
+        { label: '🔧 Rotinas Mensais',    campos: ['fil_01','bio_01','bio_02','mec_01'] },
+        { label: '📅 Rotinas Trimestrais', campos: ['fil_02','bio_03','ele_01','ele_02','mec_02'] },
+        { label: '📆 Rotinas Semestrais',  campos: ['ref_01','ref_02','ele_03','ele_04','mec_03','bio_04','ins_01'] },
+        { label: '📋 Rotinas Anuais',      campos: ['ref_03','mec_04','mec_05','ele_05','ele_06','bio_05','ins_02','ins_03'] },
+      ];
+
+      let allRows = '';
+      grupos.forEach(g => {
+        // Só imprime o grupo se ao menos um item não for NA
+        const itensGrupo = g.campos.filter(k => chk[k] && chk[k] !== 'NA');
+        if (!itensGrupo.length) return;
+
+        allRows += `<tr class="checklist-group-header"><td colspan="2" style="background:#2d3748;color:#fff;font-weight:700;font-size:11px;padding:5px 10px;letter-spacing:.3px;">${g.label}</td></tr>`;
+        g.campos.forEach(k => {
+          if (!chk[k]) return;
+          const v = chk[k];
+          const cls = v === 'C' ? 'check-c' : v === 'NC' ? 'check-nc' : 'check-na';
+          const opacidade = v === 'NA' ? 'opacity:.45;' : '';
+          allRows += `<tr style="${opacidade}"><td>${nomes[k] || k}</td><td class="${cls}" style="text-align:center;width:70px;"><strong>${v}</strong></td></tr>`;
+        });
+      });
+
       checklistHTML = `<div class="laudo-section">
-        <div class="laudo-section-title">3. CHECKLIST DE ROTINAS TÉCNICAS</div>
+        <div class="laudo-section-title">3. CHECKLIST DE ROTINAS TÉCNICAS — ${freq.toUpperCase()}</div>
         <table class="checklist-print-table">
-          <thead><tr><th>Rotina Técnica</th><th style="width:80px;text-align:center;">Resultado</th></tr></thead>
-          <tbody>${rows}</tbody>
+          <thead><tr><th>Rotina Técnica</th><th style="width:70px;text-align:center;">Result.</th></tr></thead>
+          <tbody>${allRows}</tbody>
         </table></div>`;
     } catch(_) {}
   }
@@ -501,7 +767,7 @@ function emitirRelatorioPMOC(b64) {
     <div class="laudo-header">
       <div class="empresa">MANUTENÇÃO CONCREDUR — Sistema Integrado de Gestão</div>
       <h1>FORMULÁRIO DE MANUTENÇÃO PREVENTIVA — PMOC</h1>
-      <div class="doc-id">Código: ${laudoID}</div>
+      <div class="doc-id">Código: ${laudoID} &nbsp;|&nbsp; ${tipoLabelImp}</div>
       <div class="doc-sub">Conforme Portaria MS nº 3.523/98 &nbsp;|&nbsp; Frequência: ${freq} &nbsp;|&nbsp; Data da Inspeção: ${dataFmt}</div>
     </div>
 

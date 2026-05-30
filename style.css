@@ -161,6 +161,11 @@ tbody tr:hover td { background: var(--gray-50); }
 .tag-badge.success  { background: var(--success-light); color: var(--success); }
 .tag-badge.danger   { background: var(--danger-light);  color: var(--danger); }
 .tag-badge.andamento { background: #dbeafe; color: #1d4ed8; }
+.tag-badge.semestral { background: #ede9fe; color: #6d28d9; }
+.tag-badge.anual     { background: #fce7f3; color: #9d174d; }
+
+/* Cabeçalho de grupo no checklist impresso */
+.print-only .checklist-group-header td { background: #2d3748; color: #fff; font-weight: 700; font-size: 11px; padding: 5px 10px; }
 
 .btn-excluir { background: none; border: 1px solid var(--gray-200); border-radius: 4px; cursor: pointer; color: var(--gray-400); font-size: 12px; padding: 3px 8px; transition: all .15s; }
 .btn-excluir:hover { color: var(--danger); border-color: var(--danger); background: var(--danger-light); }
@@ -195,7 +200,26 @@ tbody tr:hover td { background: var(--gray-50); }
 .admin-form-side { border-right: 1px solid var(--gray-200); padding-right: 20px; }
 .admin-form-side h3, .admin-table-side h3 { font-size: 14px; font-weight: 700; color: var(--gray-800); margin-bottom: 14px; }
 
-/* ===================== CANVAS ASSINATURA ===================== */
+/* ===================== CADASTRO DE EQUIPAMENTOS — CAMPOS CONDICIONAIS ===================== */
+.eq-section-title {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: #fff; padding: 7px 14px;
+  border-radius: var(--radius); margin: 18px 0 14px;
+  background: var(--gray-700);
+}
+.eq-section-ac   { background: linear-gradient(90deg,#1e3a8a,#2563eb); }
+.eq-section-beb  { background: linear-gradient(90deg,#065f46,#059669); }
+.eq-section-clim { background: linear-gradient(90deg,#4c1d95,#7c3aed); }
+.eq-section-ven  { background: linear-gradient(90deg,#92400e,#d97706); }
+
+.eq-campo-condicional { animation: fadeInDown .2s ease; }
+@keyframes fadeInDown { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+
+/* Badge de tipo no PMOC */
+#pmoc-tipo-badge { padding: 8px 12px; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius); display: flex; align-items: center; gap: 8px; }
+
+/* Checklist placeholder */
+#checklist-placeholder { border: 2px dashed var(--gray-200); border-radius: 8px; }
 #canvas-assinatura { border: 2px dashed var(--gray-400); background: #fff; border-radius: 6px; cursor: crosshair; touch-action: none; display: block; max-width: 100%; }
 
 /* ===================== SUB-ABAS ===================== */
