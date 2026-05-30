@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Concredur — PMOC</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2 family=Rajdhani:wght@600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
@@ -42,7 +42,7 @@
             <div class="form-group"><label>Equipamento (TAG) *</label><select id="pmoc-equipamento" class="form-input-style"></select></div>
             <div class="form-group"><label>Técnico Homologador *</label><select id="pmoc-tecnico" class="form-input-style"></select></div>
             <div class="form-group"><label>Frequência</label><select id="pmoc-frequencia" class="form-input-style"><option value="M">Mensal</option><option value="T">Trimestral</option></select></div>
-            <div class="form-group"><label>📷 Evidência Fotográfica</label><input type="file" id="pmoc-foto" accept="image/*" capture="environment"></div>
+            <div class="form-group"><label>📷 Foto de Evidência de Campo</label><input type="file" id="pmoc-foto" accept="image/*" capture="environment"></div>
           </div>
 
           <div class="pmoc-checklist-container">
@@ -91,7 +91,6 @@
       document.getElementById('pmoc-equipamento').innerHTML = (eq || []).map(e => `<option value="${e.id}">${e.tag}</option>`).join('');
       document.getElementById('pmoc-tecnico').innerHTML = (cb || []).map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
       
-      // Captura automática de TAG via QR Code link (Melhoria Média)
       const urlParams = new URLSearchParams(window.location.search);
       const token = urlParams.get('token');
       if (token) {
@@ -140,7 +139,7 @@
 
     function dispararDownloadPDF() { html2pdf().set({ margin:10, filename: 'Laudo_PMOC.pdf', html2canvas: { scale: 2 }, jsPDF: { format: 'a4' } }).from(document.getElementById('pdf-target')).save(); }
     
-    setTimeout(() => { carform = carregarFormOptions(); cartab = carregarTabelaPMOC(); }, 500);
+    setTimeout(() => { carform = carregarFormOptions(); cartab = carregarTabelaPMOC(); }, 300);
   </script>
 </body>
 </html>
