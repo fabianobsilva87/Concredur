@@ -45,50 +45,24 @@
 
   <script src="app.js"></script>
   <script>
-    let modoRecuperacao = false;
-
-    function toggleModoRecuperacao(ativar) {
-      modoRecuperacao = activar;
-      document.getElementById('mensagem').innerText = '';
-      if (ativar) {
-        document.getElementById('login-title').innerText = "Recuperar Senha";
-        document.getElementById('login-desc').innerText = "Informe seu e-mail para receber as instruções";
-        document.getElementById('login-password-group').style.display = "none";
-        document.getElementById('btn-login').innerHTML = "<span>✉</span> Enviar Link";
-        document.getElementById('link-recuperar').style.display = "none";
-        document.getElementById('link-voltar').style.display = "block";
-      } else {
-        document.getElementById('login-title').innerText = "Acesso ao Sistema";
-        document.getElementById('login-desc').innerText = "Informe suas credenciais para continuar";
-        document.getElementById('login-password-group').style.display = "flex";
-        document.getElementById('btn-login').innerHTML = "<span>➔</span> Entrar no Sistema";
-        document.getElementById('link-recuperar').style.display = "block";
-        document.getElementById('link-voltar').style.display = "none";
-      }
-    }
-
+    // Gerenciador Local de Login acoplado ao Core
     document.getElementById('btn-login').addEventListener('click', async () => {
       const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
       const msg = document.getElementById('mensagem');
-      if (!email) { alert("Por favor, informe o e-mail."); return; }
-      
+      if (!email) { alert("Por favor, preencha o campo de e-mail."); return; }
+
       if (modoRecuperacao) {
-        msg.style.color = "#1a56db";
-        msg.innerText = "Disparando e-mail de recuperação...";
+        msgForm('mensagem', 'Disparando link de recuperação...', 'blue');
         const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + "/index.html" });
-        if (error) { msg.style.color = "#dc2626"; msg.innerText = error.message; }
-        else { msg.style.color = "#059669"; msg.innerText = "Link enviado com sucesso!"; }
+        if (error) msgForm('mensagem', error.message, 'red');
+        else msgForm('mensagem', 'Link de recuperação enviado com sucesso!', 'green');
       } else {
-        msg.style.color = "#1a56db";
-        msg.innerText = "Autenticando...";
-        const { error } = await db.auth.signInWithPassword({ email, password: document.getElementById('password').value });
-        if (error) {
-          msg.style.color = "#dc2626";
-          msg.innerText = "Erro: Usuário ou senha inválidos.";
-        } else {
-          msg.innerText = "";
-          window.location.href = "dashboard.html";
-        }
+        if (!password) { alert("Por favor, informe sua senha."); return; }
+        msgForm('mensagem', 'Verificando credenciais...', 'blue');
+        const { error } = await db.auth.signInWithPassword({ email, password });
+        if (error) msgForm('mensagem', 'Acesso negado: ' + error.message, 'red');
+        else window.location.href = "dashboard.html";
       }
     });
   </script>
