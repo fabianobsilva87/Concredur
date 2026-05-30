@@ -615,82 +615,107 @@ if ($('btn-login')) {
 }
 
 // ===================== DASHBOARD =====================
+const CHART_DEFAULTS = { responsive: true, maintainAspectRatio: true, devicePixelRatio: 2 };
+
 async function renderizarGraficosDashboard() {
-  // Cards de contagem
-  const [{ count: cAtivos }, { count: cFichas }, { count: cAbertas }, { count: cFechadas }] = await Promise.all([
+  // Cards — soma AC + Facilities
+  const [{ count: cAtivos }, { count: cFichas }, { count: cAbAC }, { count: cFecAC }, { count: cAbFac }, { count: cFecFac }] = await Promise.all([
     db.from('equipamentos').select('*', { count: 'exact', head: true }),
     db.from('fichas_pmoc').select('*', { count: 'exact', head: true }),
     db.from('ordens_servico').select('*', { count: 'exact', head: true }).in('status_os', ['Aberta', 'Em Andamento']),
     db.from('ordens_servico').select('*', { count: 'exact', head: true }).eq('status_os', 'Concluída'),
+    db.from('ordens_servico_geral').select('*', { count: 'exact', head: true }).in('status_os', ['Aberta', 'Em Andamento']),
+    db.from('ordens_servico_geral').select('*', { count: 'exact', head: true }).eq('status_os', 'Concluída'),
   ]);
-  if ($('dash-txt-ativos'))    $('dash-txt-ativos').innerText    = cAtivos    ?? '0';
-  if ($('dash-txt-fichas'))    $('dash-txt-fichas').innerText    = cFichas    ?? '0';
-  if ($('dash-txt-os-abertas'))  $('dash-txt-os-abertas').innerText  = cAbertas  ?? '0';
-  if ($('dash-txt-os-fechadas')) $('dash-txt-os-fechadas').innerText = cFechadas ?? '0';
+  if ($('dash-txt-ativos'))      $('dash-txt-ativos').innerText      = cAtivos ?? '0';
+  if ($('dash-txt-fichas'))      $('dash-txt-fichas').innerText      = cFichas ?? '0';
+  if ($('dash-txt-os-abertas'))  $('dash-txt-os-abertas').innerText  = (cAbAC ?? 0) + (cAbFac ?? 0);
+  if ($('dash-txt-os-fechadas')) $('dash-txt-os-fechadas').innerText = (cFecAC ?? 0) + (cFecFac ?? 0);
 
-  // Gráfico O.S. Ar Condicionado
-  const { data: osAC } = await db.from('ordens_servico').select('status_os, tipo_os');
-  if ($('chartStatusOS') && osAC) {
-    const contagem = { Aberta: 0, 'Em Andamento': 0, Concluída: 0 };
-    osAC.forEach(o => { if (contagem[o.status_os] !== undefined) contagem[o.status_os]++; });
+  // Gráfico 1 — Volumetria TOTAL (AC + Facilities)
+  const [{ data: osAC }, { data: osFacAll }] = await Promise.all([
+    db.from('ordens_servico').select('status_os'),
+    db.from('ordens_servico_geral').select('status_os'),
+  ]);
+  if ($('chartStatusOS')) {
+    const cnt = { Aberta: 0, 'Em Andamento': 0, Concluida: 0 };
+    [...(osAC||[]), ...(osFacAll||[])].forEach(o => {
+      if (o.status_os === 'Aberta') cnt.Aberta++;
+      else if (o.status_os === 'Em Andamento') cnt['Em Andamento']++;
+      else if (o.status_os === 'Concluída') cnt.Concluida++;
+    });
     if (chartOS) chartOS.destroy();
     chartOS = new Chart($('chartStatusOS'), {
       type: 'doughnut',
       data: {
-        labels: Object.keys(contagem),
-        datasets: [{ data: Object.values(contagem), backgroundColor: ['#f59e0b','#3b82f6','#10b981'], borderWidth: 2 }]
+        labels: ['Aberta / Pendente', 'Em Andamento', 'Concluída'],
+        datasets: [{ data: [cnt.Aberta, cnt['Em Andamento'], cnt.Concluida], backgroundColor: ['#f59e0b','#3b82f6','#10b981'], borderColor: '#fff', borderWidth: 3, hoverOffset: 8 }]
       },
-      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+      options: { ...CHART_DEFAULTS, cutout: '62%', plugins: { legend: { position: 'bottom', labels: { padding: 16, font: { size: 13 }, usePointStyle: true } }, tooltip: { callbacks: { label: c => ` ${c.label}: ${c.parsed} O.S.` } } } }
     });
   }
 
-  // Gráfico Criticidade
+  // Gráfico 2 — Criticidade dos ativos
   const { data: eqCrit } = await db.from('equipamentos').select('criticidade');
-  if ($('chartCriticidade') && eqCrit) {
-    const contagem = { Alta: 0, Média: 0, Baixa: 0 };
-    eqCrit.forEach(e => { if (contagem[e.criticidade] !== undefined) contagem[e.criticidade]++; });
+  if ($('chartCriticidade')) {
+    const cnt = { Alta: 0, Media: 0, Baixa: 0 };
+    (eqCrit||[]).forEach(e => {
+      if (e.criticidade === 'Alta') cnt.Alta++;
+      else if (e.criticidade === 'Média') cnt.Media++;
+      else if (e.criticidade === 'Baixa') cnt.Baixa++;
+    });
     if (chartCrit) chartCrit.destroy();
     chartCrit = new Chart($('chartCriticidade'), {
       type: 'bar',
       data: {
-        labels: Object.keys(contagem),
-        datasets: [{ label: 'Ativos', data: Object.values(contagem), backgroundColor: ['#ef4444','#f59e0b','#10b981'] }]
+        labels: ['Alta (A)', 'Média (B)', 'Baixa (C)'],
+        datasets: [{ data: [cnt.Alta, cnt.Media, cnt.Baixa], backgroundColor: ['rgba(239,68,68,0.85)','rgba(245,158,11,0.85)','rgba(16,185,129,0.85)'], borderColor: ['#ef4444','#f59e0b','#10b981'], borderWidth: 2, borderRadius: 6, borderSkipped: false }]
       },
-      options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+      options: { ...CHART_DEFAULTS, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.parsed.y} ativo(s)` } } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 12 } }, grid: { color: 'rgba(0,0,0,0.05)' } }, x: { ticks: { font: { size: 12 } }, grid: { display: false } } } }
     });
   }
 
-  // Gráfico Facilities
+  // Gráfico 3 — Facilities por status (barras horizontais)
   const { data: osFac } = await db.from('ordens_servico_geral').select('status_os');
-  if ($('chartStatusOSG') && osFac) {
-    const contagem = { Aberta: 0, 'Em Andamento': 0, Concluída: 0 };
-    osFac.forEach(o => { if (contagem[o.status_os] !== undefined) contagem[o.status_os]++; });
+  if ($('chartStatusOSG')) {
+    const cnt = { Aberta: 0, 'Em Andamento': 0, Concluida: 0 };
+    (osFac||[]).forEach(o => {
+      if (o.status_os === 'Aberta') cnt.Aberta++;
+      else if (o.status_os === 'Em Andamento') cnt['Em Andamento']++;
+      else if (o.status_os === 'Concluída') cnt.Concluida++;
+    });
     if (chartOSG) chartOSG.destroy();
     chartOSG = new Chart($('chartStatusOSG'), {
-      type: 'pie',
+      type: 'bar',
       data: {
-        labels: Object.keys(contagem),
-        datasets: [{ data: Object.values(contagem), backgroundColor: ['#f59e0b','#8b5cf6','#10b981'], borderWidth: 2 }]
+        labels: ['Aberta', 'Em Andamento', 'Concluída'],
+        datasets: [{ data: [cnt.Aberta, cnt['Em Andamento'], cnt.Concluida], backgroundColor: ['rgba(245,158,11,0.85)','rgba(139,92,246,0.85)','rgba(16,185,129,0.85)'], borderColor: ['#f59e0b','#8b5cf6','#10b981'], borderWidth: 2, borderRadius: 6, borderSkipped: false }]
       },
-      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+      options: { ...CHART_DEFAULTS, indexAxis: 'y', plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.parsed.x} O.S.` } } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 12 } }, grid: { color: 'rgba(0,0,0,0.05)' } }, y: { ticks: { font: { size: 13 } }, grid: { display: false } } } }
     });
   }
 
-  // Logs recentes
-  const { data: logsAC } = await db.from('ordens_servico').select('created_at, status_os, tipo_os, equipamentos(tag)').order('created_at', { ascending: false }).limit(5);
+  // Logs recentes unificados
+  const [{ data: logsAC2 }, { data: logsFac }] = await Promise.all([
+    db.from('ordens_servico').select('created_at, status_os, tipo_os, equipamentos(tag)').order('created_at', { ascending: false }).limit(5),
+    db.from('ordens_servico_geral').select('created_at, status_os, servico_requisitado, setor').order('created_at', { ascending: false }).limit(5),
+  ]);
   const el = $('dash-atividades');
-  if (el && logsAC) {
-    el.innerHTML = logsAC.length ? logsAC.map(l =>
-      `<div style="padding:8px 0;border-bottom:1px solid #e2e8f0;">
-        <span style="font-size:11px;color:#a0aec0;">${fmtDate(l.created_at)}</span>
-        <strong style="margin-left:8px;">${l.equipamentos?.tag || '—'}</strong>
-        <span style="margin-left:6px;color:#4a5568;">${l.tipo_os}</span>
-        ${statusBadge(l.status_os)}
-      </div>`
-    ).join('') : '<p style="color:#a0aec0;">Nenhum registro encontrado.</p>';
+  if (el) {
+    const todos = [
+      ...(logsAC2||[]).map(l => ({ data: l.created_at, status: l.status_os, desc: l.tipo_os, ref: l.equipamentos?.tag||'—', origem: '❄️' })),
+      ...(logsFac||[]).map(l => ({ data: l.created_at, status: l.status_os, desc: l.servico_requisitado||'—', ref: l.setor||'—', origem: '🏢' })),
+    ].sort((a,b) => new Date(b.data)-new Date(a.data)).slice(0,8);
+    el.innerHTML = todos.length ? todos.map(l =>
+      `<div style="padding:8px 0;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:10px;color:#a0aec0;min-width:70px;">${fmtDate(l.data)}</span>
+        <span style="font-size:11px;background:#f1f5f9;padding:2px 6px;border-radius:4px;">${l.origem}</span>
+        <strong style="font-size:13px;">${l.ref}</strong>
+        <span style="color:#4a5568;font-size:12px;flex:1;">${l.desc}</span>
+        ${statusBadge(l.status)}
+      </div>`).join('') : '<p style="color:#a0aec0;">Nenhum registro encontrado.</p>';
   }
 }
-
 async function carregarAgendaManutencoes() {
   const tbody = $('tbody-agenda-pmoc'); if (!tbody) return;
   const { data } = await db.from('fichas_pmoc')
