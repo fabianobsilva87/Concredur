@@ -650,7 +650,7 @@ function emitirRelatorio(fichaBase64) {
       <h2>FORMULÁRIO DE MANUTENÇÃO PMOC - ÁREA HOSPITALAR</h2>
       <p>Conforme Portaria MS nº 3.523/98 e ABNT NBR 16.401</p>
       <div style="margin-top:10px;font-weight:bold;color:#004f9f;text-transform:uppercase; font-size:13px;">
-        CÓDIMENTO DOCUMENTO: ${laudoID} | MODALIDADE: ${isTrimestral ? 'TRIMESTRAL' : 'MENSAL'}
+        CÓDIGO DOCUMENTO: ${laudoID} | MODALIDADE: ${isTrimestral ? 'TRIMESTRAL' : 'MENSAL'}
       </div>
     </div>
     <div class="laudo-section">
@@ -993,7 +993,7 @@ function imprimirOSGeral(osBase64) {
         ${checkArea('Lógica e Telefonia')} Lógica e Telefonia<br>
         <span style="margin-left:56px;">
           ${checkArea('Impermeabilização')} Impermeabilização &nbsp;&nbsp;
-          ${checkArea('Construção Civil')} Construção Civil &nbsp;&nbsp;
+          ${checkArea('Construção Civil')} Construction Civil &nbsp;&nbsp;
           ${checkArea('Marcenaria')} Marcenaria
         </span>
       </div>
@@ -1089,4 +1089,127 @@ async function carregarCentralUnificadaOS() {
         <td><span class="tag-badge" style="background:#def7ec; color:#03543f;">${doc.status_os}</span></td>
       </tr>`;
   }).join('');
+}
+
+// ===================== ALTERAR SENHA DE OPERADORES =====================
+btnAtualizarSenha.addEventListener('click', async () => {
+  const novaSenha = document.getElementById('account-new-password').value;
+  const confirmaSenha = document.getElementById('account-confirm-password').value;
+
+  if (!novaSenha || !confirmaSenha) {
+    msgConta.style.color = "red";
+    msgConta.innerText = "Por favor, preencha ambos os campos.";
+    return;
+  }
+
+  if (novaSenha !== confirmaSenha) {
+    msgConta.style.color = "red";
+    msgConta.innerText = "As senhas não coincidem.";
+    return;
+  }
+
+  const { error } = await supabaseClient.auth.updateUser({ password: novaSenha });
+
+  if (error) {
+    msgConta.style.color = "red";
+    msgConta.innerText = "Erro ao atualizar: " + error.message;
+  } else {
+    msgConta.style.color = "green";
+    msgConta.innerText = "Senha alterada com sucesso!";
+    setTimeout(() => msgConta.innerText = "", 4000);
+  }
+});
+
+// ===================== REGISTRO DE NOVOS OPERADORES PELO PAINEL ADMIN =====================
+btnAdminSalvarUsuario.addEventListener('click', async () => {
+  const novoEmail = document.getElementById('adm-user-email').value.trim();
+  const novaSenha = document.getElementById('adm-user-password').value;
+  const roleAcesso = document.getElementById('adm-user-role').value;
+
+  const modulosSelecionados = [...document.querySelectorAll('.chk-acesso:checked')].map(cb => cb.value);
+
+  if (!novoEmail || novaSenha.length < 6) {
+    msgAdminUsuario.style.color = "#ef4444";
+    msgAdminUsuario.innerText = "Informe um e-mail válido e senha com no mínimo 6 caracteres.";
+    return;
+  }
+
+  msgAdminUsuario.style.color = "#3b82f6";
+  msgAdminUsuario.innerText = "Registrando credenciais e permissões na base...";
+
+  const { error } = await supabaseClient.from('perfis_usuarios').insert([
+    { 
+      email: novoEmail, 
+      role: roleAcesso, 
+      password_hint: novaSenha,
+      observacoes: `Modulos Permitidos: ${modulosSelecionados.join(', ')}`
+    }
+  ]);
+
+  if (error) {
+    msgAdminUsuario.style.color = "#ef4444";
+    msgAdminUsuario.innerText = "Erro ao registrar: " + error.message;
+  } else {
+    msgAdminUsuario.style.color = "#10b981";
+    msgAdminUsuario.innerText = "Usuário e perfil criados com sucesso!";
+    document.getElementById('adm-user-email').value = "";
+    document.getElementById('adm-user-password').value = "";
+    carregarUsuariosSistema();
+  }
+});
+
+async function carregarUsuariosSistema() {
+  const tbody = document.getElementById('tbody-usuarios-sistema');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">Carregando operadores...</td></tr>';
+
+  const { data, error } = await supabaseClient.from('perfis_usuarios').select('*').order('created_at', { ascending: false });
+
+  if (error || !data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">Nenhum operador adicional cadastrado.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(u => {
+    let corBadge = "background:#fee2e2; color:#991b1b;"; 
+    if(u.role === 'tecnico') corBadge = "background:#e0f2fe; color:#0369a1;";
+    if(u.role === 'master') corBadge = "background:#fef3c7; color:#d97706;";
+    if(u.role === 'auditor') corBadge = "background:#e2e8f0; color:#4a5568;";
+
+    let modulos = "Padrão";
+    if (u.observacoes && u.observacoes.includes("Modulos Permitidos:")) {
+      modulos = u.observacoes.replace("Modulos Permitidos: ", "").split(', ').map(m => `<span class="badge-modulo">${m}</span>`).join('');
+    }
+
+    return `
+      <tr>
+        <td><strong>${u.email}</strong></td>
+        <td><span class="badge-perfil" style="${corBadge}">${u.role}</span></td>
+        <td>${modulos}</td>
+        <td><button class="btn-excluir" style="padding: 2px 6px; font-size:10px;" onclick="excluirUsuarioSistema('${u.id}')">✕ Revogar</button></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function excluirUsuarioSistema(id) {
+  if (!confirm("Revogar acesso deste usuário?")) return;
+  const { error } = await supabaseClient.from('perfis_usuarios').delete().eq('id', id);
+  if (!error) carregarUsuariosSistema();
+}
+
+// ===================== GESTÃO DE NAVEGAÇÃO INTERNA E GATILHOS =====================
+function showSection(name) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('nav-' + name)?.classList.add('active');
+  document.querySelectorAll('.app-section').forEach(el => el.style.display = 'none');
+  const target = document.getElementById('section-' + name);
+  if (target) target.style.display = 'block';
+
+  if (name === 'dashboard') renderizarGraficosDashboard();
+  if (name === 'relatorios') carregarHistoricoFichas();
+  if (name === 'ordens') carregarOrdensServico();
+  if (name === 'os-grid') carregarOSGeral();
+  if (name === 'historico-os') carregarCentralUnificadaOS();
+  if (name === 'usuarios') carregarUsuariosSistema();
 }
