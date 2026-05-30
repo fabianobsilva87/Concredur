@@ -74,7 +74,7 @@
       const { data } = await db.from('ordens_servico').select('*, equipamentos(tag), colaboradores(nome)').order('created_at', { ascending: false });
       document.getElementById('tbody-os').innerHTML = (data || []).map(os => `<tr><td>OS-AC</td><td>${new Date(os.created_at).toLocaleDateString('pt-BR')}</td><td><span class="tag-badge">${os.equipamentos?.tag || '—'}</span></td><td>${os.colaboradores?.nome || '—'}</td><td>${statusBadge(os.status_os)}</td></tr>`).join('');
     }
-    setTimeout(() => { csel = carregarSelects(); los = listarOS(); }, 500);
+    setTimeout(() => { csel = carregarSelects(); los = listarOS(); }, 300);
   </script>
 </body>
 </html>
