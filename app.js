@@ -1,4 +1,8 @@
 // ===================== SUPABASE CONFIG =====================
+// ⚠️  SEGURANÇA:
+//   A ANON KEY abaixo é segura para o front-end pois é somente leitura pública.
+//   O acesso real aos dados é controlado por Row Level Security (RLS) no Supabase.
+//   NUNCA exponha a SERVICE_ROLE_KEY no front-end.
 const SUPABASE_URL      = "https://nweligwbglblbncaegir.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53ZWxpZ3diZ2xibGJuY2FlZ2lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwMzAzNTgsImV4cCI6MjA5NTYwNjM1OH0.6eKcn40QmcfvHKAxuDH3kB6vHBJUu5LUVzfr27dvbKk";
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -688,7 +692,7 @@ function emitirRelatorioPMOC(b64) {
     bio_02:'[BIO-02] Rede de Drenagem — Desobstrução e Teste de Escoamento',
     mec_01:'[MEC-01] Conjunto Ventilação — Ruídos, Coxins e Fixadores',
     fil_02:'[FIL-02] Diferencial de Pressão de Filtros — Manômetro',
-    bio_03:'[BIO-03] Serpentinas — Limpeza Química por Presão',
+    bio_03:'[BIO-03] Serpentinas — Limpeza Química por Pressão',
     ele_01:'[ELE-01] Medição de Corrente/Tensão dos Compressores',
     ele_02:'[ELE-02] Reaperto dos Bornes de Comando e Potência',
     mec_02:'[MEC-02] Lubrificação de Rolamentos e Buchas do Motoventilador',
@@ -1153,7 +1157,7 @@ async function carregarCentralUnificadaOS() {
   ].sort((a,b) => new Date(b.data) - new Date(a.data));
 
   tbody.innerHTML = linhas.length
-    ? lines.map(l => `<tr>
+    ? linhas.map(l => `<tr>
         <td><strong>${l.id}</strong></td><td>${fmtDate(l.data)}</td>
         <td>${l.mod}</td><td><small>${l.cat||'—'}</small></td>
         <td><span style="max-width:200px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(l.res||'—').slice(0,60)}</span></td>
@@ -1267,7 +1271,7 @@ if ($('btn-admin-salvar-usuario')) {
     if (!email || !nome) { msgForm('msg-admin-usuario', 'Nome e E-mail são obrigatórios.', 'red'); return; }
     if (!cpf || !validarCPF(cpf)) { msgForm('msg-admin-usuario', '❌ CPF inválido.', 'red'); return; }
 
-    msgForm('msg-admin-usuario', '📨 Cadastrando e gerando credenciais temporárias...', 'blue');
+    msgForm('msg-admin-usuario', '📨 Cadastrando no banco e estruturando rota móvel...', 'blue');
 
     const novoId = crypto.randomUUID();
     const cpfLimpo = cpf.replace(/\D/g, '');
@@ -1286,18 +1290,17 @@ if ($('btn-admin-salvar-usuario')) {
       return;
     }
 
-    const linkAtivacaoNativo = `${window.location.origin}/index.html?email=${encodeURIComponent(email)}&token=ativar`;
+    // Geração do Link com token de contingência direta
+    const linkAtivacaoNativo = `${window.location.origin}/index.html?email=${encodeURIComponent(email)}&token=ativar_direto`;
     
     if ($('adm-link-gerado') && $('wrapper-link-ativacao')) {
-      $('lbl-link-contexto').innerText = "🔗 Link de Ativação Gerado (Novo Cadastro):";
-      $('desc-link-contexto').innerText = "Copie o link abaixo e mande para o técnico via WhatsApp:";
+      $('lbl-link-contexto').innerText = "🔗 Link de Ativação Direta Gerado:";
+      $('desc-link-contexto').innerText = "Copie o link abaixo e envie para o técnico pelo WhatsApp para ele criar a senha dele na hora:";
       $('adm-link-gerado').value = linkAtivacaoNativo;
       $('wrapper-link-ativacao').style.display = 'block'; 
     }
 
-    // Dispara em background
-    await db.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/index.html` });
-    msgForm('msg-admin-usuario', `✅ Operador cadastrado! Link de ativação disponível abaixo.`, 'green');
+    msgForm('msg-admin-usuario', `✅ Operador pré-cadastrado! Copie o link do WhatsApp abaixo.`, 'green');
     
     if ($('adm-user-cpf')) $('adm-user-cpf').value = '';
     if ($('adm-user-nome')) $('adm-user-nome').value = '';
@@ -1363,23 +1366,18 @@ async function excluirPerfil(id, email) {
   await carregarUsuariosSistema();
 }
 
-// RECUPERAÇÃO E GERAÇÃO OPERACIONAL DE LINKS NA TELA (ALTERAÇÃO ATUAL)
+// Geração imediata de links de contingência
 async function reenviarConvite(email) {
   if ($('wrapper-link-ativacao') && $('adm-link-gerado')) {
-    // Monta o link na hora para o administrador copiar
-    const linkRecuperado = `${window.location.origin}/index.html?email=${encodeURIComponent(email)}&token=ativar`;
+    const linkRecuperado = `${window.location.origin}/index.html?email=${encodeURIComponent(email)}&token=ativar_direto`;
     
     $('lbl-link-contexto').innerText = `🔗 Link de Reenvio Recuperado para: ${email}`;
-    $('desc-link-contexto').innerText = "O e-mail foi enfileirado no servidor. Copie o token de contingência abaixo para envio imediato via WhatsApp:";
+    $('desc-link-contexto').innerText = "Copie o token de contingência abaixo para envio imediato via WhatsApp:";
     $('adm-link-gerado').value = linkRecuperado;
     $('wrapper-link-ativacao').style.display = 'block';
     
-    // Rola a tela de forma suave até a caixa do link para facilitar a visualização
     $('wrapper-link-ativacao').scrollIntoView({ behavior: 'smooth' });
   }
-
-  // Aciona o disparo de e-mail opcional em background para manter a compatibilidade
-  await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/index.html' });
 }
 
 // ===================== SUB-ABAS CONTROLLERS =====================
