@@ -3,20 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema PMOC</title>
+    <title>Manutenção Concredur</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
+  <!-- ===================== LOGIN ===================== -->
   <div class="login-page-wrapper" id="login-box">
-    <div class="login-brand-logo">
-      <div class="logo-placeholder-text">SISTEMA <span>PMOC</span></div>
+    <div class="login-brand-area">
+      <div class="login-logo-icon">🏗️</div>
+      <div class="login-brand-name">MANUTENÇÃO <span>CONCREDUR</span></div>
+      <div class="login-brand-sub">Sistema Integrado de Gestão de Manutenção</div>
     </div>
     <div class="login-card-panel">
       <h2>Acesso ao Sistema</h2>
-      <p class="login-subtitle">Informe o usuário e senha para Login:</p>
+      <p class="login-subtitle">Informe suas credenciais para continuar</p>
       <div class="login-form-inputs">
         <div class="login-field-group">
           <label for="email">Usuário</label>
@@ -33,23 +39,26 @@
           </div>
         </div>
       </div>
-      <button id="btn-login" class="btn-login-submit"><span>➔</span> Entrar</button>
-      <div class="login-card-links" style="justify-content: center;">
+      <button id="btn-login" class="btn-login-submit"><span>➔</span> Entrar no Sistema</button>
+      <div class="login-card-links">
         <a href="#" class="forgot-password-link">Recuperar Senha?</a>
       </div>
       <p id="mensagem" class="erro"></p>
     </div>
-    <div class="login-page-footer">© 2026 Sistema PMOC - Todos os direitos reservados.</div>
+    <div class="login-page-footer">© 2026 Manutenção Concredur — Todos os direitos reservados.</div>
   </div>
 
+  <!-- ===================== APP ===================== -->
   <div class="app-container" id="app-box" style="display:none;">
 
     <aside class="sidebar no-print">
       <div class="sidebar-header">
-        <h3>Sistema PMOC</h3>
-        <p>Gestão integrada</p>
+        <div class="sidebar-logo">🏗️</div>
+        <h3>Concredur</h3>
+        <p>Gestão de Manutenção</p>
         <div class="user-logged-badge">
-          <span class="user-icon-dot">●</span> <span id="user-display-email">carregando...</span>
+          <span class="user-icon-dot">●</span>
+          <span id="user-display-email">carregando...</span>
         </div>
       </div>
       <nav>
@@ -60,7 +69,7 @@
 
         <div class="nav-label">Refrigeração</div>
         <div class="nav-item" id="nav-equipamentos" onclick="showSection('equipamentos')">
-          <span>🌡</span> Equipamentos
+          <span>🌡️</span> Equipamentos
         </div>
         <div class="nav-item" id="nav-fichas" onclick="showSection('fichas')">
           <span>📋</span> Formulário PMOC
@@ -71,13 +80,13 @@
 
         <div class="nav-label">Manutenção</div>
         <div class="nav-item" id="nav-ordens" onclick="showSection('ordens')">
-          <span>🛠</span> O.S. Ar Condicionado
+          <span>🛠️</span> O.S. Ar Condicionado
         </div>
         <div class="nav-item" id="nav-os-grid" onclick="showSection('os-grid')">
           <span>📝</span> O.S. Geral (Facilities)
         </div>
         <div class="nav-item" id="nav-historico-os" onclick="showSection('historico-os')">
-          <span>🗂️</span> Central Unificada de O.S.
+          <span>🗂️</span> Central Unificada O.S.
         </div>
 
         <div class="nav-label">RH / Colaboradores</div>
@@ -99,57 +108,81 @@
         </div>
       </nav>
       <div class="sidebar-footer">
-        <button id="btn-logout" class="btn-sair">Sair do sistema</button>
+        <button id="btn-logout" class="btn-sair">⬅ Sair do Sistema</button>
       </div>
     </aside>
 
     <main class="main-content" id="web-main-content">
 
+      <!-- ===== DASHBOARD ===== -->
       <div id="section-dashboard" class="app-section">
-        <div class="topbar no-print"><h2>Dashboard Operacional Gerencial</h2></div>
+        <div class="topbar no-print">
+          <h2>📊 Dashboard Operacional</h2>
+          <button class="btn-refresh" onclick="renderizarGraficosDashboard()">↺ Atualizar</button>
+        </div>
         <div class="section-content">
-          
           <div class="dash-cards-grid">
             <div class="dash-card">
+              <div class="dash-card-icon">🌡️</div>
               <p class="dash-card-title">Equipamentos Ativos</p>
-              <h3 id="dash-txt-ativos" class="dash-card-value">...</h3>
+              <h3 id="dash-txt-ativos" class="dash-card-value">—</h3>
             </div>
             <div class="dash-card">
-              <p class="dash-card-title">Fichas PMOC (Mês)</p>
-              <h3 id="dash-txt-fichas" class="dash-card-value">...</h3>
+              <div class="dash-card-icon">📋</div>
+              <p class="dash-card-title">Fichas PMOC</p>
+              <h3 id="dash-txt-fichas" class="dash-card-value">—</h3>
             </div>
-            <div class="dash-card" style="border-left-color: #d97706;">
+            <div class="dash-card dash-card-warning">
+              <div class="dash-card-icon">⚠️</div>
               <p class="dash-card-title">O.S. em Andamento</p>
-              <h3 id="dash-txt-os-abertas" class="dash-card-value">...</h3>
+              <h3 id="dash-txt-os-abertas" class="dash-card-value">—</h3>
             </div>
-            <div class="dash-card" style="border-left-color: #059669;">
+            <div class="dash-card dash-card-success">
+              <div class="dash-card-icon">✅</div>
               <p class="dash-card-title">O.S. Concluídas</p>
-              <h3 id="dash-txt-os-fechadas" class="dash-card-value">...</h3>
+              <h3 id="dash-txt-os-fechadas" class="dash-card-value">—</h3>
             </div>
           </div>
 
           <div class="dash-charts-grid">
-            <div class="card chart-container">
-              <h3 class="card-title">Status de Atendimento (O.S. Ar)</h3>
-              <canvas id="chartStatusOS"></canvas>
+            <div class="card chart-card">
+              <h3 class="card-title">📈 Status das O.S. — Ar Condicionado</h3>
+              <div class="chart-wrapper">
+                <canvas id="chartStatusOS"></canvas>
+              </div>
             </div>
-            <div class="card chart-container">
-              <h3 class="card-title">Equipamentos por Criticidade</h3>
-              <canvas id="chartCriticidade"></canvas>
+            <div class="card chart-card">
+              <h3 class="card-title">🎯 Equipamentos por Criticidade</h3>
+              <div class="chart-wrapper">
+                <canvas id="chartCriticidade"></canvas>
+              </div>
             </div>
           </div>
 
+          <div class="dash-charts-grid" style="margin-top:0;">
+            <div class="card chart-card">
+              <h3 class="card-title">📝 Status das O.S. — Facilities</h3>
+              <div class="chart-wrapper">
+                <canvas id="chartStatusOSG"></canvas>
+              </div>
+            </div>
+            <div class="card">
+              <h3 class="card-title">🕐 Últimas Atividades</h3>
+              <div id="dash-atividades" style="font-size:13px; color:#4a5568;">Carregando...</div>
+            </div>
+          </div>
         </div>
       </div>
 
+      <!-- ===== EQUIPAMENTOS ===== -->
       <div id="section-equipamentos" class="app-section" style="display:none;">
-        <div class="topbar no-print"><h2>Cadastro de Equipamentos</h2></div>
+        <div class="topbar no-print"><h2>🌡️ Cadastro de Equipamentos</h2></div>
         <div class="section-content">
           <div class="card no-print">
-            <h3 class="card-title">Novo equipamento</h3>
+            <h3 class="card-title">Novo Equipamento</h3>
             <div class="form-grid">
               <div class="form-group">
-                <label>TAG Consolidada</label>
+                <label>TAG Consolidada *</label>
                 <input type="text" id="eq-tag" placeholder="Ex: AR-01, EQ-023...">
               </div>
               <div class="form-group">
@@ -173,11 +206,11 @@
                 <input type="text" id="eq-produto" placeholder="Ex: Split Hi-Wall...">
               </div>
               <div class="form-group">
-                <label>Descrição do Bloco</label>
-                <input type="text" id="eq-bloco" placeholder="Ex: CLINICA, Bloco A">
+                <label>Bloco / Edificação</label>
+                <input type="text" id="eq-bloco" placeholder="Ex: CLÍNICA, Bloco A">
               </div>
               <div class="form-group">
-                <label>Descrição do Setor</label>
+                <label>Setor</label>
                 <input type="text" id="eq-setor" placeholder="Ex: ODONTO, UTI">
               </div>
               <div class="form-group">
@@ -192,63 +225,64 @@
                 <label>Validade / Garantia</label>
                 <input type="text" id="eq-validade" placeholder="Ex: 12/2027">
               </div>
-              <div class="form-group alert-box-criticidade">
-                <label style="color:#004f9f; font-weight:700;">⚙️ Matriz de Criticidade (Fluxograma Completo)</label>
-                <div style="font-size:11px; margin-bottom:8px; color:#555;">Responda às etapas abaixo para determinar a classificação automática:</div>
+              <div class="form-group alert-box-criticidade" style="grid-column:span 2;">
+                <label style="color:#004f9f; font-weight:700;">⚙️ Matriz de Criticidade (Fluxograma)</label>
+                <div style="font-size:11px; margin-bottom:10px; color:#555;">Responda às etapas para determinação automática da classe:</div>
                 <div class="criticidade-question-row">
-                  <span>1. A parada do equipamento paralisa a produção ou gera interrupção total das atividades da área?</span>
-                  <select id="crit-interrupcao" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
+                  <span>1. A parada paralisa a produção ou gera interrupção total das atividades?</span>
+                  <select id="crit-interrupcao" class="form-input-style" style="width:75px;" onchange="calcularCriticidadeFluxograma()">
                     <option value="sim">Sim</option>
                     <option value="nao" selected>Não</option>
                   </select>
                 </div>
-                <div class="criticidade-question-row" style="margin-top:6px;">
-                  <span>2. A falha do ativo compromete diretamente a Segurança do Trabalho ou descumpre normas de Meio Ambiente?</span>
-                  <select id="crit-seguranca" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
+                <div class="criticidade-question-row">
+                  <span>2. A falha compromete Segurança do Trabalho ou normas de Meio Ambiente?</span>
+                  <select id="crit-seguranca" class="form-input-style" style="width:75px;" onchange="calcularCriticidadeFluxograma()">
                     <option value="sim">Sim</option>
                     <option value="nao" selected>Não</option>
                   </select>
                 </div>
-                <div class="criticidade-question-row" style="margin-top:6px;">
-                  <span>3. O equipamento opera continuamente (24 horas) ou é indispensável para a conservação de insumos/vida?</span>
-                  <select id="crit-operacao" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
+                <div class="criticidade-question-row">
+                  <span>3. Opera continuamente (24h) ou é indispensável para conservação de insumos/vida?</span>
+                  <select id="crit-operacao" class="form-input-style" style="width:75px;" onchange="calcularCriticidadeFluxograma()">
                     <option value="sim">Sim</option>
                     <option value="nao" selected>Não</option>
                   </select>
                 </div>
-                <div class="criticidade-question-row" style="margin-top:6px;">
-                  <span>4. Existe equipamento reserva imediato (Stand-by) configurado e operacional no ambiente?</span>
-                  <select id="crit-reserva" class="form-input-style" style="width:70px; padding:3px;" onchange="calcularCriticidadeFluxograma()">
+                <div class="criticidade-question-row">
+                  <span>4. Existe equipamento reserva (Stand-by) operacional no ambiente?</span>
+                  <select id="crit-reserva" class="form-input-style" style="width:75px;" onchange="calcularCriticidadeFluxograma()">
                     <option value="sim">Sim</option>
                     <option value="nao" selected>Não</option>
                   </select>
                 </div>
-                <div style="margin-top:12px; font-weight:600; font-size:13px; display:flex; align-items:center; gap:8px;">
-                  Classe Apurada: <span id="label-criticidade-calculada" style="color:#2b6cb0; background:#ebf4ff; padding:4px 10px; border-radius:4px; font-weight:700;">Classe Média (B)</span>
+                <div style="margin-top:12px; font-weight:600; font-size:13px; display:flex; align-items:center; gap:10px;">
+                  Classe Apurada:
+                  <span id="label-criticidade-calculada" class="badge-criticidade">Classe Média (B)</span>
                 </div>
               </div>
             </div>
             <div class="btn-row">
-              <button id="btn-salvar" class="btn-primary">+$ Salvar equipamento</button>
-              <button id="btn-limpar" class="btn-secondary">Limpar</button>
+              <button id="btn-salvar" class="btn-primary">💾 Salvar Equipamento</button>
+              <button id="btn-limpar" class="btn-secondary">✕ Limpar</button>
             </div>
             <p id="msg-equipamento" class="msg-form"></p>
           </div>
           <div class="card">
-            <h3 class="card-title">Equipamentos cadastrados</h3>
+            <h3 class="card-title">Equipamentos Cadastrados</h3>
             <div class="table-wrap">
-              <table id="tabela-equipamentos">
+              <table>
                 <thead>
                   <tr>
                     <th>TAG</th>
                     <th>Equipamento / Marca</th>
-                    <th>Localização (Bloco/Setor/Sala)</th>
+                    <th>Localização</th>
                     <th>Criticidade</th>
                     <th>Ações</th>
                   </tr>
                 </thead>
                 <tbody id="tbody-equipamentos">
-                  <tr><td colspan="5" style="text-align:center;color:#999;">Carregando...</td></tr>
+                  <tr><td colspan="5" class="td-loading">Carregando...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -256,26 +290,27 @@
         </div>
       </div>
 
+      <!-- ===== FICHAS PMOC ===== -->
       <div id="section-fichas" class="app-section" style="display:none;">
-        <div class="topbar no-print"><h2>Formulário de Manutenção PMOC</h2></div>
+        <div class="topbar no-print"><h2>📋 Formulário de Manutenção PMOC</h2></div>
         <div class="section-content">
           <div class="card">
-            <h3 class="card-title">Nova Inspeção Periódica Hospitalar</h3>
+            <h3 class="card-title">Nova Inspeção Periódica</h3>
             <div class="form-grid">
               <div class="form-group">
-                <label>Equipamento (TAG)</label>
+                <label>Equipamento (TAG) *</label>
                 <select id="pmoc-equipamento" class="form-input-style">
-                  <option value="">-- Selecione o Ativo (Tag) --</option>
+                  <option value="">-- Selecione o Ativo --</option>
                 </select>
               </div>
               <div class="form-group">
-                <label>Técnico Responsável</label>
+                <label>Técnico Responsável *</label>
                 <select id="pmoc-tecnico" class="form-input-style">
-                  <option value="">-- Selecione o Colaborador Registrado --</option>
+                  <option value="">-- Selecione o Colaborador --</option>
                 </select>
               </div>
               <div class="form-group">
-                <label>Data da Inspeção (Editável)</label>
+                <label>Data da Inspeção</label>
                 <input type="date" id="pmoc-data" class="form-input-style">
               </div>
               <div class="form-group">
@@ -285,15 +320,18 @@
                   <option value="T">Trimestral</option>
                 </select>
               </div>
-              <div class="form-group" style="grid-column: span 2;">
-                <label>Foto da Inspeção (Opcional - Suporta Câmera Móvel):</label>
+              <div class="form-group" style="grid-column:span 2;">
+                <label>📷 Foto da Inspeção (Opcional)</label>
                 <input type="file" id="pmoc-foto" accept="image/*" capture="environment" class="form-input-style">
               </div>
             </div>
+
             <div class="pmoc-checklist-container">
-              <h4>Rotinas Técnicas de Manutenção e Controle (C: Conforme | NC: Não Conforme | NA: Não Aplicável)</h4>
+              <h4>Rotinas Técnicas — C: Conforme | NC: Não Conforme | NA: Não Aplicável</h4>
+
+              <div class="checklist-section-title">🔧 Manutenção Mensal</div>
               <div class="checklist-row freq-item-m">
-                <div><strong>[FIL-01] Qualidade do Ar:</strong> Filtros de Ar (G4/F7/F9)</div>
+                <div><strong>[FIL-01]</strong> Qualidade do Ar — Filtros de Ar (G4/F7/F9)</div>
                 <div class="radio-group">
                   <label><input type="radio" name="fil_01" value="C"> C</label>
                   <label><input type="radio" name="fil_01" value="NC"> NC</label>
@@ -301,7 +339,7 @@
                 </div>
               </div>
               <div class="checklist-row freq-item-m">
-                <div><strong>[BIO-01] Biocontrole:</strong> Bandeja de condensado e aplicação de pastilha</div>
+                <div><strong>[BIO-01]</strong> Biocontrole — Bandeja de condensado e pastilha</div>
                 <div class="radio-group">
                   <label><input type="radio" name="bio_01" value="C"> C</label>
                   <label><input type="radio" name="bio_01" value="NC"> NC</label>
@@ -309,7 +347,7 @@
                 </div>
               </div>
               <div class="checklist-row freq-item-m">
-                <div><strong>[BIO-02] Biocontrole:</strong> Dreno e teste de escoamento de água</div>
+                <div><strong>[BIO-02]</strong> Biocontrole — Dreno e escoamento de água</div>
                 <div class="radio-group">
                   <label><input type="radio" name="bio_02" value="C"> C</label>
                   <label><input type="radio" name="bio_02" value="NC"> NC</label>
@@ -317,15 +355,17 @@
                 </div>
               </div>
               <div class="checklist-row freq-item-m">
-                <div><strong>[MEC-01] Mecânica:</strong> Ruídos, vibrações e fixação do motoventilador</div>
+                <div><strong>[MEC-01]</strong> Mecânica — Ruídos, vibrações e fixação do motoventilador</div>
                 <div class="radio-group">
                   <label><input type="radio" name="mec_01" value="C"> C</label>
                   <label><input type="radio" name="mec_01" value="NC"> NC</label>
                   <label><input type="radio" name="mec_01" value="NA"> NA</label>
                 </div>
               </div>
+
+              <div class="checklist-section-title freq-item-t" style="display:none;">📅 Manutenção Trimestral (adicional)</div>
               <div class="checklist-row freq-item-t" style="display:none;">
-                <div><strong>[FIL-02] Qualidade do Ar:</strong> Diferencial de pressão dos filtros</div>
+                <div><strong>[FIL-02]</strong> Qualidade do Ar — Diferencial de pressão dos filtros</div>
                 <div class="radio-group">
                   <label><input type="radio" name="fil_02" value="C"> C</label>
                   <label><input type="radio" name="fil_02" value="NC"> NC</label>
@@ -333,7 +373,7 @@
                 </div>
               </div>
               <div class="checklist-row freq-item-t" style="display:none;">
-                <div><strong>[BIO-03] Biocontrole:</strong> Limpeza química das serpentinas</div>
+                <div><strong>[BIO-03]</strong> Biocontrole — Limpeza química das serpentinas</div>
                 <div class="radio-group">
                   <label><input type="radio" name="bio_03" value="C"> C</label>
                   <label><input type="radio" name="bio_03" value="NC"> NC</label>
@@ -341,7 +381,7 @@
                 </div>
               </div>
               <div class="checklist-row freq-item-t" style="display:none;">
-                <div><strong>[ELE-01] Elétrica:</strong> Medição elétrica (A) do compressor e motores</div>
+                <div><strong>[ELE-01]</strong> Elétrica — Medição (A) do compressor e motores</div>
                 <div class="radio-group">
                   <label><input type="radio" name="ele_01" value="C"> C</label>
                   <label><input type="radio" name="ele_01" value="NC"> NC</label>
@@ -349,7 +389,7 @@
                 </div>
               </div>
               <div class="checklist-row freq-item-t" style="display:none;">
-                <div><strong>[ELE-02] Elétrica:</strong> Reaperto de contatos elétricos e painel</div>
+                <div><strong>[ELE-02]</strong> Elétrica — Reaperto de contatos e painel</div>
                 <div class="radio-group">
                   <label><input type="radio" name="ele_02" value="C"> C</label>
                   <label><input type="radio" name="ele_02" value="NC"> NC</label>
@@ -357,9 +397,10 @@
                 </div>
               </div>
             </div>
-            <div class="form-group" style="margin-top:14px;">
+
+            <div class="form-group" style="margin-top:16px;">
               <label>Observações Gerais / Pendências</label>
-              <textarea id="pmoc-obs" rows="3" placeholder="Insira dados de medições técnicas adicionais aqui..."></textarea>
+              <textarea id="pmoc-obs" rows="3" placeholder="Dados de medições técnicas adicionais, pendências, anomalias..."></textarea>
             </div>
             <div class="btn-row">
               <button id="btn-salvar-ficha" class="btn-primary">✓ Salvar Formulário PMOC</button>
@@ -369,13 +410,14 @@
         </div>
       </div>
 
+      <!-- ===== RELATÓRIOS / HISTÓRICO PMOC ===== -->
       <div id="section-relatorios" class="app-section" style="display:none;">
-        <div class="topbar no-print"><h2>Histórico de Formulários PMOC</h2></div>
+        <div class="topbar no-print"><h2>📜 Histórico de Formulários PMOC</h2></div>
         <div class="section-content">
           <div class="card no-print">
             <h3 class="card-title">Laudos PMOC Gerados</h3>
             <div class="table-wrap">
-              <table id="tabela-fichas">
+              <table>
                 <thead>
                   <tr>
                     <th>Código Laudo</th>
@@ -387,32 +429,34 @@
                   </tr>
                 </thead>
                 <tbody id="tbody-fichas">
-                  <tr><td colspan="6" style="text-align:center;color:#999;">Carregando registros do banco...</td></tr>
+                  <tr><td colspan="6" class="td-loading">Carregando registros...</td></tr>
                 </tbody>
               </table>
             </div>
           </div>
-          <div id="area-laudo-impressao" class="print-container-view report-laudo-card"></div>
+          <!-- Área de impressão PMOC -->
+          <div id="area-laudo-impressao" class="print-only"></div>
         </div>
       </div>
 
+      <!-- ===== O.S. AR CONDICIONADO ===== -->
       <div id="section-ordens" class="app-section" style="display:none;">
-        <div class="topbar no-print"><h2>Ordens de Serviço — Ar Condicionado</h2></div>
+        <div class="topbar no-print"><h2>🛠️ Ordens de Serviço — Ar Condicionado</h2></div>
         <div class="section-content">
           <div class="card no-print" id="foco-formulario-os">
             <h3 class="card-title" id="titulo-formulario-os">Abertura / Registro de Ordem de Serviço</h3>
             <input type="hidden" id="os-id-edicao" value="">
             <div class="form-grid">
               <div class="form-group">
-                <label>Equipamento Vinculado (TAG)</label>
+                <label>Equipamento (TAG) *</label>
                 <select id="os-equipamento" class="form-input-style">
                   <option value="">-- Selecione o Ativo --</option>
                 </select>
               </div>
               <div class="form-group">
-                <label>Realizado por (Nome do Colaborador)</label>
+                <label>Técnico Responsável *</label>
                 <select id="os-tecnico" class="form-input-style">
-                  <option value="">-- Selecione o Colaborador Registrado --</option>
+                  <option value="">-- Selecione o Colaborador --</option>
                 </select>
               </div>
               <div class="form-group">
@@ -433,31 +477,31 @@
                 </select>
               </div>
               <div class="form-group" style="grid-column:span 2;">
-                <label>Descrição do Defeito / Solicitação</label>
+                <label>Descrição do Defeito / Solicitação *</label>
                 <textarea id="os-defeito" rows="2" placeholder="Descreva os sintomas apresentados pelo equipamento..."></textarea>
               </div>
               <div class="form-group" style="grid-column:span 2;">
                 <label>Laudo Técnico / Atividades Executadas</label>
-                <textarea id="os-laudo" rows="3" placeholder="Insira o detalhamento do serviço realizado..."></textarea>
+                <textarea id="os-laudo" rows="3" placeholder="Detalhamento do serviço realizado..."></textarea>
               </div>
-              <div class="form-group" style="grid-column: span 2;">
-                <label>Anexar Foto de Evidência Técnica (Aciona a câmera do celular):</label>
+              <div class="form-group" style="grid-column:span 2;">
+                <label>📷 Foto de Evidência Técnica</label>
                 <input type="file" id="os-foto" accept="image/*" capture="environment" class="form-input-style">
               </div>
             </div>
             <div class="btn-row">
               <button id="btn-salvar-os" class="btn-primary">✓ Salvar Ordem de Serviço</button>
-              <button id="btn-cancelar-edicao-os" class="btn-secondary" style="display:none;">Cancelar Edição</button>
+              <button id="btn-cancelar-edicao-os" class="btn-secondary" style="display:none;">✕ Cancelar Edição</button>
             </div>
             <p id="msg-os" class="msg-form"></p>
           </div>
           <div class="card no-print">
-            <h3 class="card-title">Últimas Movimentações (Módulo Climatização)</h3>
+            <h3 class="card-title">Últimas Movimentações — Climatização</h3>
             <div class="table-wrap">
-              <table id="tabela-os">
+              <table>
                 <thead>
                   <tr>
-                    <th>Código O.S</th>
+                    <th>Código O.S.</th>
                     <th>Data</th>
                     <th>TAG Ativo</th>
                     <th>Realizado Por</th>
@@ -467,28 +511,30 @@
                   </tr>
                 </thead>
                 <tbody id="tbody-os">
-                  <tr><td colspan="7" style="text-align:center;color:#999;">Carregando Ordens de Serviço...</td></tr>
+                  <tr><td colspan="7" class="td-loading">Carregando...</td></tr>
                 </tbody>
               </table>
             </div>
           </div>
-          <div id="area-os-impressao" class="print-container-view report-laudo-card"></div>
+          <!-- Área de impressão OS AC -->
+          <div id="area-os-impressao" class="print-only"></div>
         </div>
       </div>
 
+      <!-- ===== O.S. GERAL (FACILITIES) ===== -->
       <div id="section-os-grid" class="app-section" style="display:none;">
-        <div class="topbar no-print"><h2>Ordem de Serviço — Facilities / Geral</h2></div>
+        <div class="topbar no-print"><h2>📝 Ordem de Serviço — Facilities / Geral</h2></div>
         <div class="section-content">
           <div class="card no-print" id="foco-formulario-osg">
             <h3 class="card-title" id="titulo-formulario-osg">Nova O.S. Geral</h3>
             <input type="hidden" id="osg-id-edicao" value="">
             <div class="form-grid">
               <div class="form-group">
-                <label>Serviço Requisitado / Título</label>
+                <label>Serviço Requisitado / Título *</label>
                 <input type="text" id="osg-requisitado" placeholder="Ex: Reparo em tomada, Vazamento...">
               </div>
               <div class="form-group">
-                <label>Setor / Local</label>
+                <label>Setor / Local *</label>
                 <input type="text" id="osg-setor" placeholder="Ex: Bloco A - Sala 102, UTI...">
               </div>
               <div class="form-group" style="grid-column:span 2;">
@@ -503,7 +549,7 @@
                 </div>
               </div>
               <div class="form-group" style="grid-column:span 2;">
-                <label>Área do Serviço (pode marcar mais de uma)</label>
+                <label>Área do Serviço</label>
                 <div class="checkbox-group-os">
                   <label><input type="checkbox" name="osg-area" value="Ar Condicionado"> Ar Condicionado</label>
                   <label><input type="checkbox" name="osg-area" value="Elétrica"> Elétrica</label>
@@ -515,7 +561,7 @@
                 </div>
               </div>
               <div class="form-group" style="grid-column:span 2;">
-                <label>Falha Relatada / Serviço Solicitado</label>
+                <label>Falha Relatada / Serviço Solicitado *</label>
                 <textarea id="osg-falha" rows="3" placeholder="Descreva o problema ou serviço solicitado..."></textarea>
               </div>
               <div class="form-group">
@@ -556,20 +602,19 @@
                 <label>Observações</label>
                 <textarea id="osg-obs" rows="2" placeholder="Informações adicionais..."></textarea>
               </div>
-              <div class="form-group" style="grid-column: span 2;">
-                <label>Anexar Foto de Evidência Geral (Aciona a câmera do celular):</label>
+              <div class="form-group" style="grid-column:span 2;">
+                <label>📷 Foto de Evidência</label>
                 <input type="file" id="osg-foto" accept="image/*" capture="environment" class="form-input-style">
               </div>
             </div>
             <div class="btn-row">
               <button id="btn-salvar-osg" class="btn-primary">✓ Salvar O.S. Geral</button>
-              <button id="btn-cancelar-edicao-osg" class="btn-secondary" style="display:none;">Cancelar Edição</button>
+              <button id="btn-cancelar-edicao-osg" class="btn-secondary" style="display:none;">✕ Cancelar Edição</button>
             </div>
             <p id="msg-osg" class="msg-form"></p>
           </div>
-
           <div class="card no-print">
-            <h3 class="card-title">O.S. Gerais Registradas (Facilities)</h3>
+            <h3 class="card-title">O.S. Gerais Registradas — Facilities</h3>
             <div class="table-wrap">
               <table>
                 <thead>
@@ -584,35 +629,36 @@
                   </tr>
                 </thead>
                 <tbody id="tbody-osg">
-                  <tr><td colspan="7" style="text-align:center;color:#999;">Carregando...</td></tr>
+                  <tr><td colspan="7" class="td-loading">Carregando...</td></tr>
                 </tbody>
               </table>
             </div>
           </div>
-
-          <div id="area-osg-impressao" class="print-container-view report-laudo-card"></div>
+          <!-- Área de impressão OSG -->
+          <div id="area-osg-impressao" class="print-only"></div>
         </div>
       </div>
 
+      <!-- ===== CENTRAL UNIFICADA ===== -->
       <div id="section-historico-os" class="app-section" style="display:none;">
-        <div class="topbar no-print"><h2>Central Unificada de Ordens de Serviço (Laudos Integrados)</h2></div>
+        <div class="topbar no-print"><h2>🗂️ Central Unificada de Ordens de Serviço</h2></div>
         <div class="section-content">
           <div class="card no-print">
-            <h3 class="card-title">Histórico Consolidado de Manutenções (Climatização e Facilities)</h3>
+            <h3 class="card-title">Histórico Consolidado — Climatização e Facilities</h3>
             <div class="table-wrap">
               <table>
                 <thead>
                   <tr>
                     <th>ID Documento</th>
-                    <th>Data de Cadastro</th>
+                    <th>Data</th>
                     <th>Módulo / Origem</th>
-                    <th>Categoria / Tipo</th>
-                    <th>Descrição do Chamado</th>
+                    <th>Categoria</th>
+                    <th>Descrição</th>
                     <th>Status</th>
                   </tr>
                 </thead>
                 <tbody id="tbody-central-unificada-os">
-                  <tr><td colspan="6" style="text-align:center;color:#999;">Carregando laudos integrados...</td></tr>
+                  <tr><td colspan="6" class="td-loading">Carregando...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -620,8 +666,9 @@
         </div>
       </div>
 
+      <!-- ===== FUNÇÕES / CARGOS ===== -->
       <div id="section-funcoes" class="app-section" style="display:none;">
-        <div class="topbar"><h2>Cadastro de Funções e Cargos</h2></div>
+        <div class="topbar no-print"><h2>🪪 Cadastro de Funções e Cargos</h2></div>
         <div class="section-content">
           <div class="card">
             <h3 class="card-title">Nova Função / Cargo</h3>
@@ -646,21 +693,35 @@
               </div>
             </div>
             <div class="btn-row">
-              <button id="btn-salvar-funcao" class="btn-primary">Salvar Função</button>
+              <button id="btn-salvar-funcao" class="btn-primary">💾 Salvar Função</button>
             </div>
             <p id="msg-funcao" class="msg-form"></p>
+          </div>
+          <div class="card">
+            <h3 class="card-title">Funções Cadastradas</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Função</th><th>Nível</th><th>Salário Base</th><th>Ações</th></tr>
+                </thead>
+                <tbody id="tbody-funcoes">
+                  <tr><td colspan="4" class="td-loading">Carregando...</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
 
+      <!-- ===== COLABORADORES ===== -->
       <div id="section-colaboradores" class="app-section" style="display:none;">
-        <div class="topbar"><h2>Cadastro de Colaboradores</h2></div>
+        <div class="topbar no-print"><h2>👥 Cadastro de Colaboradores</h2></div>
         <div class="section-content">
           <div class="card">
             <h3 class="card-title">Novo Colaborador / Técnico</h3>
             <div class="form-grid">
               <div class="form-group">
-                <label>Nome Completo</label>
+                <label>Nome Completo *</label>
                 <input type="text" id="colab-nome" placeholder="Nome do colaborador">
               </div>
               <div class="form-group">
@@ -668,7 +729,7 @@
                 <input type="date" id="colab-nascimento">
               </div>
               <div class="form-group">
-                <label>CPF</label>
+                <label>CPF *</label>
                 <input type="text" id="colab-cpf" placeholder="000.000.000-00">
               </div>
               <div class="form-group">
@@ -676,7 +737,7 @@
                 <input type="date" id="colab-contratacao">
               </div>
               <div class="form-group">
-                <label>Função / Cargo Vinculado</label>
+                <label>Função / Cargo</label>
                 <select id="colab-funcao" class="form-input-style">
                   <option value="">-- Selecione uma Função cadastrada --</option>
                 </select>
@@ -687,89 +748,93 @@
               </div>
             </div>
             <div class="btn-row">
-              <button id="btn-salvar-colaborador" class="btn-primary">Salvar Colaborador</button>
+              <button id="btn-salvar-colaborador" class="btn-primary">💾 Salvar Colaborador</button>
             </div>
             <p id="msg-colaborador" class="msg-form"></p>
           </div>
-        </div>
-      </div>
-
-      <div id="section-usuarios" class="app-section" style="display:none;">
-        <div class="card">
-          <div class="card-header-admin">
-            <h2>🛡️ Painel de Controle de Acessos & Perfis</h2>
-            <p>Apenas administradores homologados possuem acesso a este módulo.</p>
-          </div>
-          
-          <div class="card-body-admin">
-            <div class="admin-split-grid">
-              
-              <div class="admin-form-side">
-                <h3>Criar Novo Operador</h3>
-                
-                <div class="form-group">
-                  <label>E-mail Corporativo:</label>
-                  <input type="email" id="adm-user-email" placeholder="exemplo@empresa.com">
-                </div>
-                
-                <div class="form-group">
-                  <label>Senha Provisória (Mín. 6 dígitos):</label>
-                  <input type="password" id="adm-user-password" placeholder="••••••••">
-                </div>
-                
-                <div class="form-group">
-                  <label>Perfil de Função (Role):</label>
-                  <select id="adm-user-role" class="form-input-style">
-                    <option value="tecnico">🔬 Técnico de Campo (Acesso Básico)</option>
-                    <option value="master">👨‍💻 Técnico Master (Supervisor)</option>
-                    <option value="admin">🛡️ Administrador Geral (Acesso Total)</option>
-                    <option value="auditor">👁️ Visualizador / Auditor (Apenas Leitura)</option>
-                  </select>
-                </div>
-
-                <div class="admin-permissions-box">
-                  <strong>🔑 Definir Módulos Permitidos:</strong>
-                  <div class="admin-checkbox-grid">
-                    <label><input type="checkbox" class="chk-acesso" value="dashboard" checked> 📈 Dashboard</label>
-                    <label><input type="checkbox" class="chk-acesso" value="equipamentos" checked> ❄️ Cadastro de Ativos</label>
-                    <label><input type="checkbox" class="chk-acesso" value="pmoc" checked> 📋 Fichas PMOC</label>
-                    <label><input type="checkbox" class="chk-acesso" value="ordens" checked> 🛠️ Ordens de Serviço</label>
-                    <label><input type="checkbox" class="chk-acesso" value="rh"> 👥 Gestão de RH</label>
-                  </div>
-                </div>
-
-                <button id="btn-admin-salvar-usuario" class="btn-primary" style="margin-top: 20px; width: 100%; background: #10b981;">
-                  🚀 Cadastrar Usuário e Liberar Perfil
-                </button>
-                <p id="msg-admin-usuario" class="msg-form" style="font-weight: bold;"></p>
-              </div>
-
-              <div class="admin-table-side">
-                <h3>Usuários com Acesso Ativo</h3>
-                <div class="table-wrap" style="max-height: 400px;">
-                  <table class="table-sistema">
-                    <thead>
-                      <tr>
-                        <th>E-mail</th>
-                        <th>Perfil</th>
-                        <th>Módulos Ativos</th>
-                        <th>Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody id="tbody-usuarios-sistema">
-                      <tr><td colspan="4" style="text-align:center;color:#999;">Carregando operadores...</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
+          <div class="card">
+            <h3 class="card-title">Colaboradores Cadastrados</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Nome</th><th>CPF</th><th>Função</th><th>Contratação</th><th>Ações</th></tr>
+                </thead>
+                <tbody id="tbody-colaboradores">
+                  <tr><td colspan="5" class="td-loading">Carregando...</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
       </div>
 
+      <!-- ===== CONTROLE DE USUÁRIOS (ADMIN) ===== -->
+      <div id="section-usuarios" class="app-section" style="display:none;">
+        <div class="topbar no-print"><h2>🔒 Controle de Usuários</h2></div>
+        <div class="section-content">
+          <div class="card">
+            <div class="card-header-admin">
+              <h2>🛡️ Painel de Controle de Acessos & Perfis</h2>
+              <p>Apenas administradores homologados possuem acesso a este módulo.</p>
+            </div>
+            <div class="card-body-admin">
+              <div class="admin-split-grid">
+                <div class="admin-form-side">
+                  <h3>Criar Novo Operador</h3>
+                  <div class="form-group">
+                    <label>E-mail Corporativo:</label>
+                    <input type="email" id="adm-user-email" placeholder="exemplo@empresa.com">
+                  </div>
+                  <div class="form-group" style="margin-top:12px;">
+                    <label>Senha Provisória (Mín. 6 dígitos):</label>
+                    <input type="password" id="adm-user-password" placeholder="••••••••">
+                  </div>
+                  <div class="form-group" style="margin-top:12px;">
+                    <label>Perfil de Função (Role):</label>
+                    <select id="adm-user-role" class="form-input-style">
+                      <option value="tecnico">🔬 Técnico de Campo (Acesso Básico)</option>
+                      <option value="master">👨‍💻 Técnico Master (Supervisor)</option>
+                      <option value="admin">🛡️ Administrador Geral (Acesso Total)</option>
+                      <option value="auditor">👁️ Visualizador / Auditor (Somente Leitura)</option>
+                    </select>
+                  </div>
+                  <div class="admin-permissions-box" style="margin-top:12px;">
+                    <strong>🔑 Módulos Permitidos:</strong>
+                    <div class="admin-checkbox-grid">
+                      <label><input type="checkbox" class="chk-acesso" value="dashboard" checked> 📈 Dashboard</label>
+                      <label><input type="checkbox" class="chk-acesso" value="equipamentos" checked> ❄️ Ativos</label>
+                      <label><input type="checkbox" class="chk-acesso" value="pmoc" checked> 📋 PMOC</label>
+                      <label><input type="checkbox" class="chk-acesso" value="ordens" checked> 🛠️ O.S.</label>
+                      <label><input type="checkbox" class="chk-acesso" value="rh"> 👥 RH</label>
+                    </div>
+                  </div>
+                  <button id="btn-admin-salvar-usuario" class="btn-primary" style="margin-top:16px; width:100%; background:#10b981;">
+                    🚀 Cadastrar e Liberar Acesso
+                  </button>
+                  <p id="msg-admin-usuario" class="msg-form" style="font-weight:bold;"></p>
+                </div>
+                <div class="admin-table-side">
+                  <h3>Usuários com Acesso Ativo</h3>
+                  <div class="table-wrap">
+                    <table>
+                      <thead>
+                        <tr><th>E-mail</th><th>Perfil</th><th>Módulos</th><th>Ações</th></tr>
+                      </thead>
+                      <tbody id="tbody-usuarios-sistema">
+                        <tr><td colspan="4" class="td-loading">Carregando operadores...</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== MINHA CONTA ===== -->
       <div id="section-conta" class="app-section" style="display:none;">
-        <div class="topbar no-print"><h2>Gerenciamento da Conta</h2></div>
+        <div class="topbar no-print"><h2>⚙️ Gerenciamento da Conta</h2></div>
         <div class="section-content">
           <div class="card" style="max-width:500px;">
             <h3 class="card-title">Alterar Senha de Acesso</h3>
@@ -785,7 +850,7 @@
               </div>
             </div>
             <div class="btn-row">
-              <button id="btn-atualizar-senha" class="btn-primary">Atualizar Senha</button>
+              <button id="btn-atualizar-senha" class="btn-primary">🔐 Atualizar Senha</button>
             </div>
             <p id="msg-conta" class="msg-form"></p>
           </div>
