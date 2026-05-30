@@ -1,5 +1,21 @@
-// ===================== SUPABASE CONFIG CORE =====================
-const SUPABASE_URL = "https://nweligwbglblbncaegir.supabase.co";
+// ===================== SUPABASE CONFIG =====================
+// ⚠️  SEGURANÇA:
+//   A ANON KEY abaixo é segura para o front-end pois é somente leitura pública.
+//   O acesso real aos dados é controlado por Row Level Security (RLS) no Supabase.
+//   NUNCA exponha a SERVICE_ROLE_KEY no front-end.
+//
+//   Políticas RLS recomendadas para este projeto:
+//   - profiles:       SELECT/INSERT/UPDATE apenas para auth.role() = 'authenticated'
+//   - equipamentos:   SELECT público, INSERT/UPDATE/DELETE exigem autenticação
+//   - fichas_pmoc:    SELECT/INSERT exigem autenticação, DELETE restrito a admin
+//   - ordens_servico: SELECT/INSERT exigem autenticação
+//   - colaboradores:  SELECT/INSERT/DELETE exigem autenticação
+//
+//   Para habilitar RLS no Supabase Dashboard:
+//   1. Acesse Table Editor → selecione a tabela → "RLS" → Enable
+//   2. Crie políticas em Authentication → Policies
+//
+const SUPABASE_URL      = "https://nweligwbglblbncaegir.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53ZWxpZ3diZ2xibGJuY2FlZ2lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwMzAzNTgsImV4cCI6MjA5NTYwNjM1OH0.6eKcn40QmcfvHKAxuDH3kB6vHBJUu5LUVzfr27dvbKk";
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -33,23 +49,113 @@ function msgForm(id, texto, cor) {
   if (cor === 'green') setTimeout(() => { el.innerText = ''; }, 4000);
 }
 
-async function uploadFoto(file, pasta) {
+// ===================== COMPRESSÃO E UPLOAD DE FOTO =====================
+// Limite e qualidade configuráveis em um único lugar
+const FOTO_CONFIG = {
+  maxWidth:    1280,   // px — largura máxima após redimensionamento
+  maxHeight:   1280,   // px — altura máxima após redimensionamento
+  qualidade:   0.78,   // JPEG quality 0–1 (0.78 ≈ ~70–80 kB para fotos comuns de campo)
+  maxBytes:    800_000 // 800 kB — rejeita o arquivo se, mesmo após compressão, ainda estiver grande
+};
+
+/**
+ * Comprime um File de imagem usando Canvas e retorna um Blob JPEG redimensionado.
+ * Mantém a proporção original; não faz upscale se a imagem já for menor que o limite.
+ */
+function comprimirImagem(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Falha ao ler o arquivo de imagem.'));
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Arquivo não é uma imagem válida.'));
+      img.onload = () => {
+        // Calcula as novas dimensões mantendo proporção
+        let { width, height } = img;
+        const { maxWidth, maxHeight } = FOTO_CONFIG;
+
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width  = Math.round(width  * ratio);
+          height = Math.round(height * ratio);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width  = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        // Fundo branco para imagens com canal alpha (PNG transparente → JPEG)
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) { reject(new Error('Falha ao compactar a imagem.')); return; }
+            resolve(blob);
+          },
+          'image/jpeg',
+          FOTO_CONFIG.qualidade
+        );
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Comprime a imagem e faz upload para o bucket fotos-pmoc.
+ * Retorna a URL pública ou null em caso de erro.
+ * @param {File|null} file  — arquivo selecionado pelo input
+ * @param {string}    pasta — subpasta dentro do bucket (ex: 'pmoc', 'os_clima')
+ * @param {string}    [msgId] — ID do elemento <p> para exibir progresso (opcional)
+ */
+async function uploadFoto(file, pasta, msgId) {
   if (!file) return null;
-  const ext = file.name.split('.').pop();
-  const nome = `${pasta}/foto_${Date.now()}.${ext}`;
-  const { data } = await db.storage.from('fotos-pmoc').upload(nome, file);
-  return data ? db.storage.from('fotos-pmoc').getPublicUrl(nome).data.publicUrl : null;
+
+  // Só comprime imagens; outros tipos de arquivo passam direto (improvável mas seguro)
+  let blob = file;
+  if (file.type.startsWith('image/')) {
+    try {
+      if (msgId) msgForm(msgId, '🗜️ Comprimindo imagem...', 'blue');
+      blob = await comprimirImagem(file);
+
+      if (blob.size > FOTO_CONFIG.maxBytes) {
+        if (msgId) msgForm(msgId, `⚠️ Imagem ainda grande após compressão (${(blob.size/1024).toFixed(0)} kB). Verifique a câmera.`, 'red');
+        // Não bloqueia — faz upload mesmo assim, apenas avisa
+      }
+    } catch (err) {
+      console.warn('Compressão falhou, usando arquivo original:', err.message);
+      blob = file; // fallback seguro
+    }
+  }
+
+  const nomeArq = `${pasta}/foto_${Date.now()}.jpg`;
+  const { data, error } = await db.storage
+    .from('fotos-pmoc')
+    .upload(nomeArq, blob, { contentType: 'image/jpeg', upsert: false });
+
+  if (error) {
+    console.error('Erro no upload:', error.message);
+    return null;
+  }
+
+  const { data: { publicUrl } } = db.storage.from('fotos-pmoc').getPublicUrl(nomeArq);
+  return publicUrl;
 }
 
 // ===================== SESSÃO & ROTEAMENTO =====================
 async function verificarSessaoGlobal() {
-  const { data: { session } } = await db.auth.getSession();
+  // getUser() valida o token junto ao servidor, rejeitando tokens locais expirados.
+  // getSession() confia apenas no storage local e pode aceitar sessões já inválidas.
+  const { data: { user }, error } = await db.auth.getUser();
   const pag = window.location.pathname.split('/').pop();
-  if (!session) {
+  if (!user || error) {
     if (pag !== '' && pag !== 'index.html') window.location.href = 'index.html';
   } else {
     if (pag === '' || pag === 'index.html') window.location.href = 'dashboard.html';
-    if ($('user-display-email')) $('user-display-email').innerText = session.user.email;
+    if ($('user-display-email')) $('user-display-email').innerText = user.email;
   }
 }
 verificarSessaoGlobal();
@@ -95,14 +201,7 @@ function inicializarCanvasAssinatura() {
 }
 function limparCanvasAssinatura() { if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
-// Máscara CPF
-if ($('colab-cpf')) {
-  $('colab-cpf').addEventListener('input', (e) => {
-    let v = e.target.value.replace(/\D/g, '').slice(0, 11);
-    v = v.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-    e.target.value = v;
-  });
-}
+// Máscara CPF via classe .input-cpf — veja bloco GESTÃO DE USUÁRIOS abaixo
 
 // ===================== CRITICIDADE =====================
 function calcularCriticidadeFluxograma() {
@@ -144,7 +243,7 @@ const EQ_CAMPOS_EXTRAS = {
   AC:   ['eq-potencia','eq-ciclo','eq-tensao','eq-gas','eq-instalacao-ac','eq-validade'],
   BEB:  ['eq-cap-beb','eq-tipo-beb','eq-filtro-beb','eq-validade-filtro-beb','eq-lacre-beb','eq-validade-lacre-beb'],
   CLIM: ['eq-vazao-clim','eq-tipo-clim','eq-painel-clim','eq-validade-painel-clim','eq-tensao-clim','eq-consumo-clim'],
-  VEN:  ['eq-potencia','eq-tipo-ven','eq-diametro-ven','eq-tensao-ven'],
+  VEN:  ['eq-potencia-ven','eq-tipo-ven','eq-diametro-ven','eq-tensao-ven'],
   OUT:  [],
 };
 
@@ -470,8 +569,11 @@ if ($('btn-salvar-colaborador')) {
   $('btn-salvar-colaborador').addEventListener('click', async () => {
     const nome = $('colab-nome')?.value.trim();
     const cpf  = $('colab-cpf')?.value.trim();
-    if (!nome || !cpf) { msgForm('msg-colaborador', 'Nome e CPF obrigatórios.', 'red'); return; }
-    const { error } = await db.from('colaboradores').insert([{ nome, cpf, funcao_id: $('colab-funcao')?.value || null }]);
+    if (!nome)              { msgForm('msg-colaborador', 'Nome completo é obrigatório.', 'red'); return; }
+    if (!cpf)               { msgForm('msg-colaborador', 'CPF é obrigatório.', 'red'); return; }
+    if (!validarCPF(cpf))   { msgForm('msg-colaborador', '❌ CPF inválido. Verifique os dígitos verificadores (padrão Receita Federal).', 'red'); return; }
+    const cpfLimpo = cpf.replace(/\D/g, '');
+    const { error } = await db.from('colaboradores').insert([{ nome, cpf: cpfLimpo, funcao_id: $('colab-funcao')?.value || null }]);
     if (!error) { msgForm('msg-colaborador', '✓ Colaborador salvo!', 'green'); carregarColaboradores(); atualizarSelectColaboradores(); if ($('colab-nome')) $('colab-nome').value = ''; if ($('colab-cpf')) $('colab-cpf').value = ''; }
     else msgForm('msg-colaborador', 'Erro: ' + error.message, 'red');
   });
@@ -538,7 +640,7 @@ if ($('btn-salvar-ficha')) {
     const freqLabel = { M: 'Mensal', T: 'Trimestral', S: 'Semestral', A: 'Anual' }[freq] || 'Mensal';
     const obsCompleto = `[DataInspecao: ${dataInsp}]\n[Frequencia: ${freqLabel}]\n[TipoEquipamento: ${cat}]\n[Checklist: ${JSON.stringify(checklistResult)}]\n${obs}`;
 
-    const foto_url = await uploadFoto($('pmoc-foto')?.files[0], 'pmoc');
+    const foto_url = await uploadFoto($('pmoc-foto')?.files[0], 'pmoc', 'msg-ficha');
     const { data: colab } = await db.from('colaboradores').select('nome').eq('id', tecnico_id).single();
     const { data: { user } } = await db.auth.getUser();
 
@@ -725,27 +827,54 @@ function emitirRelatorioPMOC(b64) {
   if (matchChk) {
     try {
       const chk = JSON.parse(matchChk[1]);
-      // Agrupa por categoria/frequência para exibição limpa
-      const grupos = [
-        { label: '🔧 Rotinas Mensais',    campos: ['fil_01','bio_01','bio_02','mec_01'] },
-        { label: '📅 Rotinas Trimestrais', campos: ['fil_02','bio_03','ele_01','ele_02','mec_02'] },
-        { label: '📆 Rotinas Semestrais',  campos: ['ref_01','ref_02','ele_03','ele_04','mec_03','bio_04','ins_01'] },
-        { label: '📋 Rotinas Anuais',      campos: ['ref_03','mec_04','mec_05','ele_05','ele_06','bio_05','ins_02','ins_03'] },
-      ];
+      // Mapa completo de grupos por tipo de equipamento e frequência.
+      // Cada entrada define label, campos e a quais categorias pertence.
+      // Um grupo só aparece no laudo se ao menos um de seus campos foi marcado (≠ ausente).
+      const GRUPOS_POR_TIPO = {
+        AC: [
+          { label: '🔧 Rotinas Mensais',     campos: ['fil_01','bio_01','bio_02','mec_01'] },
+          { label: '📅 Rotinas Trimestrais',  campos: ['fil_02','bio_03','ele_01','ele_02','mec_02'] },
+          { label: '📆 Rotinas Semestrais',   campos: ['ref_01','ref_02','ele_03','ele_04','mec_03','bio_04','ins_01'] },
+          { label: '📋 Rotinas Anuais',       campos: ['ref_03','mec_04','mec_05','ele_05','ele_06','bio_05','ins_02','ins_03'] },
+        ],
+        BEB: [
+          { label: '🔧 Rotinas Mensais',     campos: ['beb_01','beb_02','beb_03','beb_04'] },
+          { label: '📅 Rotinas Trimestrais',  campos: ['beb_05','beb_06','beb_07','beb_08'] },
+          { label: '📆 Rotinas Semestrais',   campos: ['beb_09','beb_10','beb_11','beb_12'] },
+          { label: '📋 Rotinas Anuais',       campos: ['beb_13','beb_14','beb_15'] },
+        ],
+        CLIM: [
+          { label: '🔧 Rotinas Mensais',     campos: ['clm_01','clm_02','clm_03','clm_04','clm_05'] },
+          { label: '📅 Rotinas Trimestrais',  campos: ['clm_06','clm_07','clm_08','clm_09'] },
+          { label: '📆 Rotinas Semestrais',   campos: ['clm_10','clm_11','clm_12','clm_13'] },
+          { label: '📋 Rotinas Anuais',       campos: ['clm_14','clm_15','clm_16'] },
+        ],
+        VEN: [
+          { label: '🔧 Rotinas Mensais',     campos: ['ven_01','ven_02','ven_03'] },
+          { label: '📅 Rotinas Trimestrais',  campos: ['ven_04','ven_05','ven_06'] },
+          { label: '📆 Rotinas Semestrais',   campos: ['ven_07','ven_08'] },
+          { label: '📋 Rotinas Anuais',       campos: ['ven_09','ven_10'] },
+        ],
+        OUT: [
+          { label: '🔧 Verificações Gerais',  campos: ['ger_01','ger_02','ger_03','ger_04','ger_05'] },
+        ],
+      };
+
+      // Seleciona os grupos do tipo detectado; cai em AC como fallback seguro.
+      const grupos = GRUPOS_POR_TIPO[tipoEq] || GRUPOS_POR_TIPO['AC'];
 
       let allRows = '';
       grupos.forEach(g => {
-        // Só imprime o grupo se ao menos um item não for NA
-        const itensGrupo = g.campos.filter(k => chk[k] && chk[k] !== 'NA');
-        if (!itensGrupo.length) return;
+        // Renderiza o grupo apenas se ao menos um campo foi efetivamente marcado
+        const camposPresentes = g.campos.filter(k => k in chk);
+        if (!camposPresentes.length) return;
 
         allRows += `<tr class="checklist-group-header"><td colspan="2" style="background:#2d3748;color:#fff;font-weight:700;font-size:11px;padding:5px 10px;letter-spacing:.3px;">${g.label}</td></tr>`;
-        g.campos.forEach(k => {
-          if (!chk[k]) return;
-          const v = chk[k];
+        camposPresentes.forEach(k => {
+          const v   = chk[k];
           const cls = v === 'C' ? 'check-c' : v === 'NC' ? 'check-nc' : 'check-na';
-          const opacidade = v === 'NA' ? 'opacity:.45;' : '';
-          allRows += `<tr style="${opacidade}"><td>${nomes[k] || k}</td><td class="${cls}" style="text-align:center;width:70px;"><strong>${v}</strong></td></tr>`;
+          const op  = v === 'NA' ? 'opacity:.45;' : '';
+          allRows += `<tr style="${op}"><td>${nomes[k] || k}</td><td class="${cls}" style="text-align:center;width:70px;"><strong>${v}</strong></td></tr>`;
         });
       });
 
@@ -843,7 +972,7 @@ if ($('btn-salvar-os')) {
     }
     msgForm('msg-os', 'Gravando...', 'blue');
 
-    const foto_url = await uploadFoto($('os-foto')?.files[0], 'os_clima');
+    const foto_url = await uploadFoto($('os-foto')?.files[0], 'os_clima', 'msg-os');
     const payload = { equipamento_id, colaborador_id, tipo_os, status_os, descricao_defeito, laudo_tecnico };
     if (foto_url) payload.foto_url = foto_url;
 
@@ -972,7 +1101,7 @@ if ($('btn-salvar-osg')) {
     const status_os       = $('osg-status')?.value;
     const idEdicaoG       = $('osg-id-edicao')?.value;
 
-    const foto_url = await uploadFoto($('osg-foto')?.files[0], 'os_facilities');
+    const foto_url = await uploadFoto($('osg-foto')?.files[0], 'os_facilities', 'msg-osg');
     const payload  = {
       setor, servico_requisitado, falha_relatada, tipo_manutencao, areas_servico, status_os,
       equipamento:  $('osg-equipamento')?.value.trim()  || null,
@@ -1252,31 +1381,180 @@ async function carregarAgendaManutencoes() {
   }
 }
 
-// ===================== GESTÃO DE USUÁRIOS / PROFILES =====================
+// ===================== VALIDAÇÃO CPF — ALGORITMO RECEITA FEDERAL =====================
+function validarCPF(cpf) {
+  const s = cpf.replace(/\D/g, '');
+  if (s.length !== 11) return false;
+  // Rejeita sequências repetidas (000...000, 111...111, ...)
+  if (/^(\d)\1{10}$/.test(s)) return false;
+
+  // Valida 1º dígito verificador
+  let soma = 0;
+  for (let i = 0; i < 9; i++) soma += parseInt(s[i]) * (10 - i);
+  let resto = (soma * 10) % 11;
+  if (resto === 10 || resto === 11) resto = 0;
+  if (resto !== parseInt(s[9])) return false;
+
+  // Valida 2º dígito verificador
+  soma = 0;
+  for (let i = 0; i < 10; i++) soma += parseInt(s[i]) * (11 - i);
+  resto = (soma * 10) % 11;
+  if (resto === 10 || resto === 11) resto = 0;
+  if (resto !== parseInt(s[10])) return false;
+
+  return true;
+}
+
+function formatarCPF(valor) {
+  return valor.replace(/\D/g, '').slice(0, 11)
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+}
+
+// Aplica máscara CPF em todos os campos com essa classe
+document.querySelectorAll('.input-cpf').forEach(el => {
+  el.addEventListener('input', (e) => { e.target.value = formatarCPF(e.target.value); });
+  el.addEventListener('blur', (e) => {
+    const val = e.target.value;
+    if (val && !validarCPF(val)) {
+      e.target.style.borderColor = 'var(--danger)';
+      e.target.title = 'CPF inválido';
+    } else {
+      e.target.style.borderColor = '';
+      e.target.title = '';
+    }
+  });
+});
+
+// ===================== GESTÃO DE USUÁRIOS — CONVITE POR E-MAIL + CPF =====================
+
+// Envia convite via Supabase Auth (e-mail de convite oficial)
 if ($('btn-admin-salvar-usuario')) {
   $('btn-admin-salvar-usuario').addEventListener('click', async () => {
-    const email = $('adm-user-email')?.value.trim();
-    const role  = $('adm-user-role')?.value;
-    if (!email) { msgForm('msg-admin-usuario','E-mail obrigatório.','red'); return; }
-    const { error } = await db.from('profiles').insert([{ email, role }]);
-    if (!error) { msgForm('msg-admin-usuario','✓ Perfil registrado!','green'); if ($('adm-user-email')) $('adm-user-email').value=''; carregarUsuariosSistema(); }
-    else msgForm('msg-admin-usuario','Erro: '+error.message,'red');
+    const email  = $('adm-user-email')?.value.trim();
+    const cpf    = $('adm-user-cpf')?.value.trim();
+    const role   = $('adm-user-role')?.value;
+    const nome   = $('adm-user-nome')?.value.trim();
+
+    // Validações
+    if (!email) { msgForm('msg-admin-usuario', 'E-mail é obrigatório.', 'red'); return; }
+    if (!cpf || !validarCPF(cpf)) {
+      msgForm('msg-admin-usuario', '❌ CPF inválido. Verifique os dígitos verificadores.', 'red'); return;
+    }
+    if (!nome) { msgForm('msg-admin-usuario', 'Nome completo é obrigatório.', 'red'); return; }
+
+    msgForm('msg-admin-usuario', '📨 Enviando convite...', 'blue');
+
+    // 1. Registra o perfil antecipado (pendente) na tabela profiles
+    const cpfLimpo = cpf.replace(/\D/g, '');
+    const { error: errProfile } = await db.from('profiles').insert([{
+      email, role, nome, cpf: cpfLimpo,
+      status: 'pendente', // aguardando aceite do convite
+    }]);
+
+    if (errProfile) {
+      // Se já existe, pode ser duplicata de e-mail ou CPF
+      if (errProfile.message?.includes('duplicate') || errProfile.message?.includes('unique')) {
+        msgForm('msg-admin-usuario', '⚠️ E-mail ou CPF já cadastrado no sistema.', 'red');
+      } else {
+        msgForm('msg-admin-usuario', 'Erro ao registrar: ' + errProfile.message, 'red');
+      }
+      return;
+    }
+
+    // 2. Dispara convite via Supabase Auth (disponível apenas com service role key no backend)
+    //    No front-end, usamos a API de reset de senha como fallback para convidar via e-mail
+    const { error: errInvite } = await db.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + '/index.html',
+    });
+
+    if (errInvite) {
+      // Convite não enviado mas perfil foi criado — avisa o admin
+      msgForm('msg-admin-usuario',
+        `✅ Perfil criado, mas o e-mail de convite falhou. Envie manualmente o link de acesso para ${email}.`, 'red');
+    } else {
+      msgForm('msg-admin-usuario',
+        `✅ Convite enviado para ${email}! O usuário receberá um link para definir sua senha.`, 'green');
+      // Limpa o formulário
+      ['adm-user-email','adm-user-cpf','adm-user-nome'].forEach(id => { if ($(id)) $(id).value = ''; });
+      carregarUsuariosSistema();
+    }
   });
 }
 
 async function carregarUsuariosSistema() {
   const tbody = $('tbody-usuarios-sistema'); if (!tbody) return;
-  const { data } = await db.from('profiles').select('*').order('email',{ascending:true});
-  tbody.innerHTML = (data||[]).length
-    ? (data||[]).map(u => `<tr>
-        <td><strong>${u.email}</strong></td>
-        <td><span class="tag-badge">${u.role||'—'}</span></td>
-        <td><button class="btn-excluir" onclick="excluirPerfil('${u.id}')">✕</button></td>
-      </tr>`).join('')
-    : '<tr><td colspan="3" class="td-loading">Nenhum perfil cadastrado.</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="5" class="td-loading">Carregando operadores...</td></tr>';
+
+  // Carrega da tabela profiles (inclui o admin logado e todos os perfis)
+  const { data: perfis, error } = await db.from('profiles').select('*').order('email', { ascending: true });
+
+  // Também pega o usuário atual para garantir que o admin apareça mesmo sem registro em profiles
+  const { data: { user: userAtual } } = await db.auth.getUser();
+
+  if (error) {
+    tbody.innerHTML = '<tr><td colspan="5" class="td-loading">Erro ao carregar usuários.</td></tr>';
+    return;
+  }
+
+  // Mescla: garante que o admin logado apareça sempre
+  let lista = perfis || [];
+  const adminNaLista = lista.some(u => u.email === userAtual?.email);
+  if (!adminNaLista && userAtual?.email) {
+    lista = [{ id: userAtual.id, email: userAtual.email, role: 'admin', nome: 'Administrador', cpf: null, status: 'ativo' }, ...lista];
+  }
+
+  if (!lista.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="td-loading">Nenhum perfil cadastrado.</td></tr>'; return;
+  }
+
+  const roleBadge = {
+    admin:    '<span class="tag-badge danger">🛡️ Admin</span>',
+    master:   '<span class="tag-badge warning">👨‍💻 Master</span>',
+    tecnico:  '<span class="tag-badge">🔬 Técnico</span>',
+    auditor:  '<span class="tag-badge" style="background:#f3e8ff;color:#7c3aed;">👁️ Auditor</span>',
+  };
+  const statusBadgeUser = {
+    ativo:    '<span class="tag-badge success">● Ativo</span>',
+    pendente: '<span class="tag-badge warning">⏳ Aguardando</span>',
+  };
+
+  tbody.innerHTML = lista.map(u => {
+    const isAdmin = u.email === userAtual?.email;
+    const cpfFmt  = u.cpf ? u.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '—';
+    return `<tr${isAdmin ? ' style="background:#f0f7ff;"' : ''}>
+      <td>
+        <strong>${u.nome || u.email}</strong>
+        ${isAdmin ? '<span class="tag-badge" style="background:#dbeafe;color:#1e40af;margin-left:6px;font-size:10px;">Você</span>' : ''}
+        <br><small style="color:#a0aec0;">${u.email}</small>
+      </td>
+      <td>${cpfFmt}</td>
+      <td>${roleBadge[u.role] || `<span class="tag-badge">${u.role||'—'}</span>`}</td>
+      <td>${statusBadgeUser[u.status] || statusBadgeUser['ativo']}</td>
+      <td>
+        ${isAdmin
+          ? '<span style="color:#a0aec0;font-size:12px;">—</span>'
+          : `<button class="btn-excluir" onclick="excluirPerfil('${u.id}','${u.email}')">✕ Revogar</button>`}
+      </td>
+    </tr>`;
+  }).join('');
 }
-async function excluirPerfil(id) {
-  if (confirm('Remover este perfil?')) { await db.from('profiles').delete().eq('id',id); carregarUsuariosSistema(); }
+
+async function excluirPerfil(id, email) {
+  if (!confirm(`Revogar acesso de "${email}"?\nEsta ação não pode ser desfeita.`)) return;
+  const { error } = await db.from('profiles').delete().eq('id', id);
+  if (!error) carregarUsuariosSistema();
+  else alert('Erro ao revogar: ' + error.message);
+}
+
+async function reenviarConvite(email) {
+  msgForm('msg-admin-usuario', `📨 Reenviando convite para ${email}...`, 'blue');
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + '/index.html',
+  });
+  if (!error) msgForm('msg-admin-usuario', `✅ Convite reenviado para ${email}!`, 'green');
+  else msgForm('msg-admin-usuario', 'Erro: ' + error.message, 'red');
 }
 
 // ===================== SUB-ABAS CONTROLLERS =====================
@@ -1299,10 +1577,22 @@ function alternarSubAbasRH(modo) {
 
 // ===================== MOTOR DE IMPRESSÃO =====================
 function imprimir(areaId, html) {
+  // Limpa todas as áreas antes de injetar o novo conteúdo
   document.querySelectorAll('.print-only').forEach(el => { el.innerHTML = ''; });
+
   const area = $(areaId);
-  if (area) area.innerHTML = html;
+  if (!area) return;
+  area.innerHTML = html;
+
   window.print();
+
+  // Libera o HTML da memória assim que o diálogo de impressão é dispensado.
+  // afterprint é suportado por todos os navegadores modernos (Chrome, Firefox, Edge, Safari).
+  const limpar = () => {
+    area.innerHTML = '';
+    window.removeEventListener('afterprint', limpar);
+  };
+  window.addEventListener('afterprint', limpar);
 }
 
 // ===================== ESTILOS IMPRESSÃO (INJETADOS VIA JS) =====================

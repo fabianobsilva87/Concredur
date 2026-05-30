@@ -114,14 +114,19 @@
 
   <script src="app.js"></script>
   <script>
-    window.addEventListener('DOMContentLoaded', () => {
-      setTimeout(() => {
-        atualizarSelectEquipamentos();
-        atualizarSelectColaboradores();
-        carrer = carregarOrdensServico();
-        carrg = carregarOSGeral();
-        carun = carregarCentralUnificadaOS();
-      }, 400);
+    window.addEventListener('DOMContentLoaded', async () => {
+      await new Promise(r => setTimeout(r, 400));
+      // Os dois selects são independentes entre si — carregam em paralelo
+      await Promise.all([
+        atualizarSelectEquipamentos(),
+        atualizarSelectColaboradores(),
+      ]);
+      // As três tabelas também são independentes — carregam em paralelo
+      await Promise.all([
+        carregarOrdensServico(),
+        carregarOSGeral(),
+        carregarCentralUnificadaOS(),
+      ]);
     });
   </script>
 </body>
