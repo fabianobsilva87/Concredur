@@ -540,3 +540,76 @@ function imprimir(areaId, html) {
   const limpar = () => { area.innerHTML = ''; window.removeEventListener('afterprint', limpar); };
   window.addEventListener('afterprint', limpar);
 }
+
+// ===================== MÓDULO DE LOGIN (index.html) =====================
+// Toda a lógica fica aqui — não depende de script inline no index.html
+if ($('btn-login')) {
+  const paramsUrl = new URLSearchParams(window.location.search);
+  let fluxoAtivacaoDireta = false;
+  let emailAlvoAtivacao = "";
+
+  (async () => {
+    if (!paramsUrl.get('token')) {
+      try { await db.auth.signOut(); } catch(e) {}
+    }
+    if (paramsUrl.get('email') && paramsUrl.get('token') === 'ativar_direto') {
+      fluxoAtivacaoDireta = true;
+      emailAlvoAtivacao = decodeURIComponent(paramsUrl.get('email'));
+      if ($('email')) { $('email').value = emailAlvoAtivacao; $('email').readOnly = true; }
+      if ($('login-password-group')) $('login-password-group').style.display = 'flex';
+      if ($('link-recuperar')) $('link-recuperar').style.display = 'none';
+      if ($('link-voltar')) $('link-voltar').style.display = 'inline';
+      if ($('login-title')) $('login-title').innerText = "Criar Senha de Acesso";
+      if ($('login-desc')) $('login-desc').innerText = "Defina sua senha definitiva abaixo para ativar a sua conta instantaneamente.";
+      if ($('lbl-password')) $('lbl-password').innerText = "Nova Senha Definitiva";
+      if ($('btn-login')) $('btn-login').innerHTML = "<span>✓</span> Ativar e Entrar";
+    }
+  })();
+
+  $('btn-login').addEventListener('click', async () => {
+    const email    = $('email')?.value.trim();
+    const password = $('password')?.value;
+    if (!email) { alert("Por favor, preencha o campo de e-mail."); return; }
+
+    if (fluxoAtivacaoDireta) {
+      if (!password || password.length < 6) { alert("A nova senha precisa conter no mínimo 6 dígitos."); return; }
+      msgForm('mensagem', 'Autenticando canal de segurança silencioso...', 'blue');
+      const senhaTemporariaPadrao = "Acesso@Provisorio123";
+      const { error: errorLoginProv } = await db.auth.signInWithPassword({ email: emailAlvoAtivacao, password: senhaTemporariaPadrao });
+      if (errorLoginProv) {
+        const { error: errorLoginDireto } = await db.auth.signInWithPassword({ email: emailAlvoAtivacao, password });
+        if (!errorLoginDireto) {
+          await db.from('profiles').update({ status: 'ativo' }).eq('email', emailAlvoAtivacao);
+          window.location.href = "dashboard.html"; return;
+        }
+        const { error: sError } = await db.auth.signUp({ email: emailAlvoAtivacao, password, options: { emailRedirectTo: null } });
+        if (sError) { msgForm('mensagem', 'Erro: ' + sError.message, 'red'); return; }
+        await db.from('profiles').update({ status: 'ativo' }).eq('email', emailAlvoAtivacao);
+        msgForm('mensagem', 'Conta ativada! Redirecionando...', 'green');
+        setTimeout(() => { window.location.href = "dashboard.html"; }, 1000); return;
+      }
+      const { error: errorUpdate } = await db.auth.updateUser({ password });
+      if (errorUpdate) { msgForm('mensagem', 'Erro ao salvar senha: ' + errorUpdate.message, 'red'); return; }
+      await db.from('profiles').update({ status: 'ativo' }).eq('email', emailAlvoAtivacao);
+      msgForm('mensagem', '✓ Conta ativada! Entrando...', 'green');
+      setTimeout(() => { window.location.href = "dashboard.html"; }, 1000); return;
+    }
+
+    if (modoRecuperacao) {
+      msgForm('mensagem', 'Processando requisição...', 'blue');
+      await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + "/index.html" });
+      msgForm('mensagem', 'Se o SMTP estiver ativo, as instruções chegarão no e-mail.', 'green');
+    } else {
+      if (!password) { alert("Por favor, informe sua senha."); return; }
+      msgForm('mensagem', 'Verificando credenciais...', 'blue');
+      const { error: loginError } = await db.auth.signInWithPassword({ email, password });
+      if (loginError) {
+        msgForm('mensagem', 'Acesso negado: ' + loginError.message, 'red');
+      } else {
+        msgForm('mensagem', 'Acesso autorizado! Carregando dashboard...', 'green');
+        await db.from('profiles').update({ status: 'ativo' }).eq('email', email);
+        setTimeout(() => { window.location.href = "dashboard.html"; }, 600);
+      }
+    }
+  });
+}
