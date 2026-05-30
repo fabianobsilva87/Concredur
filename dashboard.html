@@ -14,49 +14,79 @@
     <aside class="sidebar no-print">
       <div class="sidebar-header">
         <div class="sidebar-logo">🏗️</div><h3>Concredur</h3><p>Gestão de Manutenção</p>
+        <div class="user-logged-badge"><span class="user-icon-dot">●</span><span id="user-display-email">carregando...</span></div>
       </div>
       <nav>
         <div class="nav-label">Visão Geral</div>
         <div class="nav-item active" onclick="location.href='dashboard.html'"><span>📊</span> Dashboard Geral</div>
         <div class="nav-label">Refrigeração</div>
-        <div class="nav-item" onclick="location.href='equipamentos.html'"><span>⚙️</span> Ativos & QR Code</div>
+        <div class="nav-item" onclick="location.href='equipamentos.html'"><span>➕</span> Novo Ativo</div>
+        <div class="nav-item" onclick="location.href='gerir-equipamentos.html'"><span>⚙️</span> Gerenciamento de Ativos</div>
         <div class="nav-item" onclick="location.href='pmoc.html'"><span>📋</span> Formulário PMOC</div>
         <div class="nav-label">Manutenção</div>
         <div class="nav-item" onclick="location.href='os.html'"><span>🛠️</span> Ordens de Serviço</div>
         <div class="nav-label">Administração</div>
         <div class="nav-item" onclick="location.href='usuarios.html'"><span>👥</span> Gestão de Usuários</div>
       </nav>
+      <div class="sidebar-footer"><button id="btn-logout" class="btn-sair">⬅ Sair do Sistema</button></div>
     </aside>
 
     <main class="main-content">
-      <div class="topbar no-print">
-        <h2>📊 Dashboard Geral Operacional</h2>
-        <div class="topbar-right" style="display: flex; align-items: center; gap: 16px;">
-          <span id="user-display-email">carregando...</span>
-          <button class="btn-primary" style="background: var(--danger); padding: 6px 12px; font-size: 12px;" onclick="executarLogout()">🚪 Sair</button>
-        </div>
-      </div>
+      <div class="topbar no-print"><h2>📊 Dashboard Executivo & Operacional</h2></div>
       <div class="section-content">
         <div class="dash-cards-grid">
-          <div class="dash-card"><div>🌡️</div><p class="dash-card-title">Equipamentos Ativos</p><h3 id="dash-txt-ativos" class="dash-card-value">—</h3></div>
-          <div class="dash-card"><div>📋</div><p class="dash-card-title">Fichas PMOC</p><h3 id="dash-txt-fichas" class="dash-card-value">—</h3></div>
-          <div class="dash-card dash-card-warning"><div>⚠️</div><p class="dash-card-title">O.S. Pendentes</p><h3 id="dash-txt-os-abertas" class="dash-card-value">—</h3></div>
-          <div class="dash-card dash-card-success"><div>✅</div><p class="dash-card-title">O.S. Concluídas</p><h3 id="dash-txt-os-fechadas" class="dash-card-value">—</h3></div>
+          <div class="dash-card">
+            <div class="dash-card-icon">🌡️</div>
+            <p class="dash-card-title">Equipamentos Ativos</p>
+            <h3 id="dash-txt-ativos" class="dash-card-value">—</h3>
+          </div>
+          <div class="dash-card">
+            <div class="dash-card-icon">📋</div>
+            <p class="dash-card-title">Fichas PMOC</p>
+            <h3 id="dash-txt-fichas" class="dash-card-value">—</h3>
+          </div>
+          <div class="dash-card dash-card-warning">
+            <div class="dash-card-icon">⚠️</div>
+            <p class="dash-card-title">O.S. Pendentes</p>
+            <h3 id="dash-txt-os-abertas" class="dash-card-value">—</h3>
+          </div>
+          <div class="dash-card dash-card-success">
+            <div class="dash-card-icon">✅</div>
+            <p class="dash-card-title">O.S. Concluídas</p>
+            <h3 id="dash-txt-os-fechadas" class="dash-card-value">—</h3>
+          </div>
         </div>
 
         <div class="card">
           <h3 class="card-title">📅 Próximas Manutenções Agendadas (Previsão PMOC)</h3>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Equipamento</th><th>Localização</th><th>Data Programada</th><th>Status</th></tr></thead>
+              <thead><tr><th>Equipamento (TAG)</th><th>Localização</th><th>Data Programada</th><th>Status</th></tr></thead>
               <tbody id="tbody-agenda-pmoc"><tr><td colspan="4" class="td-loading">Carregando cronograma...</td></tr></tbody>
             </table>
           </div>
         </div>
 
         <div class="dash-charts-grid">
-          <div class="card"><h3 class="card-title">📈 Volumetria de O.S. — Refrigeração</h3><div class="chart-wrapper"><canvas id="chartStatusOS"></canvas></div></div>
-          <div class="card"><h3 class="card-title">🔒 Trilha de Auditoria Crítica</h3><div id="dash-atividades">Carregando trilha...</div></div>
+          <div class="card chart-card">
+            <h3 class="card-title">📈 Volumetria de O.S. — Ar Condicionado</h3>
+            <div class="chart-wrapper"><canvas id="chartStatusOS"></canvas></div>
+          </div>
+          <div class="card chart-card">
+            <h3 class="card-title">🎯 Severidade por Classe de Ativo</h3>
+            <div class="chart-wrapper"><canvas id="chartCriticidade"></canvas></div>
+          </div>
+        </div>
+
+        <div class="dash-charts-grid" style="margin-top:0;">
+          <div class="card chart-card">
+            <h3 class="card-title">📝 Distribuição de O.S. — Facilities</h3>
+            <div class="chart-wrapper"><canvas id="chartStatusOSG"></canvas></div>
+          </div>
+          <div class="card">
+            <h3 class="card-title">🕐 Logs Críticos Recentes</h3>
+            <div id="dash-atividades" style="font-size:13px;">Carregando trilha de auditoria...</div>
+          </div>
         </div>
       </div>
     </main>
@@ -64,31 +94,13 @@
 
   <script src="app.js"></script>
   <script>
-    async function inicializarDashboard() {
-      const [{ count: catv }, { count: cfch }, { count: cab }, { count: cfc }, { data: logs }, { data: agenda }] = await Promise.all([
-        db.from('equipamentos').select('*', { count: 'exact', head: true }),
-        db.from('fichas_pmoc').select('*', { count: 'exact', head: true }),
-        db.from('ordens_servico').select('*', { count: 'exact', head: true }).neq('status_os', 'Concluída'),
-        db.from('ordens_servico').select('*', { count: 'exact', head: true }).eq('status_os', 'Concluída'),
-        db.from('logs_auditoria').select('*').order('created_at', { ascending: false }).limit(4),
-        db.from('cronograma_pmoc').select('*, equipamentos(tag, bloco, setor)').order('data_prevista', { ascending: true }).limit(5)
-      ]);
-
-      document.getElementById('dash-txt-ativos').innerText = catv ?? 0;
-      document.getElementById('dash-txt-fichas').innerText = cfch ?? 0;
-      document.getElementById('dash-txt-os-abertas').innerText = cab ?? 0;
-      document.getElementById('dash-txt-os-fechadas').innerText = cfc ?? 0;
-
-      document.getElementById('dash-atividades').innerHTML = (logs || []).map(l => `<div style="padding: 6px; background:#f8fafc; border-left: 3px solid #1a56db; font-size:12px; margin-bottom: 4px;"><strong>${l.usuario_email || 'Sistema'}</strong>: ${l.acao} em ${l.tabela}</div>`).join('');
-      document.getElementById('tbody-agenda-pmoc').innerHTML = (agenda || []).map(a => `<tr><td><span class="tag-badge">${a.equipamentos?.tag}</span></td><td>${a.equipamentos?.bloco || '—'} / ${a.equipamentos?.setor || '—'}</td><td>${fmtDate(a.data_prevista)}</td><td><span class="tag-badge warning">${a.status}</span></td></tr>`).join('');
-
-      new Chart(document.getElementById('chartStatusOS').getContext('2d'), {
-        type: 'bar',
-        data: { labels: ['Abertas', 'Concluídas'], datasets: [{ data: [cab, cfc], backgroundColor: ['#f59e0b', '#10b981'] }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-      });
-    }
-    setTimeout(inicializarDashboard, 300);
+    // Inicialização orientada ao ciclo de vida da página
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        renderizarGraficosDashboard();
+        carregarAgendaManutencoes();
+      }, 400);
+    });
   </script>
 </body>
 </html>
