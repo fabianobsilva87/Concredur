@@ -314,14 +314,35 @@ async function atualizarSelectFuncoes() {
 async function carregarColaboradores() {
   const tbody = $('tbody-colaboradores'); if (!tbody) return;
   const { data } = await db.from('colaboradores').select('*, funcoes(nome)').order('nome', { ascending: true });
-  tbody.innerHTML = (data || []).length ? data.map(c => `<tr><td><strong>${c.nome}</strong></td><td>${c.cpf || '—'}</td><td>${c.funcoes?.nome || '—'}</td><td><button class="btn-excluir" onclick="excluirColaborador('${c.id}')">✕</button></td></tr>`).join('') : '<tr><td colspan="4" class="td-loading">Sem registros.</td></tr>';
+  tbody.innerHTML = (data || []).length ? data.map(c => `<tr>
+    <td><strong>${c.nome}</strong></td>
+    <td>${c.cpf ? c.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4') : '—'}</td>
+    <td>${c.funcoes?.nome || '—'}</td>
+    <td>${c.data_contratacao ? fmtDate(c.data_contratacao) : '—'}</td>
+    <td><button class="btn-excluir" onclick="excluirColaborador('${c.id}')">✕</button></td>
+  </tr>`).join('') : '<tr><td colspan="5" class="td-loading">Sem registros.</td></tr>';
 }
+
 async function excluirColaborador(id) { if (confirm('Remover colaborador?')) { await db.from('colaboradores').delete().eq('id', id); carregarColaboradores(); } }
 
 async function carregarFuncoes() {
   const tbody = $('tbody-funcoes'); if (!tbody) return;
-  const { data } = await db.from('funcoes').select('*').order('nome', { ascending: true });
-  tbody.innerHTML = (data || []).length ? data.map(f => `<tr><td><strong>${f.nome}</strong></td><td>${f.nivel || '—'}</td><td>R$ ${Number(f.salario || 0).toLocaleString('pt-BR', {minimumFractionDigits:2})}</td><td><button class="btn-excluir" onclick="excluirFuncao('${f.id}')">✕</button></td></tr>`).join('') : '<tr><td colspan="4" class="td-loading">Sem registros.</td></tr>';
+  const { data: funcoes } = await db.from('funcoes').select('*').order('nome', { ascending: true });
+  const { data: colabs } = await db.from('colaboradores').select('funcao_id');
+  const countMap = {};
+  (colabs||[]).forEach(c => { if(c.funcao_id) countMap[c.funcao_id] = (countMap[c.funcao_id]||0)+1; });
+  const nivelCor = { Junior:'#dbeafe', Pleno:'#d1fae5', Senior:'#fef3c7' };
+  tbody.innerHTML = (funcoes || []).length ? funcoes.map(f => {
+    const nivel = f.nivel || 'Pleno';
+    const cor = nivelCor[nivel] || '#f3f4f6';
+    return `<tr>
+      <td><strong>${f.nome}</strong></td>
+      <td><span style="background:${cor};padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;">${nivel}</span></td>
+      <td>R$ ${Number(f.salario || 0).toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
+      <td style="text-align:center;"><span class="tag-badge">${countMap[f.id]||0}</span></td>
+      <td><button class="btn-excluir" onclick="excluirFuncao('${f.id}')">✕</button></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="5" class="td-loading">Sem registros.</td></tr>';
 }
 async function excluirFuncao(id) { if (confirm('Remover função?')) { await db.from('funcoes').delete().eq('id', id); carregarFuncoes(); } }
 

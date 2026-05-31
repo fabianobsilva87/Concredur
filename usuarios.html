@@ -15,16 +15,18 @@
         <div class="sidebar-logo">🏗️</div><h3>Concredur</h3><p>Gestão de Manutenção</p>
         <div class="user-logged-badge"><span class="user-icon-dot">●</span><span id="user-display-email">carregando...</span></div>
       </div>
-      <nav>
+            <nav>
         <div class="nav-label">Visão Geral</div>
-        <div class="nav-item" onclick="location.href='dashboard.html'"><span>📊</span> Dashboard Geral</div>
+        <div class="nav-item " onclick="location.href='dashboard.html'"><span>📊</span> Dashboard Geral</div>
         <div class="nav-label">Refrigeração</div>
-        <div class="nav-item" onclick="location.href='equipamentos.html'"><span>➕</span> Novo Ativo</div>
+        <div class="nav-item " onclick="location.href='equipamentos.html'"><span>➕</span> Novo Ativo</div>
         <div class="nav-item" onclick="location.href='gerir-equipamentos.html'"><span>⚙️</span> Gerenciamento de Ativos</div>
-        <div class="nav-item" onclick="location.href='pmoc.html'"><span>📋</span> Formulário PMOC</div>
+        <div class="nav-item " onclick="location.href='pmoc.html'"><span>📋</span> Formulário PMOC</div>
         <div class="nav-label">Manutenção</div>
         <div class="nav-item" onclick="location.href='os.html'"><span>🛠️</span> Ordens de Serviço</div>
         <div class="nav-label">Administração</div>
+        <div class="nav-item " onclick="location.href='colaborador.html'"><span>👷</span> Colaboradores</div>
+        <div class="nav-item " onclick="location.href='empresas.html'"><span>🏢</span> Empresas</div>
         <div class="nav-item active" onclick="location.href='usuarios.html'"><span>👥</span> Gestão de Usuários</div>
       </nav>
       <div class="sidebar-footer"><button id="btn-logout" class="btn-sair">⬅ Sair do Sistema</button></div>
@@ -32,9 +34,7 @@
 
     <main class="main-content">
       <div class="topbar no-print">
-        <button class="btn-refresh" onclick="alternarSubAbasRH('usuarios')">🔒 Usuários do Sistema</button>
-        <button class="btn-refresh" style="background:#10b981; border-color:#10b981; color:#fff;" onclick="alternarSubAbasRH('colab')">👥 Colaboradores</button>
-        <button class="btn-refresh" style="background:#4a5568; border-color:#4a5568; color:#fff;" onclick="alternarSubAbasRH('cargo')">🪪 Cargos e Funções</button>
+        <h2>🔒 Controle de Acesso ao Sistema</h2>
       </div>
 
       <div class="section-content">
@@ -125,36 +125,7 @@
           </div>
         </div>
 
-        <div id="sub-rh-colab" class="app-sub-panel" style="display:none;">
-          <div class="card">
-            <h3 class="card-title">👷 Registrar Novo Técnico / Colaborador</h3>
-            <div class="form-grid">
-              <div class="form-group"><label>Nome Completo *</label><input type="text" id="colab-nome" placeholder="Nome do técnico"></div>
-              <div class="form-group"><label>CPF *</label><input type="text" id="colab-cpf" class="input-cpf" placeholder="000.000.000-00" maxlength="14"></div>
-              <div class="form-group"><label>Cargo / Função</label><select id="colab-funcao" class="form-input-style"></select></div>
-              <div class="form-group"><label>Data de Contratação</label><input type="date" id="colab-contratacao"></div>
-            </div>
-            <div class="btn-row"><button id="btn-salvar-colaborador" class="btn-primary">💾 Registrar Colaborador</button></div>
-            <p id="msg-colaborador" class="msg-form"></p>
-          </div>
-          <div class="card">
-            <h3 class="card-title">Técnicos de Campo Homologados</h3>
-            <div class="table-wrap"><table><thead><tr><th>Nome</th><th>CPF</th><th>Função</th><th>Ações</th></tr></thead><tbody id="tbody-colaboradores"></tbody></table></div>
-          </div>
-        </div>
 
-        <div id="sub-rh-cargo" class="app-sub-panel" style="display:none;">
-          <div class="card">
-            <h3 class="card-title">🪪 Novo Cargo / Função</h3>
-            <div class="form-grid">
-              <div class="form-group"><label>Nome do Cargo *</label><input type="text" id="func-nome" placeholder="Ex: Mecânico"></div>
-              <div class="form-group"><label>Salário Base</label><input type="number" id="func-salario"></div>
-              <div class="form-group"><label>Nível</label><select id="func-nivel" class="form-input-style"><option value="Pleno">Pleno</option><option value="Senior">Sênior</option></select></div>
-            </div>
-            <div class="btn-row"><button id="btn-salvar-funcao" class="btn-primary">💾 Salvar Cargo</button></div>
-            <p id="msg-funcao" class="msg-form"></p>
-          </div>
-        </div>
 
       </div>
     </main>
@@ -190,7 +161,6 @@
 
     window.addEventListener('DOMContentLoaded', async () => {
       await carregarUsuariosSistema();
-      await Promise.all([carregarColaboradores(), carregarFuncoes(), atualizarSelectFuncoes()]);
     });
   </script>
 </body>

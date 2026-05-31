@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Concredur — Colaboradores</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div class="app-container">
+  <aside class="sidebar no-print">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">🏗️</div><h3>Concredur</h3><p>Gestão de Manutenção</p>
+      <div class="user-logged-badge"><span class="user-icon-dot">●</span><span id="user-display-email">...</span></div>
+    </div>
+    <nav>
+      <div class="nav-label">Visão Geral</div>
+      <div class="nav-item" onclick="location.href='dashboard.html'"><span>📊</span> Dashboard Geral</div>
+      <div class="nav-label">Refrigeração</div>
+      <div class="nav-item" onclick="location.href='equipamentos.html'"><span>➕</span> Novo Ativo</div>
+      <div class="nav-item" onclick="location.href='gerir-equipamentos.html'"><span>⚙️</span> Gerenciamento de Ativos</div>
+      <div class="nav-item" onclick="location.href='pmoc.html'"><span>📋</span> Formulário PMOC</div>
+      <div class="nav-label">Manutenção</div>
+      <div class="nav-item" onclick="location.href='os.html'"><span>🛠️</span> Ordens de Serviço</div>
+      <div class="nav-label">Administração</div>
+      <div class="nav-item active" onclick="location.href='colaborador.html'"><span>👷</span> Colaboradores</div>
+      <div class="nav-item" onclick="location.href='empresas.html'"><span>🏢</span> Empresas</div>
+      <div class="nav-item" onclick="location.href='usuarios.html'"><span>👥</span> Gestão de Usuários</div>
+    </nav>
+    <div class="sidebar-footer"><button id="btn-logout" class="btn-sair">⬅ Sair</button></div>
+  </aside>
+
+  <main class="main-content">
+    <div class="topbar no-print">
+      <button class="btn-refresh" onclick="alternarAbasColab('lista')">👷 Colaboradores</button>
+      <button class="btn-refresh" style="background:#7c3aed; border-color:#7c3aed; color:#fff;" onclick="alternarAbasColab('cargo')">🪪 Cargos e Funções</button>
+    </div>
+
+    <div class="section-content">
+
+      <!-- ===== ABA: COLABORADORES ===== -->
+      <div id="aba-lista" class="app-sub-panel">
+        <div class="card">
+          <h3 class="card-title">👷 Registrar Novo Técnico / Colaborador</h3>
+          <p style="font-size:12px;color:#718096;margin-bottom:14px;">Cadastro para vínculo com Ordens de Serviço e PMOC.</p>
+          <div class="form-grid">
+            <div class="form-group"><label>Nome Completo *</label><input type="text" id="colab-nome" placeholder="Nome do técnico"></div>
+            <div class="form-group"><label>CPF *</label><input type="text" id="colab-cpf" class="input-cpf" placeholder="000.000.000-00" maxlength="14"></div>
+            <div class="form-group"><label>Cargo / Função</label><select id="colab-funcao" class="form-input-style"><option value="">-- Selecione --</option></select></div>
+            <div class="form-group"><label>Data de Contratação</label><input type="date" id="colab-contratacao"></div>
+          </div>
+          <div class="btn-row">
+            <button id="btn-salvar-colaborador" class="btn-primary">💾 Registrar Colaborador</button>
+          </div>
+          <p id="msg-colaborador" class="msg-form"></p>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h3 class="card-title" style="margin:0;">Técnicos de Campo Homologados</h3>
+            <button class="btn-refresh" onclick="carregarColaboradores()">↺ Atualizar</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nome</th><th>CPF</th><th>Função</th><th>Contratação</th><th>Ações</th></tr></thead>
+              <tbody id="tbody-colaboradores"><tr><td colspan="5" class="td-loading">Carregando...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== ABA: CARGOS E FUNÇÕES ===== -->
+      <div id="aba-cargo" class="app-sub-panel" style="display:none;">
+        <div class="card">
+          <h3 class="card-title">🪪 Novo Cargo / Função</h3>
+          <div class="form-grid">
+            <div class="form-group"><label>Nome do Cargo *</label><input type="text" id="func-nome" placeholder="Ex: Mecânico de Refrigeração"></div>
+            <div class="form-group"><label>Salário Base (R$)</label><input type="number" id="func-salario" placeholder="0,00"></div>
+            <div class="form-group"><label>Nível</label>
+              <select id="func-nivel" class="form-input-style">
+                <option value="Junior">Júnior</option>
+                <option value="Pleno" selected>Pleno</option>
+                <option value="Senior">Sênior</option>
+              </select>
+            </div>
+          </div>
+          <div class="btn-row"><button id="btn-salvar-funcao" class="btn-primary">💾 Salvar Cargo</button></div>
+          <p id="msg-funcao" class="msg-form"></p>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h3 class="card-title" style="margin:0;">Cargos e Funções Cadastrados</h3>
+            <button class="btn-refresh" onclick="carregarFuncoes()">↺ Atualizar</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Cargo / Função</th><th>Nível</th><th>Salário Base</th><th>Colaboradores</th><th>Ações</th></tr></thead>
+              <tbody id="tbody-funcoes"><tr><td colspan="5" class="td-loading">Carregando...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /section-content -->
+  </main>
+</div>
+
+<script src="app.js"></script>
+<script>
+// ===================== CONTROLE DE ABAS =====================
+function alternarAbasColab(aba) {
+  ['lista','cargo'].forEach(a => {
+    const el = document.getElementById('aba-' + a);
+    if (el) el.style.display = a === aba ? 'block' : 'none';
+  });
+}
+
+// ===================== INIT =====================
+window.addEventListener('DOMContentLoaded', async () => {
+  await atualizarSelectFuncoes();
+  await Promise.all([carregarColaboradores(), carregarFuncoes()]);
+});
+</script>
+</body>
+</html>
