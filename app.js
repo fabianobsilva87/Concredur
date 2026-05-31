@@ -299,10 +299,16 @@ function onEquipamentoSelecionado() {
 
 // ===================== COLABORADORES & FUNÇÕES =====================
 async function atualizarSelectColaboradores() {
-  const { data } = await db.from('colaboradores').select('id, nome');
+  const { data } = await db.from('colaboradores').select('id, nome, assinatura_digital');
   ['pmoc-tecnico', 'os-tecnico', 'osg-tecnico'].map($).filter(Boolean).forEach(sel => {
     sel.innerHTML = '<option value="">-- Selecione o Colaborador --</option>';
-    (data || []).forEach(c => { sel.innerHTML += `<option value="${c.id}">${c.nome}</option>`; });
+    (data || []).forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.nome;
+      opt.dataset.assinatura = c.assinatura_digital || '';
+      sel.appendChild(opt);
+    });
   });
 }
 async function atualizarSelectFuncoes() {
@@ -311,16 +317,28 @@ async function atualizarSelectFuncoes() {
   sel.innerHTML = '<option value="">-- Selecione uma Função --</option>';
   (data || []).forEach(f => { sel.innerHTML += `<option value="${f.id}">${f.nome}</option>`; });
 }
+let _colabCache = [];
 async function carregarColaboradores() {
   const tbody = $('tbody-colaboradores'); if (!tbody) return;
   const { data } = await db.from('colaboradores').select('*, funcoes(nome)').order('nome', { ascending: true });
-  tbody.innerHTML = (data || []).length ? data.map(c => `<tr>
-    <td><strong>${c.nome}</strong></td>
-    <td>${c.cpf ? c.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4') : '—'}</td>
-    <td>${c.funcoes?.nome || '—'}</td>
-    <td>${c.data_contratacao ? fmtDate(c.data_contratacao) : '—'}</td>
-    <td><button class="btn-excluir" onclick="excluirColaborador('${c.id}')">✕</button></td>
-  </tr>`).join('') : '<tr><td colspan="5" class="td-loading">Sem registros.</td></tr>';
+  _colabCache = data || [];
+  tbody.innerHTML = _colabCache.length ? _colabCache.map(c => {
+    const temAssinatura = c.assinatura_digital && c.assinatura_digital.startsWith('data:image');
+    const badgeAssinatura = temAssinatura
+      ? `<span class="tag-badge success" style="font-size:10px;">✓ Cadastrada</span>`
+      : `<span class="tag-badge" style="font-size:10px;color:#a0aec0;">— Sem assinatura</span>`;
+    return `<tr>
+      <td><strong>${c.nome}</strong></td>
+      <td>${c.cpf ? c.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4') : '—'}</td>
+      <td>${c.funcoes?.nome || '—'}</td>
+      <td>${c.data_contratacao ? fmtDate(c.data_contratacao) : '—'}</td>
+      <td>${badgeAssinatura}</td>
+      <td style="display:flex;gap:4px;">
+        <button class="btn-secondary" style="padding:3px 10px;font-size:11px;" onclick="editarColaborador('${c.id}')">✏️ Editar</button>
+        <button class="btn-excluir" onclick="excluirColaborador('${c.id}')">✕</button>
+      </td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" class="td-loading">Sem registros.</td></tr>';
 }
 
 async function excluirColaborador(id) { if (confirm('Remover colaborador?')) { await db.from('colaboradores').delete().eq('id', id); carregarColaboradores(); } }
@@ -348,10 +366,50 @@ async function excluirFuncao(id) { if (confirm('Remover função?')) { await db.
 
 if ($('btn-salvar-colaborador')) {
   $('btn-salvar-colaborador').addEventListener('click', async () => {
-    const nome = $('colab-nome')?.value.trim(); const cpf = $('colab-cpf')?.value.trim();
+    const nome = $('colab-nome')?.value.trim();
+    const cpf  = $('colab-cpf')?.value.trim();
     if (!nome || !cpf || !validarCPF(cpf)) { msgForm('msg-colaborador', 'Verifique o nome e o CPF informado.', 'red'); return; }
-    const { error } = await db.from('colaboradores').insert([{ nome, cpf: cpf.replace(/\D/g, ''), funcao_id: $('colab-funcao')?.value || null }]);
-    if (!error) { msgForm('msg-colaborador', '✓ Salvo!', 'green'); carregarColaboradores(); atualizarSelectColaboradores(); $('colab-nome').value = ''; $('colab-cpf').value = ''; }
+
+    msgForm('msg-colaborador', 'Salvando...', 'blue');
+
+    // Captura assinatura do canvas (se houver traço)
+    let assinatura_digital = null;
+    const canvasColab = document.getElementById('canvas-colab-assinatura');
+    const ctxColab    = canvasColab ? canvasColab.getContext('2d') : null;
+    if (ctxColab && canvasColab && canvasColab.style.display !== 'none') {
+      const idat = ctxColab.getImageData(0, 0, canvasColab.width, canvasColab.height);
+      if (idat.data.some((v, i) => i % 4 === 3 && v > 0)) {
+        assinatura_digital = canvasColab.toDataURL('image/png');
+      }
+    }
+    // Se estava editando e havia assinatura anterior preservada (canvas oculto)
+    if (!assinatura_digital && canvasColab && canvasColab.style.display === 'none') {
+      const idEd = $('colab-id-edicao')?.value;
+      const cached = (typeof _colabCache !== 'undefined' ? _colabCache : []).find(x => x.id === idEd);
+      if (cached?.assinatura_digital) assinatura_digital = cached.assinatura_digital;
+    }
+
+    const payload = {
+      nome,
+      cpf: cpf.replace(/\D/g, ''),
+      funcao_id: $('colab-funcao')?.value || null,
+      data_contratacao: $('colab-contratacao')?.value || null,
+      assinatura_digital,
+    };
+
+    const idEd = $('colab-id-edicao')?.value;
+    const { error } = idEd
+      ? await db.from('colaboradores').update(payload).eq('id', idEd)
+      : await db.from('colaboradores').insert([payload]);
+
+    if (error) { msgForm('msg-colaborador', 'Erro: ' + error.message, 'red'); return; }
+
+    msgForm('msg-colaborador', idEd ? '✓ Colaborador atualizado!' : '✓ Colaborador registrado!', 'green');
+    carregarColaboradores();
+    atualizarSelectColaboradores();
+    // Reseta form via função do HTML (se disponível) ou inline
+    if (typeof resetarFormColaborador === 'function') resetarFormColaborador();
+    else { $('colab-nome').value = ''; $('colab-cpf').value = ''; }
   });
 }
 if ($('btn-salvar-funcao')) {
@@ -387,12 +445,18 @@ if ($('btn-salvar-ficha')) {
     
     const obsCompleto = `[DataInspecao: ${dataInsp}]\n[Frequencia: ${freq === 'M' ? 'Mensal' : freq === 'T' ? 'Trimestral' : freq === 'S' ? 'Semestral' : 'Anual'}]\n[TipoEquipamento: ${cat}]\n[Checklist: ${JSON.stringify(checklistResult)}]\n[FiscalNome: ${fiscal_nome}]\n${$('pmoc-obs')?.value.trim() || ''}`;
     const foto_url = await uploadFoto($('pmoc-foto')?.files[0], 'pmoc', 'msg-ficha');
-    const { data: colab } = await db.from('colaboradores').select('nome').eq('id', tecnico_id).single();
+    const { data: colab } = await db.from('colaboradores').select('nome, assinatura_digital').eq('id', tecnico_id).single();
     const { data: { user } } = await db.auth.getUser();
 
+    // Usa assinatura cadastrada do técnico; se não houver, usa o canvas do fiscal (fallback)
+    const assinaturaTecnico = colab?.assinatura_digital || null;
+    // Assinatura do fiscal (canvas desenhado no momento)
+    const assinaturaFiscal  = assinaturaBase64 || null;
+
     const payload = { equipamento_id, tecnico_nome: colab?.nome || 'Técnico', observacoes: obsCompleto, user_id: user?.id };
-    if (foto_url) payload.foto_url = foto_url; 
-    if (assinaturaBase64) payload.assinatura_digital = assinaturaBase64; // Correção da colisão de variáveis (Blindado)
+    if (foto_url) payload.foto_url = foto_url;
+    if (assinaturaTecnico) payload.assinatura_digital = assinaturaTecnico;
+    if (assinaturaFiscal)  payload.assinatura_fiscal  = assinaturaFiscal;
 
     const idEdicao = $('pmoc-id-edicao')?.value;
     const { error } = idEdicao
@@ -468,9 +532,13 @@ function emitirRelatorioPMOC(b64) {
     `<tr><td>${labelChk[k] || k}</td><td style="text-align:center;">${statusChk[v] || v}</td></tr>`
   ).join('');
 
-  const assinaturaHTML = (f.assinatura_digital && f.assinatura_digital.includes('data:image'))
-    ? `<img src="${f.assinatura_digital}" style="max-width:180px;max-height:60px;" alt="Assinatura"/>`
-    : '<span style="font-size:11px;color:#a0aec0;">Sem assinatura digital</span>';
+  const assinaturaTecnicoHTML = (f.assinatura_digital && f.assinatura_digital.includes('data:image'))
+    ? `<img src="${f.assinatura_digital}" style="max-width:200px;max-height:65px;display:block;margin:0 auto 4px;" alt="Assinatura Técnico"/>`
+    : `<div style="height:55px;border-bottom:1px dashed #94a3b8;margin-bottom:4px;"></div>`;
+
+  const assinaturaFiscalHTML = (f.assinatura_fiscal && f.assinatura_fiscal.includes('data:image'))
+    ? `<img src="${f.assinatura_fiscal}" style="max-width:200px;max-height:65px;display:block;margin:0 auto 4px;" alt="Assinatura Fiscal"/>`
+    : `<div style="height:55px;border-bottom:1px dashed #94a3b8;margin-bottom:4px;"></div>`;
 
   const fotoHTML = f.foto_url
     ? `<div class="laudo-section"><div class="laudo-section-title">Evidência Fotográfica</div><img src="${f.foto_url}" style="max-width:100%;max-height:200px;border-radius:4px;border:1px solid #e2e8f0;"></div>`
@@ -536,13 +604,13 @@ function emitirRelatorioPMOC(b64) {
           Documento gerado pelo Sistema Concredur<br>
           ${new Date().toLocaleString('pt-BR')}
         </div>
-        <div style="display:flex;gap:32px;align-items:flex-end;">
-          <div class="laudo-assinatura-box" style="min-width:160px;">
-            <div style="height:50px;border-bottom:1px solid #1a202c;margin-bottom:4px;"></div>
+        <div style="display:flex;gap:40px;align-items:flex-end;">
+          <div class="laudo-assinatura-box" style="min-width:180px;text-align:center;">
+            ${assinaturaTecnicoHTML}
             <div class="laudo-assinatura-linha">${f.tecnico_nome}<br>Técnico Executor</div>
           </div>
-          <div class="laudo-assinatura-box" style="min-width:180px;">
-            ${assinaturaHTML}
+          <div class="laudo-assinatura-box" style="min-width:180px;text-align:center;">
+            ${assinaturaFiscalHTML}
             <div class="laudo-assinatura-linha">${fiscalNome}<br>Fiscal / Validador do Serviço</div>
           </div>
         </div>
