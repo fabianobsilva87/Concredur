@@ -366,7 +366,9 @@ if ($('btn-salvar-funcao')) {
 if ($('btn-salvar-ficha')) {
   $('btn-salvar-ficha').addEventListener('click', async () => {
     const equipamento_id = $('pmoc-equipamento')?.value; const tecnico_id = $('pmoc-tecnico')?.value;
+    const fiscal_nome = $('pmoc-fiscal-nome')?.value.trim();
     if (!equipamento_id || !tecnico_id) { msgForm('msg-ficha', 'Preencha os campos obrigatórios.', 'red'); return; }
+    if (!fiscal_nome) { msgForm('msg-ficha', 'Informe o nome do fiscal validador.', 'red'); return; }
     msgForm('msg-ficha', 'Salvando...', 'blue');
     const freq = $('pmoc-frequencia')?.value || 'M'; const dataInsp = $('pmoc-data')?.value || hoje();
     const cat = $('pmoc-equipamento').options[$('pmoc-equipamento').selectedIndex]?.dataset?.categoria || 'OUT';
@@ -383,7 +385,7 @@ if ($('btn-salvar-ficha')) {
       }
     }
     
-    const obsCompleto = `[DataInspecao: ${dataInsp}]\n[Frequencia: ${freq === 'M' ? 'Mensal' : freq === 'T' ? 'Trimestral' : freq === 'S' ? 'Semestral' : 'Anual'}]\n[TipoEquipamento: ${cat}]\n[Checklist: ${JSON.stringify(checklistResult)}]\n${$('pmoc-obs')?.value.trim() || ''}`;
+    const obsCompleto = `[DataInspecao: ${dataInsp}]\n[Frequencia: ${freq === 'M' ? 'Mensal' : freq === 'T' ? 'Trimestral' : freq === 'S' ? 'Semestral' : 'Anual'}]\n[TipoEquipamento: ${cat}]\n[Checklist: ${JSON.stringify(checklistResult)}]\n[FiscalNome: ${fiscal_nome}]\n${$('pmoc-obs')?.value.trim() || ''}`;
     const foto_url = await uploadFoto($('pmoc-foto')?.files[0], 'pmoc', 'msg-ficha');
     const { data: colab } = await db.from('colaboradores').select('nome').eq('id', tecnico_id).single();
     const { data: { user } } = await db.auth.getUser();
@@ -398,7 +400,7 @@ if ($('btn-salvar-ficha')) {
       : await db.from('fichas_pmoc').insert([payload]);
     if (error) { msgForm('msg-ficha', 'Erro: ' + error.message, 'red'); return; }
     msgForm('msg-ficha', idEdicao ? '✓ Ficha atualizada!' : '✓ PMOC salvo!', 'green');
-    limparCanvasAssinatura(); if ($('pmoc-obs')) $('pmoc-obs').value = '';
+    limparCanvasAssinatura(); if ($('pmoc-obs')) $('pmoc-obs').value = ''; if ($('pmoc-fiscal-nome')) $('pmoc-fiscal-nome').value = '';
     document.querySelectorAll('.pmoc-checklist-container input[type="radio"]').forEach(r => r.checked = false);
     resetarFormPMOC();
     carregarHistoricoFichas(); alternarSubAbasPMOC('hist');
@@ -447,11 +449,13 @@ function emitirRelatorioPMOC(b64) {
   const matchFreq  = (f.observacoes || '').match(/\[Frequencia:\s*([^\]]+)\]/);
   const matchTipo  = (f.observacoes || '').match(/\[TipoEquipamento:\s*([^\]]+)\]/);
   const matchChk   = (f.observacoes || '').match(/\[Checklist:\s*([^\]]+)\]/);
+  const matchFiscal = (f.observacoes || '').match(/\[FiscalNome:\s*([^\]]+)\]/);
   const obsLimpa   = (f.observacoes || '').replace(/\[[^\]]+\]/g, '').trim();
   const checklist  = matchChk ? (() => { try { return JSON.parse(matchChk[1]); } catch(e) { return {}; } })() : {};
   const dataInsp   = matchData ? matchData[1] : fmtDate(f.created_at);
   const freq       = matchFreq ? matchFreq[1] : '—';
   const tipo       = matchTipo ? matchTipo[1] : '—';
+  const fiscalNome = matchFiscal ? matchFiscal[1].trim() : 'Fiscal Responsável';
 
   // Checklist formatado
   const labelChk = {
@@ -532,9 +536,15 @@ function emitirRelatorioPMOC(b64) {
           Documento gerado pelo Sistema Concredur<br>
           ${new Date().toLocaleString('pt-BR')}
         </div>
-        <div class="laudo-assinatura-box">
-          ${assinaturaHTML}
-          <div class="laudo-assinatura-linha">${f.tecnico_nome}<br>Técnico Responsável</div>
+        <div style="display:flex;gap:32px;align-items:flex-end;">
+          <div class="laudo-assinatura-box" style="min-width:160px;">
+            <div style="height:50px;border-bottom:1px solid #1a202c;margin-bottom:4px;"></div>
+            <div class="laudo-assinatura-linha">${f.tecnico_nome}<br>Técnico Executor</div>
+          </div>
+          <div class="laudo-assinatura-box" style="min-width:180px;">
+            ${assinaturaHTML}
+            <div class="laudo-assinatura-linha">${fiscalNome}<br>Fiscal / Validador do Serviço</div>
+          </div>
         </div>
       </div>
     </div>
@@ -746,27 +756,72 @@ function resetarFormOS() { ['os-defeito','os-laudo','os-id-edicao'].forEach(id =
 function resetarFormOSG() { ['osg-setor','osg-requisitado','osg-falha'].forEach(id => { if($(id)) $(id).value=''; }); }
 
 function imprimir(areaId, html) {
-  // Limpa todas as áreas de impressão anteriores
-  document.querySelectorAll('.print-only').forEach(el => { el.innerHTML = ''; });
-  const area = $(areaId);
-  if (!area) { console.error('Área de impressão não encontrada:', areaId); return; }
+  // Abre uma janela limpa exclusiva para impressão
+  // Elimina interferência do layout da aplicação (sidebar, topbar, etc.)
+  const win = window.open('', '_blank', 'width=900,height=700');
+  if (!win) {
+    alert('Permita pop-ups para este site para imprimir os laudos.');
+    return;
+  }
 
-  // Injeta o HTML
-  area.innerHTML = html;
+  win.document.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Concredur — Impressão</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    @page { margin: 14mm; size: A4 portrait; }
+    html, body { font-family: 'Inter', Arial, sans-serif; font-size: 12px; color: #1a202c; background: #fff; }
 
-  // Aguarda dois frames de renderização + 300ms para fontes/imagens carregarem
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      setTimeout(() => {
+    /* ===== LAUDO ===== */
+    .laudo-wrapper { width: 100%; }
+    .laudo-header { background: #1a56db; color: #fff; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; border-radius: 6px 6px 0 0; }
+    .laudo-header h1 { font-size: 18px; font-weight: 700; }
+    .laudo-header p  { font-size: 11px; margin-top: 4px; opacity: 0.85; }
+    .laudo-header-meta { text-align: right; font-size: 11px; }
+    .laudo-section { border: 1px solid #e2e8f0; border-top: none; padding: 12px 16px; break-inside: avoid; }
+    .laudo-section:last-child { border-radius: 0 0 6px 6px; }
+    .laudo-section-title { font-size: 10px; font-weight: 700; color: #1a56db; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0; }
+    .laudo-grid   { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; }
+    .laudo-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px 16px; }
+    .laudo-field  { margin-bottom: 4px; }
+    .laudo-field label { font-size: 9px; color: #718096; text-transform: uppercase; letter-spacing: 0.06em; display: block; }
+    .laudo-field span  { font-size: 12px; font-weight: 600; color: #1a202c; }
+    .laudo-checklist-table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 11px; }
+    .laudo-checklist-table th { background: #1a56db; color: #fff; padding: 5px 8px; text-align: left; font-size: 10px; }
+    .laudo-checklist-table td { padding: 4px 8px; border-bottom: 1px solid #e2e8f0; }
+    .laudo-checklist-table tr:nth-child(even) td { background: #f8fafc; }
+    .ok  { color: #059669; font-weight: 700; }
+    .nok { color: #dc2626; font-weight: 700; }
+    .na  { color: #a0aec0; }
+    .laudo-footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px; padding-top: 12px; border-top: 1px solid #e2e8f0; }
+    .laudo-assinatura-box { text-align: center; min-width: 180px; }
+    .laudo-assinatura-linha { border-top: 1px solid #1a202c; margin-top: 8px; padding-top: 4px; font-size: 10px; color: #4a5568; }
+    img { max-width: 100%; height: auto; display: block; }
+    .tag-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; background: #e2e8f0; color: #2d3748; }
+    .tag-badge.success { background: #d1fae5; color: #065f46; }
+    .tag-badge.warning { background: #fef3c7; color: #92400e; }
+    .tag-badge.danger  { background: #fee2e2; color: #991b1b; }
+    .tag-badge.andamento { background: #dbeafe; color: #1e40af; }
+  </style>
+</head>
+<body>
+  ${html}
+  <script>
+    // Aguarda fontes e imagens carregarem antes de imprimir
+    window.addEventListener('load', function() {
+      setTimeout(function() {
         window.print();
-        const limpar = () => {
-          area.innerHTML = '';
-          window.removeEventListener('afterprint', limpar);
-        };
-        window.addEventListener('afterprint', limpar);
-      }, 300);
+        window.addEventListener('afterprint', function() { window.close(); });
+      }, 400);
     });
-  });
+  </script>
+</body>
+</html>`);
+  win.document.close();
 }
 
 // ===================== MÓDULO DE LOGIN (index.html) =====================

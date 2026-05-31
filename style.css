@@ -249,48 +249,11 @@ tbody tr:hover td { background: var(--gray-50); }
 /* ===================== IMPRESSÃO ===================== */
 .print-only { display: none; }
 @media print {
+  /* Fallback — oculta tudo na janela principal caso window.open seja bloqueado */
+  body * { display: none !important; }
+  .print-only { display: block !important; }
+  .print-only * { display: revert !important; }
   @page { margin: 14mm; size: A4 portrait; }
-
-  /* Oculta tudo que não é impressão */
-  .sidebar,
-  .topbar,
-  .no-print,
-  .btn-row,
-  .pagination-container,
-  nav,
-  button { display: none !important; }
-
-  /* Reseta o layout do app para impressão */
-  html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
-  .app-container { display: block !important; }
-  .main-content { margin: 0 !important; padding: 0 !important; width: 100% !important; }
-  .section-content { padding: 0 !important; }
-  .card { display: none !important; }
-
-  /* Exibe a área de impressão */
-  .print-only {
-    display: block !important;
-    width: 100% !important;
-    position: static !important;
-  }
-  .print-only * { visibility: visible !important; }
-  .print-only table  { display: table !important; width: 100%; }
-  .print-only thead  { display: table-header-group !important; }
-  .print-only tbody  { display: table-row-group !important; }
-  .print-only tr     { display: table-row !important; }
-  .print-only th,
-  .print-only td     { display: table-cell !important; }
-  .print-only img    { display: inline-block !important; max-width: 100%; }
-  .print-only span,
-  .print-only strong,
-  .print-only em,
-  .print-only small  { display: inline !important; }
-  .print-only div    { display: block !important; }
-  .print-only .laudo-header   { display: flex !important; }
-  .print-only .laudo-grid,
-  .print-only .laudo-grid-3,
-  .print-only .laudo-footer   { display: grid !important; }
-  .print-only .laudo-footer   { display: flex !important; }
 }
 
 /* ===================== LAUDO IMPRESSO ===================== */
