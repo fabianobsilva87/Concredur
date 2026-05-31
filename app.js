@@ -746,10 +746,27 @@ function resetarFormOS() { ['os-defeito','os-laudo','os-id-edicao'].forEach(id =
 function resetarFormOSG() { ['osg-setor','osg-requisitado','osg-falha'].forEach(id => { if($(id)) $(id).value=''; }); }
 
 function imprimir(areaId, html) {
+  // Limpa todas as áreas de impressão anteriores
   document.querySelectorAll('.print-only').forEach(el => { el.innerHTML = ''; });
-  const area = $(areaId); if (!area) return; area.innerHTML = html; window.print();
-  const limpar = () => { area.innerHTML = ''; window.removeEventListener('afterprint', limpar); };
-  window.addEventListener('afterprint', limpar);
+  const area = $(areaId);
+  if (!area) { console.error('Área de impressão não encontrada:', areaId); return; }
+
+  // Injeta o HTML
+  area.innerHTML = html;
+
+  // Aguarda dois frames de renderização + 300ms para fontes/imagens carregarem
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        window.print();
+        const limpar = () => {
+          area.innerHTML = '';
+          window.removeEventListener('afterprint', limpar);
+        };
+        window.addEventListener('afterprint', limpar);
+      }, 300);
+    });
+  });
 }
 
 // ===================== MÓDULO DE LOGIN (index.html) =====================
