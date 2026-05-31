@@ -107,21 +107,40 @@ async function uploadFoto(file, pasta, msgId) {
 // ===================== SESSÃO & ROTEAMENTO =====================
 async function verificarSessaoGlobal() {
   const pag = window.location.pathname.split('/').pop();
-  const ehPaginaLogin = (pag === '' || pag === 'index.html');
+  const ehPaginaLogin    = (pag === '' || pag === 'index.html');
+  const ehPaginaPublica  = (pag === 'verificar.html');
 
-  // Na página de login, NÃO redireciona automaticamente.
-  // O próprio index.html controla o fluxo após signOut garantido.
-  if (ehPaginaLogin) {
+  if (ehPaginaLogin || ehPaginaPublica) {
     if ($('user-display-email')) $('user-display-email').innerText = '';
     return;
   }
 
-  // Nas demais páginas: verifica sessão e redireciona se não autenticado
   const { data: { user }, error } = await db.auth.getUser();
   if (!user || error) {
     window.location.href = 'index.html';
-  } else {
+    return;
+  }
+
+  // Carrega perfil da tabela profiles
+  const { data: perfil } = await db
+    .from('profiles')
+    .select('nome, role, status')
+    .eq('id', user.id)
+    .maybeSingle(); // ← maybeSingle nunca lança erro se não encontrar
+
+  if (!perfil) {
+    // Perfil ausente — cria automaticamente como admin e continua
+    await db.from('profiles').insert([{
+      id:     user.id,
+      email:  user.email,
+      nome:   user.user_metadata?.full_name || 'Administrador',
+      role:   'admin',
+      status: 'ativo',
+    }]).select().maybeSingle();
     if ($('user-display-email')) $('user-display-email').innerText = user.email;
+  } else {
+    const exibir = perfil.nome ? `${perfil.nome}` : user.email;
+    if ($('user-display-email')) $('user-display-email').innerText = exibir;
   }
 }
 verificarSessaoGlobal();
@@ -540,6 +559,10 @@ function emitirRelatorioPMOC(b64) {
     ? `<img src="${f.assinatura_fiscal}" style="max-width:200px;max-height:65px;display:block;margin:0 auto 4px;" alt="Assinatura Fiscal"/>`
     : `<div style="height:55px;border-bottom:1px dashed #94a3b8;margin-bottom:4px;"></div>`;
 
+  const urlValidacao  = gerarUrlValidacao(f.id, 'pmoc');
+  const qrCodeHTML    = gerarQrCodeSVG(urlValidacao, 100);
+  const codigoLaudo   = `L-PMOC-${f.id.toString().slice(0,6).toUpperCase()}`;
+
   const fotoHTML = f.foto_url
     ? `<div class="laudo-section"><div class="laudo-section-title">Evidência Fotográfica</div><img src="${f.foto_url}" style="max-width:100%;max-height:200px;border-radius:4px;border:1px solid #e2e8f0;"></div>`
     : '';
@@ -599,21 +622,31 @@ function emitirRelatorioPMOC(b64) {
     ${fotoHTML}
 
     <div class="laudo-section">
-      <div class="laudo-footer">
-        <div style="font-size:10px;color:#718096;">
-          Documento gerado pelo Sistema Concredur<br>
-          ${new Date().toLocaleString('pt-BR')}
-        </div>
-        <div style="display:flex;gap:40px;align-items:flex-end;">
-          <div class="laudo-assinatura-box" style="min-width:180px;text-align:center;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:20px; flex-wrap:wrap;">
+
+        <!-- Assinaturas -->
+        <div style="display:flex; gap:32px; align-items:flex-end; flex:1;">
+          <div class="laudo-assinatura-box" style="min-width:160px;text-align:center;">
             ${assinaturaTecnicoHTML}
             <div class="laudo-assinatura-linha">${f.tecnico_nome}<br>Técnico Executor</div>
           </div>
-          <div class="laudo-assinatura-box" style="min-width:180px;text-align:center;">
+          <div class="laudo-assinatura-box" style="min-width:160px;text-align:center;">
             ${assinaturaFiscalHTML}
             <div class="laudo-assinatura-linha">${fiscalNome}<br>Fiscal / Validador do Serviço</div>
           </div>
         </div>
+
+        <!-- QR Code de Validação -->
+        <div style="text-align:center; flex-shrink:0;">
+          ${qrCodeHTML}
+          <div style="font-size:9px; color:#718096; margin-top:5px; font-weight:600;">AUTENTICIDADE DO DOCUMENTO</div>
+          <div style="font-size:8px; color:#a0aec0; margin-top:2px;">${codigoLaudo}</div>
+          <div style="font-size:8px; color:#a0aec0;">Aponte a câmera para verificar</div>
+        </div>
+
+      </div>
+      <div style="margin-top:14px; padding-top:10px; border-top:1px solid #e2e8f0; font-size:9px; color:#a0aec0;">
+        Documento gerado pelo Sistema Concredur · ${new Date().toLocaleString('pt-BR')} · Verificação: ${urlValidacao}
       </div>
     </div>
   </div>`;
@@ -624,6 +657,16 @@ function emitirRelatorioPMOC(b64) {
 function emitirRelatorioOS(os) {
   const eq  = os.equipamentos  || {};
   const col = os.colaboradores || {};
+
+  const urlValidacao = gerarUrlValidacao(os.id, 'os');
+  const qrCodeHTML   = gerarQrCodeSVG(urlValidacao, 100);
+  const codigoOS     = `OS-AC-${os.id.toString().slice(0,5).toUpperCase()}`;
+
+  // Assinatura do técnico (vinda do cadastro de colaboradores via JOIN)
+  const assinaturaTecnicoHTML = (col.assinatura_digital && col.assinatura_digital.includes('data:image'))
+    ? `<img src="${col.assinatura_digital}" style="max-width:200px;max-height:65px;display:block;margin:0 auto 4px;" alt="Assinatura Técnico"/>`
+    : `<div style="height:55px;border-bottom:1px dashed #94a3b8;margin-bottom:4px;"></div>`;
+
   const html = `
   <div class="laudo-wrapper">
     <div class="laudo-header">
@@ -632,7 +675,7 @@ function emitirRelatorioOS(os) {
         <p>Registro Técnico de Manutenção</p>
       </div>
       <div class="laudo-header-meta">
-        <strong>Código: OS-AC-${os.id.toString().slice(0,5).toUpperCase()}</strong><br>
+        <strong>Código: ${codigoOS}</strong><br>
         Abertura: ${fmtDate(os.created_at)}<br>
         Emissão: ${new Date().toLocaleDateString('pt-BR')}
       </div>
@@ -670,15 +713,27 @@ function emitirRelatorioOS(os) {
     ${os.foto_url ? `<div class="laudo-section"><div class="laudo-section-title">Evidência Fotográfica</div><img src="${os.foto_url}" style="max-width:100%;max-height:200px;border-radius:4px;border:1px solid #e2e8f0;"></div>` : ''}
 
     <div class="laudo-section">
-      <div class="laudo-footer">
-        <div style="font-size:10px;color:#718096;">
-          Sistema Concredur — Gestão de Manutenção<br>
-          ${new Date().toLocaleString('pt-BR')}
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:20px; flex-wrap:wrap;">
+
+        <!-- Assinatura do Técnico -->
+        <div style="flex:1;">
+          <div class="laudo-assinatura-box" style="min-width:200px; text-align:center;">
+            ${assinaturaTecnicoHTML}
+            <div class="laudo-assinatura-linha">${col.nome || 'Técnico Responsável'}<br>Técnico Executor</div>
+          </div>
         </div>
-        <div class="laudo-assinatura-box">
-          <div style="height:50px;border-bottom:1px solid #1a202c;margin-bottom:4px;"></div>
-          <div class="laudo-assinatura-linha">${col.nome || 'Técnico Responsável'}</div>
+
+        <!-- QR Code de Validação -->
+        <div style="text-align:center; flex-shrink:0;">
+          ${qrCodeHTML}
+          <div style="font-size:9px; color:#718096; margin-top:5px; font-weight:600;">AUTENTICIDADE DO DOCUMENTO</div>
+          <div style="font-size:8px; color:#a0aec0; margin-top:2px;">${codigoOS}</div>
+          <div style="font-size:8px; color:#a0aec0;">Aponte a câmera para verificar</div>
         </div>
+
+      </div>
+      <div style="margin-top:14px; padding-top:10px; border-top:1px solid #e2e8f0; font-size:9px; color:#a0aec0;">
+        Sistema Concredur · ${new Date().toLocaleString('pt-BR')} · Verificação: ${urlValidacao}
       </div>
     </div>
   </div>`;
@@ -697,7 +752,7 @@ if ($('btn-salvar-os')) {
 }
 async function carregarOrdensServico() {
   const tbody = $('tbody-os'); if (!tbody) return;
-  const { data } = await db.from('ordens_servico').select('*, equipamentos(tag, produto, bloco, setor, nr_serie), colaboradores(nome)').order('created_at', { ascending: false });
+  const { data } = await db.from('ordens_servico').select('*, equipamentos(tag, produto, bloco, setor, nr_serie), colaboradores(nome, assinatura_digital)').order('created_at', { ascending: false });
   tbody.innerHTML = (data || []).map(os => {
     const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(os))));
     return `<tr>
@@ -823,6 +878,17 @@ function alternarSubAbasRH(m) { if($('sub-rh-usuarios'))$('sub-rh-usuarios').sty
 function resetarFormOS() { ['os-defeito','os-laudo','os-id-edicao'].forEach(id => { if($(id)) $(id).value=''; }); }
 function resetarFormOSG() { ['osg-setor','osg-requisitado','osg-falha'].forEach(id => { if($(id)) $(id).value=''; }); }
 
+function gerarQrCodeSVG(texto, tamanho = 120) {
+  // QR Code gerado via API pública — sem dependência extra no bundle
+  const url = `https://api.qrserver.com/v1/create-qr-code/?size=${tamanho}x${tamanho}&data=${encodeURIComponent(texto)}&format=svg&margin=4`;
+  return `<img src="${url}" width="${tamanho}" height="${tamanho}" alt="QR Code de Validação" style="display:block;border:1px solid #e2e8f0;border-radius:4px;background:#fff;">`;
+}
+
+function gerarUrlValidacao(id, tipo) {
+  const base = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '');
+  return `${base}/verificar.html?id=${id}&tipo=${tipo}`;
+}
+
 function imprimir(areaId, html) {
   // Abre uma janela limpa exclusiva para impressão
   // Elimina interferência do layout da aplicação (sidebar, topbar, etc.)
@@ -941,7 +1007,13 @@ if ($('btn-login')) {
       }
       const { error: errorUpdate } = await db.auth.updateUser({ password });
       if (errorUpdate) { msgForm('mensagem', 'Erro ao salvar senha: ' + errorUpdate.message, 'red'); return; }
-      await db.from('profiles').update({ status: 'ativo' }).eq('email', emailAlvoAtivacao);
+      // Garante que o perfil existe com upsert
+      const { data: { user: uAtivo } } = await db.auth.getUser();
+      if (uAtivo) {
+        await db.from('profiles').upsert({
+          id: uAtivo.id, email: emailAlvoAtivacao, status: 'ativo'
+        }, { onConflict: 'id', ignoreDuplicates: false });
+      }
       msgForm('mensagem', '✓ Conta ativada! Entrando...', 'green');
       setTimeout(() => { window.location.href = "dashboard.html"; }, 1000); return;
     }
@@ -958,7 +1030,30 @@ if ($('btn-login')) {
         msgForm('mensagem', 'Acesso negado: ' + loginError.message, 'red');
       } else {
         msgForm('mensagem', 'Acesso autorizado! Carregando dashboard...', 'green');
-        await db.from('profiles').update({ status: 'ativo' }).eq('email', email);
+
+        // Verifica se o perfil existe; cria automaticamente se for o primeiro acesso do admin
+        const { data: { user: userLogado } } = await db.auth.getUser();
+        if (userLogado) {
+          const { data: perfilExistente } = await db
+            .from('profiles')
+            .select('id')
+            .eq('id', userLogado.id)
+            .maybeSingle();
+
+          if (!perfilExistente) {
+            // Cria o perfil admin automaticamente — nunca bloqueia o login
+            await db.from('profiles').insert([{
+              id:     userLogado.id,
+              email:  userLogado.email,
+              nome:   userLogado.user_metadata?.full_name || 'Administrador',
+              role:   'admin',
+              status: 'ativo',
+            }]);
+          } else {
+            await db.from('profiles').update({ status: 'ativo' }).eq('id', userLogado.id);
+          }
+        }
+
         setTimeout(() => { window.location.href = "dashboard.html"; }, 600);
       }
     }
