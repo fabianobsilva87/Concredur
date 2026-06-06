@@ -71,7 +71,7 @@
             <canvas id="canvas-colab-assinatura" width="600" height="140"
               style="border:2px dashed #cbd5e0; background:#fff; border-radius:6px; cursor:crosshair; touch-action:none; max-width:100%; display:block;">
             </canvas>
-            <div style="margin-top:6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <div id="canvas-colab-controles" style="margin-top:6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
               <button class="btn-secondary" style="padding:4px 12px;font-size:11px;" onclick="limparCanvasColabAssinatura()">✕ Limpar</button>
               <span style="font-size:11px; color:#a0aec0;">← Use o dedo ou caneta no celular / mouse no computador</span>
             </div>
@@ -152,6 +152,14 @@ function inicializarCanvasColaborador() {
   canvasColab = new CanvasAssinatura('canvas-colab-assinatura');
 }
 
+function _mostrarCanvas(mostrar) {
+  const c = document.getElementById('canvas-colab-assinatura');
+  const k = document.getElementById('canvas-colab-controles');
+  const d = mostrar ? 'block' : 'none';
+  if (c) c.style.display = d;
+  if (k) k.style.display = mostrar ? 'flex' : 'none';
+}
+
 function limparCanvasColabAssinatura() {
   canvasColab?.limpar();
 }
@@ -159,7 +167,7 @@ function limparCanvasColabAssinatura() {
 function limparAssinaturaColaborador() {
   document.getElementById('assinatura-preview-existente').style.display = 'none';
   document.getElementById('img-assinatura-atual').src = '';
-  document.getElementById('canvas-colab-assinatura').style.display = 'block';
+  _mostrarCanvas(true);
   limparCanvasColabAssinatura();
 }
 
@@ -180,11 +188,11 @@ function editarColaborador(id) {
   if (urlAssin) {
     document.getElementById('img-assinatura-atual').src = urlAssin;
     document.getElementById('assinatura-preview-existente').style.display = 'block';
-    document.getElementById('canvas-colab-assinatura').style.display = 'none';
+    _mostrarCanvas(false);
     limparCanvasColabAssinatura();
   } else {
     document.getElementById('assinatura-preview-existente').style.display = 'none';
-    document.getElementById('canvas-colab-assinatura').style.display = 'block';
+    _mostrarCanvas(true);
     limparCanvasColabAssinatura();
   }
 
@@ -202,7 +210,7 @@ function resetarFormColaborador() {
   document.getElementById('colab-funcao').value = '';
   document.getElementById('colab-contratacao').value = '';
   document.getElementById('assinatura-preview-existente').style.display = 'none';
-  document.getElementById('canvas-colab-assinatura').style.display = 'block';
+  _mostrarCanvas(true);
   limparCanvasColabAssinatura();
   const btn = document.getElementById('btn-salvar-colaborador');
   btn.textContent = '💾 Registrar Colaborador';

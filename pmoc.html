@@ -329,8 +329,9 @@
   <script>
     // Carrega preview da assinatura cadastrada do técnico selecionado
     function carregarAssinaturaTecnico(sel) {
-      const opt       = sel.options[sel.selectedIndex];
-      const assinatura = opt?.dataset?.assinatura || '';
+      const opt        = sel.options[sel.selectedIndex];
+      // dataset gravado como assinaturaUrl em atualizarSelectColaboradores()
+      const assinatura = opt?.dataset?.assinaturaUrl || opt?.dataset?.assinatura || '';
       const img        = document.getElementById('tecnico-assinatura-img');
       const vazio      = document.getElementById('tecnico-assinatura-vazio');
       const aviso      = document.getElementById('tecnico-sem-assinatura-aviso');
@@ -342,7 +343,9 @@
         aviso.style.display = 'none';
         return;
       }
-      if (assinatura && assinatura.startsWith('data:image')) {
+      // Aceita URL de Storage (https://...) ou Base64 legado (data:image/...)
+      const temAssinatura = assinatura && (assinatura.startsWith('http') || assinatura.startsWith('data:image'));
+      if (temAssinatura) {
         img.src             = assinatura;
         img.style.display   = 'block';
         vazio.style.display = 'none';
