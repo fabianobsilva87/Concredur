@@ -6,6 +6,7 @@
     <title>Concredur — Gerenciamento de Ativos</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="config.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
@@ -14,6 +15,7 @@
     <aside class="sidebar no-print">
       <div class="sidebar-header">
         <div class="sidebar-logo">🏗️</div><h3>Concredur</h3><p>Gestão de Manutenção</p>
+        
         <div class="user-logged-badge"><span class="user-icon-dot">●</span><span id="user-display-email">...</span></div>
       </div>
             <nav>
@@ -24,7 +26,7 @@
         <div class="nav-item active" onclick="location.href='gerir-equipamentos.html'"><span>⚙️</span> Gerenciamento de Ativos</div>
         <div class="nav-item" onclick="location.href='pmoc.html'"><span>📋</span> Formulário PMOC</div>
         <div class="nav-label">Manutenção</div>
-        <div class="nav-item " onclick="location.href='os.html'"><span>🛠️</span> Ordens de Serviço</div>
+        <div class="nav-item" onclick="location.href='os.html'"><span>🛠️</span> Ordens de Serviço</div>
         <div class="nav-label">Administração</div>
         <div class="nav-item" onclick="location.href='colaborador.html'"><span>👷</span> Colaboradores</div>
         <div class="nav-item" onclick="location.href='empresas.html'"><span>🏢</span> Empresas</div>
@@ -34,7 +36,11 @@
     </aside>
 
     <main class="main-content">
-      <div class="topbar no-print"><h2>⚙️ Painel Central de Controle de Ativos</h2></div>
+      <div class="topbar no-print">
+        <h2>⚙️ Painel Central de Controle de Ativos</h2>
+        <button class="btn-refresh" style="margin-left:auto;background:#10b981;border-color:#10b981;color:#fff;" onclick="gerarTokensFaltantes()">➕ Gerar QR Faltantes</button>
+        <button class="btn-refresh" style="background:#1a56db;border-color:#1a56db;color:#fff;" onclick="imprimirTodasEtiquetas()">🏷️ Imprimir Todas as Etiquetas</button>
+      </div>
       <div class="section-content">
         <div class="card">
           <h3 class="card-title">Filtros Avançados de Busca</h3>
