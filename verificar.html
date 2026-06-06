@@ -20,34 +20,51 @@
     .status-banner.invalido { background: #fee2e2; color: #991b1b; border-bottom: 2px solid #fca5a5; }
     .status-banner.loading  { background: #f1f5f9; color: #64748b; border-bottom: 2px solid #e2e8f0; }
     .status-icon { font-size: 22px; }
-    .body { padding: 22px 28px; }
-    .field-group { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; margin-bottom: 16px; }
+    .body { padding: 22px 28px; overflow: hidden; }
+
+    /* Grid de campos — colunas com largura mínima para não estourar */
+    .field-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; margin-bottom: 16px; }
+    .field { min-width: 0; overflow: hidden; }
     .field label { font-size: 10px; color: #718096; text-transform: uppercase; letter-spacing: 0.06em; display: block; margin-bottom: 2px; }
-    .field span  { font-size: 14px; font-weight: 600; color: #1a202c; }
+    .field span  { font-size: 14px; font-weight: 600; color: #1a202c; display: block; word-break: break-word; overflow-wrap: anywhere; }
     .field.full  { grid-column: span 2; }
+
+    /* Parágrafos de texto longo (laudo, descrição) */
+    .body p, .body div { max-width: 100%; }
+    p { word-break: break-word; overflow-wrap: anywhere; }
+
     .divider { border: none; border-top: 1px solid #e2e8f0; margin: 16px 0; }
-    .tag-tipo { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+    .tag-tipo { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; flex-shrink: 0; }
     .tag-pmoc { background: #dbeafe; color: #1e40af; }
     .tag-os   { background: #ede9fe; color: #5b21b6; }
     .tag-eq   { background: #f0fdf4; color: #166534; }
-    .checklist-mini { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+    .checklist-mini { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; table-layout: fixed; }
     .checklist-mini th { background: #f1f5f9; color: #64748b; padding: 5px 8px; text-align: left; font-size: 10px; text-transform: uppercase; }
-    .checklist-mini td { padding: 4px 8px; border-bottom: 1px solid #f1f5f9; }
+    .checklist-mini td { padding: 4px 8px; border-bottom: 1px solid #f1f5f9; word-break: break-word; }
     .ok  { color: #059669; font-weight: 700; }
     .nok { color: #dc2626; font-weight: 700; }
     .na  { color: #a0aec0; }
     .assinatura-row { display: flex; gap: 24px; margin-top: 16px; }
-    .assinatura-box { flex: 1; text-align: center; }
+    .assinatura-box { flex: 1; min-width: 0; text-align: center; }
     .assinatura-box img { max-width: 160px; max-height: 55px; display: block; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 4px; }
-    .assinatura-box .linha { border-top: 1px solid #64748b; margin-top: 6px; padding-top: 4px; font-size: 10px; color: #64748b; }
+    .assinatura-box .linha { border-top: 1px solid #64748b; margin-top: 6px; padding-top: 4px; font-size: 10px; color: #64748b; word-break: break-word; }
     .footer { padding: 14px 28px; background: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 10px; color: #94a3b8; text-align: center; }
     .footer a { color: #1a56db; text-decoration: none; }
     .spinner { width: 36px; height: 36px; border: 4px solid #e2e8f0; border-top-color: #1a56db; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 32px auto; }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Caixas de texto de laudo/descrição dentro do histórico */
+    .txt-box { font-size: 11px; color: #4a5568; background: #fff; padding: 6px 8px;
+               border-radius: 4px; border: 1px solid #e2e8f0;
+               word-break: break-word; overflow-wrap: anywhere; white-space: pre-wrap; }
+
     @media (max-width: 500px) {
       .field-group { grid-template-columns: 1fr; }
       .field.full  { grid-column: span 1; }
       .assinatura-row { flex-direction: column; }
+      .body { padding: 16px; }
+      .header { padding: 16px; }
+      .status-banner { padding: 12px 16px; font-size: 13px; }
     }
   </style>
 </head>
@@ -256,8 +273,8 @@
             <div class="field"><label>Tipo de Manutenção</label><span>${escapeHTML(os.tipo_os)}</span></div>
             <div class="field full"><label>Abertura da O.S.</label><span>${fmtDate(os.created_at)}</span></div>
           </div>
-          ${os.descricao_defeito ? `<hr class="divider"><div style="font-size:10px;color:#718096;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Descrição da Ocorrência</div><p style="font-size:12px;line-height:1.6;color:#374151;">${escapeHTML(os.descricao_defeito)}</p>` : ''}
-          ${os.laudo_tecnico ? `<hr class="divider"><div style="font-size:10px;color:#718096;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Diagnóstico / Ações</div><p style="font-size:12px;line-height:1.6;color:#374151;">${escapeHTML(os.laudo_tecnico)}</p>` : ''}
+          ${os.descricao_defeito ? `<hr class="divider"><div style="font-size:10px;color:#718096;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Descrição da Ocorrência</div><p class="txt-box" style="font-size:12px;">${escapeHTML(os.descricao_defeito)}</p>` : ''}
+          ${os.laudo_tecnico ? `<hr class="divider"><div style="font-size:10px;color:#718096;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Diagnóstico / Ações</div><p class="txt-box" style="font-size:12px;">${escapeHTML(os.laudo_tecnico)}</p>` : ''}
           <hr class="divider">
           <div style="font-size:10px;color:#718096;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">Assinatura do Técnico</div>
           <div class="assinatura-row">
@@ -379,7 +396,7 @@
               <div style="font-size:11px;"><span style="color:#a0aec0;">Fiscal:</span> <strong>${escapeHTML(fiscal)}</strong></div>
             </div>
             ${chkRows ? `<div style="font-size:10px;color:#718096;text-transform:uppercase;margin:6px 0 3px;">Checklist de Manutenção</div><table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:4px;">${chkRows}</table>` : ''}
-            ${obs ? `<div style="font-size:10px;color:#718096;text-transform:uppercase;margin:8px 0 3px;">Observações</div><div style="font-size:11px;color:#4a5568;background:#fff;padding:6px 8px;border-radius:4px;border:1px solid #e2e8f0;">${escapeHTML(obs)}</div>` : ''}
+            ${obs ? `<div style="font-size:10px;color:#718096;text-transform:uppercase;margin:8px 0 3px;">Observações</div><div class="txt-box">${escapeHTML(obs)}</div>` : ''}
             ${f.foto_url ? `<div style="font-size:10px;color:#718096;text-transform:uppercase;margin:8px 0 3px;">Evidência Fotográfica</div><img src="${f.foto_url}" style="max-width:100%;max-height:180px;border-radius:4px;border:1px solid #e2e8f0;">` : ''}
             ${(assinTec || assinFis) ? `<div style="font-size:10px;color:#718096;text-transform:uppercase;margin:8px 0 3px;">Assinaturas</div><div style="display:flex;gap:12px;flex-wrap:wrap;">
               ${assinTec ? `<div style="text-align:center;"><img src="${assinTec}" style="max-width:140px;max-height:50px;border-bottom:1px solid #cbd5e0;"><div style="font-size:9px;color:#718096;">Técnico</div></div>` : ''}
@@ -424,8 +441,8 @@
               <div style="font-size:11px;"><span style="color:#a0aec0;">Data:</span> <strong>${fmtDate(os.created_at)}</strong></div>
               <div style="font-size:11px;"><span style="color:#a0aec0;">Técnico:</span> <strong>${escapeHTML(os.colaboradores?.nome||'—')}</strong></div>
             </div>
-            ${os.descricao_defeito ? `<div style="font-size:10px;color:#718096;text-transform:uppercase;margin:6px 0 3px;">Ocorrência / Sintomas</div><div style="font-size:11px;color:#4a5568;background:#fff;padding:6px 8px;border-radius:4px;border:1px solid #e2e8f0;">${escapeHTML(os.descricao_defeito)}</div>` : ''}
-            ${os.laudo_tecnico ? `<div style="font-size:10px;color:#718096;text-transform:uppercase;margin:8px 0 3px;">Diagnóstico / Ações Executadas</div><div style="font-size:11px;color:#4a5568;background:#fff;padding:6px 8px;border-radius:4px;border:1px solid #e2e8f0;">${escapeHTML(os.laudo_tecnico)}</div>` : ''}
+            ${os.descricao_defeito ? `<div style="font-size:10px;color:#718096;text-transform:uppercase;margin:6px 0 3px;">Ocorrência / Sintomas</div><div class="txt-box">${escapeHTML(os.descricao_defeito)}</div>` : ''}
+            ${os.laudo_tecnico ? `<div style="font-size:10px;color:#718096;text-transform:uppercase;margin:8px 0 3px;">Diagnóstico / Ações Executadas</div><div class="txt-box">${escapeHTML(os.laudo_tecnico)}</div>` : ''}
             ${os.foto_url ? `<div style="font-size:10px;color:#718096;text-transform:uppercase;margin:8px 0 3px;">Evidência Fotográfica</div><img src="${os.foto_url}" style="max-width:100%;max-height:180px;border-radius:4px;border:1px solid #e2e8f0;">` : ''}
           </div>`;
 
