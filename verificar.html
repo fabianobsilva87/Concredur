@@ -295,10 +295,16 @@
         const cs      = critCor[crit] || critCor['Média'];
         const catLabel = { AC:'❄️ Ar Condicionado', BEB:'💧 Bebedouro', CLIM:'🌀 Climatizador Evaporativo', VEN:'💨 Ventilador/Exaustor', OUT:'🔧 Outros' };
         const codigo  = `EQ-${(eq.tag||eq.id.toString().slice(0,6)).toUpperCase()}`;
-        const extras  = eq.extras_tecnico || {};
-        const extraFields = Object.entries(extras).map(([k,v]) =>
-          `<div class="field"><label>${escapeHTML(k.replace(/-/g,' '))}</label><span>${escapeHTML(v)}</span></div>`
-        ).join('');
+        const extras  = (() => {
+          const raw = eq.extras_tecnico || eq.extras || {};
+          if (typeof raw === 'string') { try { return JSON.parse(raw); } catch(e) { return {}; } }
+          return raw;
+        })();
+        const extraFields = Object.entries(extras)
+          .filter(([k, v]) => v !== null && v !== undefined && String(v).trim() !== '')
+          .map(([k, v]) =>
+            `<div class="field"><label>${escapeHTML(k.replace(/-/g,' '))}</label><span>${escapeHTML(v)}</span></div>`
+          ).join('');
 
         document.getElementById('status-banner').className = 'status-banner valido';
         document.getElementById('status-texto').textContent = `✅ Ativo autêntico — ${codigo}`;
