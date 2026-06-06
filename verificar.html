@@ -114,16 +114,20 @@
 
   // Compatibilidade: lê meta_pmoc (novo) com fallback para observacoes regex (legado)
   function lerMetaPMOC(ficha) {
-    if (ficha.meta_pmoc && Object.keys(ficha.meta_pmoc).length > 0) return ficha.meta_pmoc;
+    if (ficha.meta_pmoc && typeof ficha.meta_pmoc === 'object' && Object.keys(ficha.meta_pmoc).length > 0) {
+      return { ...ficha.meta_pmoc, _obsLimpa: ficha.observacoes || '' };
+    }
     const obs = ficha.observacoes || '';
     const m = (p) => { const r = obs.match(p); return r ? r[1] : null; };
+    // Remove todos os blocos [Chave: Valor] das observações para exibir só o texto livre
+    const _obsLimpa = obs.replace(/\[[^\]]+\]/g, '').trim();
     return {
       data_inspecao:    m(/\[DataInspecao:\s*([^\]]+)\]/),
       frequencia:       m(/\[Frequencia:\s*([^\]]+)\]/)     || 'Mensal',
       tipo_equipamento: m(/\[TipoEquipamento:\s*([^\]]+)\]/)|| 'OUT',
-      checklist:        (() => { try { return JSON.parse(m(/\[Checklist:\s*(\{[^\]]+\})\]/)||'{}'); } catch(e) { return {}; } })(),
+      checklist:        (() => { try { return JSON.parse(m(/\[Checklist:\s*(\{[^}]*\})\]/) || '{}'); } catch(e) { return {}; } })(),
       fiscal_nome:      (m(/\[FiscalNome:\s*([^\]]+)\]/)    || '—').trim(),
-      _obsLimpa:        obs.replace(/\[[^\]]+\]/g,'').trim(),
+      _obsLimpa,
     };
   }
 
@@ -385,7 +389,7 @@
         const freq     = meta.frequencia || '—';
         const tipo     = meta.tipo_equipamento || '—';
         const fiscal   = meta.fiscal_nome || '—';
-        const obs      = meta._obsLimpa || f.observacoes || '';
+        const obs      = meta._obsLimpa || '';
         const checklist = meta.checklist || {};
         const chkRows = Object.entries(checklist).map(([k,v]) =>
           `<tr><td style="padding:3px 6px;font-size:11px;">${escapeHTML(labelChk[k]||k)}</td><td style="padding:3px 6px;text-align:center;font-size:11px;">${statusChk[v]||escapeHTML(v)}</td></tr>`
