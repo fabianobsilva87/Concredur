@@ -114,13 +114,14 @@
 
   // Compatibilidade: lê meta_pmoc (novo) com fallback para observacoes regex (legado)
   function lerMetaPMOC(ficha) {
-    if (ficha.meta_pmoc && typeof ficha.meta_pmoc === 'object' && Object.keys(ficha.meta_pmoc).length > 0) {
-      return { ...ficha.meta_pmoc, _obsLimpa: ficha.observacoes || '' };
-    }
     const obs = ficha.observacoes || '';
-    const m = (p) => { const r = obs.match(p); return r ? r[1] : null; };
-    // Remove todos os blocos [Chave: Valor] das observações para exibir só o texto livre
+    // Remove todos os blocos [Chave: Valor] para obter só o texto livre
     const _obsLimpa = obs.replace(/\[[^\]]+\]/g, '').trim();
+
+    if (ficha.meta_pmoc && typeof ficha.meta_pmoc === 'object' && Object.keys(ficha.meta_pmoc).length > 0) {
+      return { ...ficha.meta_pmoc, _obsLimpa };
+    }
+    const m = (p) => { const r = obs.match(p); return r ? r[1] : null; };
     return {
       data_inspecao:    m(/\[DataInspecao:\s*([^\]]+)\]/),
       frequencia:       m(/\[Frequencia:\s*([^\]]+)\]/)     || 'Mensal',
@@ -200,12 +201,19 @@
         const codigo     = `L-PMOC-${f.id.toString().slice(0,6).toUpperCase()}`;
 
         const labelChk = {
-          'limpeza-filtro':'Limpeza de Filtro','limpeza-evaporadora':'Limpeza Evaporadora',
+      'limpeza-filtro':'Limpeza de Filtro','limpeza-evaporadora':'Limpeza Evaporadora',
           'limpeza-condensadora':'Limpeza Condensadora','verificacao-dreno':'Verificação de Dreno',
           'verificacao-eletrica':'Verificação Elétrica','verificacao-fluido':'Verificação de Fluido',
           'teste-operacao':'Teste de Operação','verificacao-ruidos':'Verificação de Ruídos','limpeza-geral':'Limpeza Geral',
+          'fil_01':'Limpeza de Filtro','fil_02':'Troca de Filtro',
+          'bio_01':'Higienização Evaporadora','bio_02':'Higienização Condensadora',
+          'mec_01':'Verificação Mecânica','mec_02':'Lubrificação',
+          'ele_01':'Verificação Elétrica','ele_02':'Teste de Tensão',
+          'gas_01':'Verificação de Gás Refrigerante','gas_02':'Recarga de Gás',
+          'dre_01':'Verificação de Dreno','dre_02':'Limpeza de Dreno',
+          'ope_01':'Teste de Operação','rui_01':'Verificação de Ruídos',
         };
-        const statusChk = { OK:'<span class="ok">✓ OK</span>', NOK:'<span class="nok">✗ NOK</span>', NA:'<span class="na">N/A</span>' };
+        const statusChk = { OK:'<span class="ok">✓ OK</span>', NOK:'<span class="nok">✗ NOK</span>', NA:'<span class="na">N/A</span>', C:'<span class="ok">✓ Conforme</span>', NC:'<span class="nok">✗ Não Conforme</span>', 'N/A':'<span class="na">N/A</span>' };
         const chkRows = Object.entries(checklist).map(([k,v]) =>
           `<tr><td>${escapeHTML(labelChk[k]||k)}</td><td style="text-align:center;">${statusChk[v]||escapeHTML(v)}</td></tr>`
         ).join('');
@@ -373,11 +381,21 @@
       'limpeza-condensadora':'Limpeza Condensadora','verificacao-dreno':'Verificação de Dreno',
       'verificacao-eletrica':'Verificação Elétrica','verificacao-fluido':'Verificação de Fluido',
       'teste-operacao':'Teste de Operação','verificacao-ruidos':'Verificação de Ruídos','limpeza-geral':'Limpeza Geral',
+      'fil_01':'Limpeza de Filtro','fil_02':'Troca de Filtro',
+      'bio_01':'Higienização Evaporadora','bio_02':'Higienização Condensadora',
+      'mec_01':'Verificação Mecânica','mec_02':'Lubrificação',
+      'ele_01':'Verificação Elétrica','ele_02':'Teste de Tensão',
+      'gas_01':'Verificação de Gás Refrigerante','gas_02':'Recarga de Gás',
+      'dre_01':'Verificação de Dreno','dre_02':'Limpeza de Dreno',
+      'ope_01':'Teste de Operação','rui_01':'Verificação de Ruídos',
     };
     const statusChk = {
       OK:'<span style="color:#059669;font-weight:700;">✓ OK</span>',
       NOK:'<span style="color:#dc2626;font-weight:700;">✗ NOK</span>',
       NA:'<span style="color:#a0aec0;">N/A</span>',
+      C:'<span style="color:#059669;font-weight:700;">✓ Conforme</span>',
+      NC:'<span style="color:#dc2626;font-weight:700;">✗ Não Conforme</span>',
+      'N/A':'<span style="color:#a0aec0;">N/A</span>',
     };
 
     // ── Bloco PMOC ──
