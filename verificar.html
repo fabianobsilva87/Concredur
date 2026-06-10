@@ -112,16 +112,34 @@
       .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
   }
 
+  // Lê fotos_urls (array novo) com fallback para foto_url (campo legado único).
+  function lerFotos(obj) {
+    if (!obj) return [];
+    let arr = obj.fotos_urls;
+    if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch { arr = []; } }
+    if (Array.isArray(arr) && arr.length) return arr.filter(Boolean);
+    return obj.foto_url ? [obj.foto_url] : [];
+  }
+
+  // Monta o bloco de evidências fotográficas (1 ou várias imagens).
+  function galeriaFotosVerificar(obj) {
+    const fs = lerFotos(obj);
+    if (!fs.length) return '';
+    return '<div style="font-size:10px;color:#718096;text-transform:uppercase;margin:8px 0 3px;">Evidências Fotográficas</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:6px;">' +
+      fs.map(u => `<img src="${u}" style="max-width:48%;max-height:180px;border-radius:4px;border:1px solid #e2e8f0;object-fit:cover;">`).join('') +
+      '</div>';
+  }
+
   // Compatibilidade: lê meta_pmoc (novo) com fallback para observacoes regex (legado)
   function lerMetaPMOC(ficha) {
-    const obs = ficha.observacoes || '';
-    // Remove todos os blocos [Chave: Valor] para obter só o texto livre
-    const _obsLimpa = obs.replace(/\[[^\]]+\]/g, '').trim();
-
     if (ficha.meta_pmoc && typeof ficha.meta_pmoc === 'object' && Object.keys(ficha.meta_pmoc).length > 0) {
-      return { ...ficha.meta_pmoc, _obsLimpa };
+      return { ...ficha.meta_pmoc, _obsLimpa: ficha.observacoes || '' };
     }
+    const obs = ficha.observacoes || '';
     const m = (p) => { const r = obs.match(p); return r ? r[1] : null; };
+    // Remove todos os blocos [Chave: Valor] das observações para exibir só o texto livre
+    const _obsLimpa = obs.replace(/\[[^\]]+\]/g, '').trim();
     return {
       data_inspecao:    m(/\[DataInspecao:\s*([^\]]+)\]/),
       frequencia:       m(/\[Frequencia:\s*([^\]]+)\]/)     || 'Mensal',
@@ -201,19 +219,12 @@
         const codigo     = `L-PMOC-${f.id.toString().slice(0,6).toUpperCase()}`;
 
         const labelChk = {
-      'limpeza-filtro':'Limpeza de Filtro','limpeza-evaporadora':'Limpeza Evaporadora',
+          'limpeza-filtro':'Limpeza de Filtro','limpeza-evaporadora':'Limpeza Evaporadora',
           'limpeza-condensadora':'Limpeza Condensadora','verificacao-dreno':'Verificação de Dreno',
           'verificacao-eletrica':'Verificação Elétrica','verificacao-fluido':'Verificação de Fluido',
           'teste-operacao':'Teste de Operação','verificacao-ruidos':'Verificação de Ruídos','limpeza-geral':'Limpeza Geral',
-          'fil_01':'Limpeza de Filtro','fil_02':'Troca de Filtro',
-          'bio_01':'Higienização Evaporadora','bio_02':'Higienização Condensadora',
-          'mec_01':'Verificação Mecânica','mec_02':'Lubrificação',
-          'ele_01':'Verificação Elétrica','ele_02':'Teste de Tensão',
-          'gas_01':'Verificação de Gás Refrigerante','gas_02':'Recarga de Gás',
-          'dre_01':'Verificação de Dreno','dre_02':'Limpeza de Dreno',
-          'ope_01':'Teste de Operação','rui_01':'Verificação de Ruídos',
         };
-        const statusChk = { OK:'<span class="ok">✓ OK</span>', NOK:'<span class="nok">✗ NOK</span>', NA:'<span class="na">N/A</span>', C:'<span class="ok">✓ Conforme</span>', NC:'<span class="nok">✗ Não Conforme</span>', 'N/A':'<span class="na">N/A</span>' };
+        const statusChk = { OK:'<span class="ok">✓ OK</span>', NOK:'<span class="nok">✗ NOK</span>', NA:'<span class="na">N/A</span>' };
         const chkRows = Object.entries(checklist).map(([k,v]) =>
           `<tr><td>${escapeHTML(labelChk[k]||k)}</td><td style="text-align:center;">${statusChk[v]||escapeHTML(v)}</td></tr>`
         ).join('');
@@ -364,11 +375,11 @@
 
     const [pmocRes, osRes] = await Promise.allSettled([
       db.from('fichas_pmoc')
-        .select('id, created_at, tecnico_nome, observacoes, meta_pmoc, foto_url, assinatura_tecnico_url, assinatura_fiscal_url, assinatura_digital')
+        .select('id, created_at, tecnico_nome, observacoes, meta_pmoc, foto_url, fotos_urls, assinatura_tecnico_url, assinatura_fiscal_url, assinatura_digital')
         .eq('equipamento_id', equipamentoId)
         .order('created_at', { ascending: false }),
       db.from('ordens_servico')
-        .select('id, created_at, tipo_os, status_os, descricao_defeito, laudo_tecnico, foto_url, colaboradores(nome)')
+        .select('id, created_at, tipo_os, status_os, descricao_defeito, laudo_tecnico, foto_url, fotos_urls, colaboradores(nome)')
         .eq('equipamento_id', equipamentoId)
         .order('created_at', { ascending: false }),
     ]);
@@ -381,21 +392,11 @@
       'limpeza-condensadora':'Limpeza Condensadora','verificacao-dreno':'Verificação de Dreno',
       'verificacao-eletrica':'Verificação Elétrica','verificacao-fluido':'Verificação de Fluido',
       'teste-operacao':'Teste de Operação','verificacao-ruidos':'Verificação de Ruídos','limpeza-geral':'Limpeza Geral',
-      'fil_01':'Limpeza de Filtro','fil_02':'Troca de Filtro',
-      'bio_01':'Higienização Evaporadora','bio_02':'Higienização Condensadora',
-      'mec_01':'Verificação Mecânica','mec_02':'Lubrificação',
-      'ele_01':'Verificação Elétrica','ele_02':'Teste de Tensão',
-      'gas_01':'Verificação de Gás Refrigerante','gas_02':'Recarga de Gás',
-      'dre_01':'Verificação de Dreno','dre_02':'Limpeza de Dreno',
-      'ope_01':'Teste de Operação','rui_01':'Verificação de Ruídos',
     };
     const statusChk = {
       OK:'<span style="color:#059669;font-weight:700;">✓ OK</span>',
       NOK:'<span style="color:#dc2626;font-weight:700;">✗ NOK</span>',
       NA:'<span style="color:#a0aec0;">N/A</span>',
-      C:'<span style="color:#059669;font-weight:700;">✓ Conforme</span>',
-      NC:'<span style="color:#dc2626;font-weight:700;">✗ Não Conforme</span>',
-      'N/A':'<span style="color:#a0aec0;">N/A</span>',
     };
 
     // ── Bloco PMOC ──
@@ -425,7 +426,7 @@
             </div>
             ${chkRows ? `<div style="font-size:10px;color:#718096;text-transform:uppercase;margin:6px 0 3px;">Checklist de Manutenção</div><table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:4px;">${chkRows}</table>` : ''}
             ${obs ? `<div style="font-size:10px;color:#718096;text-transform:uppercase;margin:8px 0 3px;">Observações</div><div class="txt-box">${escapeHTML(obs)}</div>` : ''}
-            ${f.foto_url ? `<div style="font-size:10px;color:#718096;text-transform:uppercase;margin:8px 0 3px;">Evidência Fotográfica</div><img src="${f.foto_url}" style="max-width:100%;max-height:180px;border-radius:4px;border:1px solid #e2e8f0;">` : ''}
+            ${galeriaFotosVerificar(f)}
             ${(assinTec || assinFis) ? `<div style="font-size:10px;color:#718096;text-transform:uppercase;margin:8px 0 3px;">Assinaturas</div><div style="display:flex;gap:12px;flex-wrap:wrap;">
               ${assinTec ? `<div style="text-align:center;"><img src="${assinTec}" style="max-width:140px;max-height:50px;border-bottom:1px solid #cbd5e0;"><div style="font-size:9px;color:#718096;">Técnico</div></div>` : ''}
               ${assinFis ? `<div style="text-align:center;"><img src="${assinFis}" style="max-width:140px;max-height:50px;border-bottom:1px solid #cbd5e0;"><div style="font-size:9px;color:#718096;">Fiscal</div></div>` : ''}
@@ -471,7 +472,7 @@
             </div>
             ${os.descricao_defeito ? `<div style="font-size:10px;color:#718096;text-transform:uppercase;margin:6px 0 3px;">Ocorrência / Sintomas</div><div class="txt-box">${escapeHTML(os.descricao_defeito)}</div>` : ''}
             ${os.laudo_tecnico ? `<div style="font-size:10px;color:#718096;text-transform:uppercase;margin:8px 0 3px;">Diagnóstico / Ações Executadas</div><div class="txt-box">${escapeHTML(os.laudo_tecnico)}</div>` : ''}
-            ${os.foto_url ? `<div style="font-size:10px;color:#718096;text-transform:uppercase;margin:8px 0 3px;">Evidência Fotográfica</div><img src="${os.foto_url}" style="max-width:100%;max-height:180px;border-radius:4px;border:1px solid #e2e8f0;">` : ''}
+            ${galeriaFotosVerificar(os)}
           </div>`;
 
         return `

@@ -132,13 +132,62 @@ async function uploadFoto(file, pasta, msgId) {
       blob = file;
     }
   }
-  const nomeArq = `${pasta}/foto_${Date.now()}.jpg`;
+  const sufixo  = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const nomeArq = `${pasta}/foto_${sufixo}.jpg`;
   const { error } = await db.storage
     .from('fotos-pmoc')
     .upload(nomeArq, blob, { contentType: 'image/jpeg', upsert: false });
   if (error) return null;
   const { data: { publicUrl } } = db.storage.from('fotos-pmoc').getPublicUrl(nomeArq);
   return publicUrl;
+}
+
+// ===================== MÚLTIPLAS FOTOS (laudo PMOC / OS) =====================
+// Faz upload de várias imagens e retorna um array de URLs públicas.
+async function uploadFotos(fileList, pasta, msgId) {
+  const files = Array.from(fileList || []).filter(Boolean);
+  if (!files.length) return [];
+  const urls = [];
+  for (let i = 0; i < files.length; i++) {
+    if (msgId) msgForm(msgId, `📤 Enviando imagem ${i + 1} de ${files.length}...`, 'blue');
+    const url = await uploadFoto(files[i], pasta, null);
+    if (url) urls.push(url);
+  }
+  return urls;
+}
+
+// Lê fotos_urls (array novo) com fallback para foto_url (campo legado único).
+function lerFotos(obj) {
+  if (!obj) return [];
+  let arr = obj.fotos_urls;
+  if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch { arr = []; } }
+  if (Array.isArray(arr) && arr.length) return arr.filter(Boolean);
+  return obj.foto_url ? [obj.foto_url] : [];
+}
+
+// Galeria de evidências fotográficas para os laudos impressos.
+function galeriaFotosHTML(obj, titulo = 'Evidências Fotográficas') {
+  const fotos = lerFotos(obj);
+  if (!fotos.length) return '';
+  const imgs = fotos.map(u =>
+    `<img src="${u}" style="max-width:48%;max-height:200px;border-radius:4px;border:1px solid #e2e8f0;object-fit:cover;">`
+  ).join('');
+  return `<div class="laudo-section"><div class="laudo-section-title">${titulo}</div>` +
+         `<div style="display:flex;flex-wrap:wrap;gap:8px;">${imgs}</div></div>`;
+}
+
+// Preview ao vivo das imagens selecionadas, antes de salvar.
+function montarPreviewFotos(inputId, previewId) {
+  const input = $(inputId), prev = $(previewId);
+  if (!input || !prev) return;
+  input.addEventListener('change', () => {
+    const files = Array.from(input.files || []);
+    prev.innerHTML = !files.length ? '' :
+      `<div style="font-size:12px;color:#4a5568;margin-bottom:6px;">${files.length} imagem(ns) selecionada(s)</div>` +
+      `<div style="display:flex;flex-wrap:wrap;gap:6px;">${
+        files.map(f => `<img src="${URL.createObjectURL(f)}" style="width:64px;height:64px;object-fit:cover;border-radius:4px;border:1px solid #cbd5e0;">`).join('')
+      }</div>`;
+  });
 }
 
 // ── Fase 2: upload de assinatura PNG para Storage (substitui Base64 no DB) ──
@@ -331,181 +380,6 @@ function calcularCriticidadeFluxograma() {
 }
 
 const FREQ_HIERARQUIA = { M: ['M'], T: ['M','T'], S: ['M','T','S'], A: ['M','T','S','A'] };
-
-// ====================================================================
-//  CHECKLIST-MESTRE PMOC — usado na impressão do laudo
-//  Cada item: { k: chave salva, f: frequência mínima, d: descrição }
-//  Extraído do formulário (pmoc.html). Mantém o laudo completo e legível.
-// ====================================================================
-const CHECKLIST_PMOC = {
-  AC: [
-    { k:'fil_01', f:'M', d:'Filtros de Ar (G4/F7/F9) — Higienização ou Substituição' },
-    { k:'bio_01', f:'M', d:'Bandeja de Condensados — Limpeza e Pastilha Sanitizante' },
-    { k:'bio_02', f:'M', d:'Rede de Drenagem — Desobstrução e Teste de Escoamento' },
-    { k:'mec_01', f:'M', d:'Conjunto Ventilação — Ruídos, Coxins e Fixadores' },
-    { k:'fil_02', f:'T', d:'Diferencial de Pressão de Filtros — Medição com Manômetro' },
-    { k:'bio_03', f:'T', d:'Serpentinas — Limpeza Química com Produto Específico por Pressão' },
-    { k:'ele_01', f:'T', d:'Medição de Corrente/Tensão dos Compressores e Motores' },
-    { k:'ele_02', f:'T', d:'Reaperto Geral dos Bornes de Comando e Potência' },
-    { k:'mec_02', f:'T', d:'Lubrificação de Rolamentos e Buchas do Motoventilador' },
-    { k:'ref_01', f:'S', d:'Verificação de Carga de Gás Refrigerante (Pressão de Alta/Baixa)' },
-    { k:'ref_02', f:'S', d:'Verificação de Vazamentos no Circuito Frigorífico (Detector de Gás)' },
-    { k:'ele_03', f:'S', d:'Medição de Isolamento Elétrico (Megôhmetro) dos Motores' },
-    { k:'ele_04', f:'S', d:'Teste dos Dispositivos de Proteção (Pressostatos e Termostatos)' },
-    { k:'mec_03', f:'S', d:'Inspeção e Substituição de Correias e Polias (se aplicável)' },
-    { k:'bio_04', f:'S', d:'Coleta de Amostra de Água para Análise Microbiológica' },
-    { k:'ins_01', f:'S', d:'Inspeção Estrutural — Suportes, Fixações e Isolamento Térmico das Linhas' },
-    { k:'ref_03', f:'A', d:'Substituição de Gás Refrigerante (se necessário) e Registro ART/Boletim' },
-    { k:'mec_04', f:'A', d:'Substituição de Rolamentos, Buchas e Selos Mecânicos Desgastados' },
-    { k:'mec_05', f:'A', d:'Limpeza e Inspeção do Compressor — Verificação de Óleo e Visor' },
-    { k:'ele_05', f:'A', d:'Revisão de Capacitores e Contatores com Desgaste Visível' },
-    { k:'ele_06', f:'A', d:'Termografia Elétrica do Painel de Comando e Cabos de Alimentação' },
-    { k:'bio_05', f:'A', d:'Higienização Completa e Laudos Microbiológicos do Sistema de Ar' },
-    { k:'ins_02', f:'A', d:'Revisão Geral do PMOC — Atualização de Documentação e ART' },
-    { k:'ins_03', f:'A', d:'Análise de Desempenho — Delta T Evaporador, COP e Eficiência do Sistema' },
-  ],
-  BEB: [
-    { k:'beb_01', f:'M', d:'Limpeza Externa — Gabinete, Torneiras e Bica (produto neutro)' },
-    { k:'beb_02', f:'M', d:'Verificação do Funcionamento do Sistema de Refrigeração (temperatura adequada)' },
-    { k:'beb_03', f:'M', d:'Inspeção Visual de Vazamentos nas Conexões e Tubulações' },
-    { k:'beb_04', f:'M', d:'Verificação e Higienização da Bandeja Coletora' },
-    { k:'beb_05', f:'T', d:'Higienização Interna Completa com Solução Sanitizante (hipoclorito)' },
-    { k:'beb_06', f:'T', d:'Limpeza e Verificação do Reservatório Interno de Água' },
-    { k:'beb_07', f:'T', d:'Verificação de Carga de Gás / Funcionamento do Compressor' },
-    { k:'beb_08', f:'T', d:'Verificação de Validade e Condição do Elemento Filtrante' },
-    { k:'beb_09', f:'S', d:'Substituição do Elemento Filtrante (carvão ativado / sedimentos)' },
-    { k:'beb_10', f:'S', d:'Análise Microbiológica da Água (coleta para laudo laboratorial)' },
-    { k:'beb_11', f:'S', d:'Verificação e Regulagem da Temperatura de Saída da Água' },
-    { k:'beb_12', f:'S', d:'Aplicação de Lacre e Registro de Sanitização com Número de Protocolo' },
-    { k:'beb_13', f:'A', d:'Revisão Completa do Sistema de Refrigeração (compressor, termostato, serpentina)' },
-    { k:'beb_14', f:'A', d:'Substituição de Vedações, O-rings e Torneiras com Desgaste Aparente' },
-    { k:'beb_15', f:'A', d:'Laudo Sanitário Anual — Documentação e Registro em Livro de Controle ANVISA' },
-  ],
-  CLIM: [
-    { k:'clm_01', f:'M', d:'Limpeza do Reservatório de Água — Remoção de Lodo e Calcário' },
-    { k:'clm_02', f:'M', d:'Limpeza e Inspeção do Painel Evaporativo (sem danificar as células)' },
-    { k:'clm_03', f:'M', d:'Verificação do Nível e Funcionamento da Boia de Controle de Água' },
-    { k:'clm_04', f:'M', d:'Verificação da Bomba d\'Água — Funcionamento e Fluxo de Distribuição' },
-    { k:'clm_05', f:'M', d:'Inspeção do Ventilador Axial — Ruídos, Vibração e Fixação da Hélice' },
-    { k:'clm_06', f:'T', d:'Limpeza Química do Reservatório — Descalcificação com Produto Específico' },
-    { k:'clm_07', f:'T', d:'Verificação e Limpeza dos Distribuidores de Água (chuveiros/aspersores)' },
-    { k:'clm_08', f:'T', d:'Medição de Corrente do Motor do Ventilador e da Bomba (amperagem)' },
-    { k:'clm_09', f:'T', d:'Lubrificação de Rolamentos do Motor e da Bomba' },
-    { k:'clm_10', f:'S', d:'Inspeção do Estado do Painel Evaporativo — Avaliação para Substituição' },
-    { k:'clm_11', f:'S', d:'Análise Microbiológica da Água do Reservatório (Controle de Legionela)' },
-    { k:'clm_12', f:'S', d:'Verificação do Sistema Elétrico — Quadro, Contactores e Proteções' },
-    { k:'clm_13', f:'S', d:'Tratamento Biocida da Água — Aplicação de Produto Antiincrustante' },
-    { k:'clm_14', f:'A', d:'Substituição do Painel Evaporativo (celulose ou polipropileno)' },
-    { k:'clm_15', f:'A', d:'Revisão Geral da Bomba — Impelidor, Eixo e Vedação Mecânica' },
-    { k:'clm_16', f:'A', d:'Laudo e Documentação Técnica Anual — Relatório de Controle de Qualidade da Água' },
-  ],
-  VEN: [
-    { k:'ven_01', f:'M', d:'Limpeza das Pás / Hélice e Grelha de Proteção (remoção de poeira acumulada)' },
-    { k:'ven_02', f:'M', d:'Verificação de Ruídos Anormais, Vibração Excessiva e Folgas Mecânicas' },
-    { k:'ven_03', f:'M', d:'Verificação de Fixação — Parafusos, Bucins e Suportes' },
-    { k:'ven_04', f:'T', d:'Lubrificação dos Rolamentos / Buchas com Graxa Adequada' },
-    { k:'ven_05', f:'T', d:'Medição de Corrente do Motor (amperagem nominal x real)' },
-    { k:'ven_06', f:'T', d:'Verificação e Reaperto das Conexões Elétricas no Quadro de Comando' },
-    { k:'ven_07', f:'S', d:'Medição de Isolamento Elétrico (Megôhmetro) do Motor' },
-    { k:'ven_08', f:'S', d:'Análise de Vibração com Acelerômetro — Verificação de Desbalanceamento' },
-    { k:'ven_09', f:'A', d:'Substituição de Rolamentos e Buchas com Desgaste Aparente' },
-    { k:'ven_10', f:'A', d:'Balanceamento Dinâmico das Pás / Hélice (se aplicável)' },
-  ],
-  OUT: [
-    { k:'ger_01', f:'M', d:'Inspeção Visual Geral do Equipamento — Estado de Conservação e Integridade' },
-    { k:'ger_02', f:'M', d:'Limpeza Geral — Remoção de Poeira, Oxidação e Sujidades' },
-    { k:'ger_03', f:'M', d:'Verificação de Fixação — Suportes, Parafusos e Estrutura' },
-    { k:'ger_04', f:'M', d:'Verificação Elétrica — Conexões, Chave Geral e Proteções' },
-    { k:'ger_05', f:'M', d:'Teste de Funcionamento e Verificação de Parâmetros Operacionais' },
-  ],
-};
-
-// Rótulos do checklist legado (registros anteriores à migração de chaves)
-const LABEL_CHK_LEGADO = {
-  'limpeza-filtro':'Limpeza de Filtro','limpeza-evaporadora':'Limpeza Evaporadora',
-  'limpeza-condensadora':'Limpeza Condensadora','verificacao-dreno':'Verificação de Dreno',
-  'verificacao-eletrica':'Verificação Elétrica','verificacao-fluido':'Verificação de Fluido',
-  'teste-operacao':'Teste de Operação','verificacao-ruidos':'Verificação de Ruídos','limpeza-geral':'Limpeza Geral',
-};
-
-// Status: novo formato (C/NC/NA) + legado (OK/NOK/NA)
-const STATUS_CHK_PMOC = {
-  C:  '<span class="ok">✓ Conforme</span>',
-  NC: '<span class="nok">✗ Não Conforme</span>',
-  NA: '<span class="na">N/A</span>',
-  OK: '<span class="ok">✓ OK</span>',
-  NOK:'<span class="nok">✗ NOK</span>',
-};
-
-const FREQ_LABEL_PARA_CODIGO = { Mensal:'M', Trimestral:'T', Semestral:'S', Anual:'A' };
-
-// Descrição do item a partir do código (mestre → fallback legado → o próprio código)
-function descricaoItemPMOC(k) {
-  for (const cat in CHECKLIST_PMOC) {
-    const it = CHECKLIST_PMOC[cat].find(x => x.k === k);
-    if (it) return it.d;
-  }
-  return LABEL_CHK_LEGADO[k] || k;
-}
-
-// Status formatado (C/NC/NA ou legado OK/NOK)
-function statusItemPMOC(v) {
-  if (v === undefined || v === null || v === '') return '<span class="na">—</span>';
-  return STATUS_CHK_PMOC[v] || escapeHTML(String(v));
-}
-
-// Títulos das seções por periodicidade (iguais aos do formulário de preenchimento)
-const TITULO_PERIODICIDADE = {
-  M: '🔧 Rotinas Mensais',
-  T: '📅 Rotinas Trimestrais',
-  S: '📆 Rotinas Semestrais',
-  A: '📋 Rotinas Anuais',
-};
-function _linhaChkPMOC(desc, status) {
-  return `<tr><td>${escapeHTML(desc)}</td><td style="text-align:center;width:120px;">${statusItemPMOC(status)}</td></tr>`;
-}
-function _cabecalhoGrupoChk(titulo) {
-  return `<tr><td colspan="2" style="background:#eef2f7;color:#1a56db;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.06em;padding:6px 8px;border-bottom:1px solid #cbd5e0;">${titulo}</td></tr>`;
-}
-
-// Monta as linhas do checklist do laudo impresso.
-// Renderiza APENAS os itens preenchidos, com a descrição correta, agrupados
-// por periodicidade (Mensais / Trimestrais / Semestrais / Anuais), como no formulário.
-// Registros legados (chaves antigas) caem numa lista simples sem agrupamento.
-function montarLinhasChecklistPMOC(catCodigo, freqLabel, checklist) {
-  checklist = checklist || {};
-  const chaves    = Object.keys(checklist);
-  if (!chaves.length) return '';
-  const temLegado = chaves.some(k => LABEL_CHK_LEGADO[k]);
-  const mestre    = CHECKLIST_PMOC[catCodigo];
-
-  // Legado / categoria desconhecida: lista simples só com os itens salvos
-  if (!mestre || temLegado) {
-    return chaves.map(k => _linhaChkPMOC(descricaoItemPMOC(k), checklist[k])).join('');
-  }
-
-  // Formato novo: agrupa os itens preenchidos por periodicidade, na ordem do mestre
-  const grupos = { M:[], T:[], S:[], A:[] };
-  const usados = new Set();
-  mestre.forEach(it => {
-    if (it.k in checklist) { grupos[it.f].push(it); usados.add(it.k); }
-  });
-
-  let html = '';
-  ['M','T','S','A'].forEach(f => {
-    if (!grupos[f].length) return;
-    html += _cabecalhoGrupoChk(TITULO_PERIODICIDADE[f]);
-    grupos[f].forEach(it => { html += _linhaChkPMOC(it.d, checklist[it.k]); });
-  });
-
-  // Segurança: chaves salvas que não existem no mestre (não perder dados)
-  const sobras = chaves.filter(k => !usados.has(k));
-  if (sobras.length) {
-    html += _cabecalhoGrupoChk('Outros Itens');
-    sobras.forEach(k => { html += _linhaChkPMOC(descricaoItemPMOC(k), checklist[k]); });
-  }
-  return html;
-}
 function toggleItemsPorFrequencia() {
   const freq = $('pmoc-frequencia')?.value || 'M';
   const ativas = FREQ_HIERARQUIA[freq] || ['M'];
@@ -915,7 +789,7 @@ if ($('btn-salvar-ficha')) {
       assinatura_fiscal_url = await uploadAssinatura(blob, 'fiscal', `fiscal_${Date.now()}`);
     }
 
-    const foto_url = await uploadFoto($('pmoc-foto')?.files[0], 'pmoc', 'msg-ficha');
+    const fotos_urls = await uploadFotos($('pmoc-foto')?.files, 'pmoc', 'msg-ficha');
     const { data: colab }     = await db.from('colaboradores').select('nome, assinatura_url, assinatura_digital').eq('id', tecnico_id).single();
     const { data: { user } }  = await db.auth.getUser();
 
@@ -928,7 +802,7 @@ if ($('btn-salvar-ficha')) {
       assinatura_tecnico_url: lerAssinaturaURL(colab,'assinatura_url','assinatura_digital') || null,
       assinatura_fiscal_url:  assinatura_fiscal_url || null,
     };
-    if (foto_url) payload.foto_url = foto_url;
+    if (fotos_urls.length) payload.fotos_urls = fotos_urls;
 
     const idEdicao = $('pmoc-id-edicao')?.value;
     const { error } = idEdicao
@@ -1007,17 +881,23 @@ function emitirRelatorioPMOC(b64) {
   const checklist  = meta.checklist       || {};
   const obsLimpa   = meta._obsLimpa       || '';
 
-  // Laudo completo: lista todos os itens da frequência (preenchidos e não), descrição correta
-  const chkRows = montarLinhasChecklistPMOC(tipo, freq, checklist);
+  const labelChk = {
+    'limpeza-filtro':'Limpeza de Filtro','limpeza-evaporadora':'Limpeza Evaporadora',
+    'limpeza-condensadora':'Limpeza Condensadora','verificacao-dreno':'Verificação de Dreno',
+    'verificacao-eletrica':'Verificação Elétrica','verificacao-fluido':'Verificação de Fluido',
+    'teste-operacao':'Teste de Operação','verificacao-ruidos':'Verificação de Ruídos','limpeza-geral':'Limpeza Geral',
+  };
+  const statusChk = { OK:'<span class="ok">✓ OK</span>', NOK:'<span class="nok">✗ NOK</span>', NA:'<span class="na">N/A</span>' };
+  const chkRows = Object.entries(checklist).map(([k,v]) =>
+    `<tr><td>${labelChk[k]||k}</td><td style="text-align:center;">${statusChk[v]||v}</td></tr>`
+  ).join('');
 
   const assinaturaTecnicoHTML = _assinaturaImg(lerAssinaturaURL(f,'assinatura_tecnico_url','assinatura_digital'),'max-width:200px;max-height:65px;display:block;margin:0 auto 4px;');
   const assinaturaFiscalHTML  = _assinaturaImg(lerAssinaturaURL(f,'assinatura_fiscal_url','assinatura_fiscal'), 'max-width:200px;max-height:65px;display:block;margin:0 auto 4px;');
   const urlValidacao = gerarUrlValidacao(f.id, 'pmoc');
   const qrCodeHTML   = gerarQrCodeSVG(urlValidacao, 100);
   const codigoLaudo  = `L-PMOC-${f.id.toString().slice(0,6).toUpperCase()}`;
-  const fotoHTML     = f.foto_url
-    ? `<div class="laudo-section"><div class="laudo-section-title">Evidência Fotográfica</div><img src="${f.foto_url}" style="max-width:100%;max-height:200px;border-radius:4px;border:1px solid #e2e8f0;"></div>`
-    : '';
+  const fotoHTML = galeriaFotosHTML(f);
 
   const html = `
   <div class="laudo-wrapper">
@@ -1135,7 +1015,7 @@ function emitirRelatorioOS(os) {
       <div class="laudo-section-title">Diagnóstico Técnico / Ações Executadas</div>
       <p style="font-size:12px;line-height:1.7;min-height:60px;">${escapeHTML(os.laudo_tecnico || 'Não informado.')}</p>
     </div>
-    ${os.foto_url ? `<div class="laudo-section"><div class="laudo-section-title">Evidência Fotográfica</div><img src="${os.foto_url}" style="max-width:100%;max-height:200px;border-radius:4px;border:1px solid #e2e8f0;"></div>` : ''}
+    ${galeriaFotosHTML(os)}
     <div class="laudo-section">
       <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;">
         <div style="flex:1;">
@@ -1170,13 +1050,22 @@ if ($('btn-salvar-os')) {
       descricao_defeito: $('os-defeito').value.trim(),
       laudo_tecnico:    $('os-laudo').value.trim(),
     };
+    const fotos_urls = await uploadFotos($('os-foto')?.files, 'os', 'msg-os');
+    if (fotos_urls.length) payload.fotos_urls = fotos_urls;
+
     const idEd = $('os-id-edicao').value;
     const { error } = idEd
       ? await db.from('ordens_servico').update(payload).eq('id', idEd)
       : await db.from('ordens_servico').insert([payload]);
-    if (!error) { resetarFormOS(); carregarOrdensServico(); carregarCentralUnificadaOS(); }
+    if (error) { msgForm('msg-os', 'Erro: ' + error.message, 'red'); return; }
+    msgForm('msg-os', idEd ? '✓ OS atualizada!' : '✓ OS registrada!', 'green');
+    resetarFormOS(); carregarOrdensServico(); carregarCentralUnificadaOS();
   });
 }
+
+// Ativa o preview das imagens selecionadas nos formulários PMOC e OS.
+montarPreviewFotos('pmoc-foto', 'pmoc-foto-preview');
+montarPreviewFotos('os-foto',  'os-foto-preview');
 
 async function carregarOrdensServico() {
   const tbody = $('tbody-os'); if (!tbody) return;
@@ -1374,7 +1263,11 @@ function alternarSubAbasRH(m) {
   if ($('sub-rh-colab'))    $('sub-rh-colab').style.display    = m === 'colab'    ? 'block' : 'none';
   if ($('sub-rh-cargo'))    $('sub-rh-cargo').style.display    = m === 'cargo'    ? 'block' : 'none';
 }
-function resetarFormOS()  { ['os-defeito','os-laudo','os-id-edicao'].forEach(id => { if ($(id)) $(id).value = ''; }); }
+function resetarFormOS()  {
+  ['os-defeito','os-laudo','os-id-edicao'].forEach(id => { if ($(id)) $(id).value = ''; });
+  if ($('os-foto')) $('os-foto').value = '';
+  if ($('os-foto-preview')) $('os-foto-preview').innerHTML = '';
+}
 function resetarFormOSG() { ['osg-setor','osg-requisitado','osg-falha'].forEach(id => { if ($(id)) $(id).value = ''; }); }
 
 // ===================== QR CODE =====================
@@ -1957,6 +1850,8 @@ function resetarFormPMOC() {
   if (btnSalvar) { btnSalvar.textContent = '✓ Registrar Ficha PMOC'; btnSalvar.style.background = ''; }
   const btnCancelar = $('btn-cancelar-edicao-pmoc');
   if (btnCancelar) btnCancelar.style.display = 'none';
+  if ($('pmoc-foto')) $('pmoc-foto').value = '';
+  if ($('pmoc-foto-preview')) $('pmoc-foto-preview').innerHTML = '';
 }
 
 async function excluirFichaPMOC(id) {
