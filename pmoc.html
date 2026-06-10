@@ -77,8 +77,18 @@
             </div>
             <div class="form-group" style="grid-column:span 2;">
               <label>📷 Registro Fotográfico de Campo</label>
-              <input type="file" id="pmoc-foto" accept="image/*" multiple class="form-input-style">
-              <div id="pmoc-foto-preview" style="margin-top:8px;"></div>
+              <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:200px;">
+                  <label style="font-size:12px;font-weight:600;color:#4a5568;">📷 Antes</label>
+                  <input type="file" id="pmoc-foto-antes" accept="image/*" multiple class="form-input-style">
+                  <div id="pmoc-foto-antes-preview" style="margin-top:8px;"></div>
+                </div>
+                <div style="flex:1;min-width:200px;">
+                  <label style="font-size:12px;font-weight:600;color:#4a5568;">📷 Depois</label>
+                  <input type="file" id="pmoc-foto-depois" accept="image/*" multiple class="form-input-style">
+                  <div id="pmoc-foto-depois-preview" style="margin-top:8px;"></div>
+                </div>
+              </div>
             </div>
           </div>
 

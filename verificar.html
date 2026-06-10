@@ -112,23 +112,44 @@
       .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
   }
 
-  // Lê fotos_urls (array novo) com fallback para foto_url (campo legado único).
+  // Lê fotos_urls e normaliza para [{url, tipo}] (tipo ∈ 'antes'|'depois'|'geral').
   function lerFotos(obj) {
     if (!obj) return [];
     let arr = obj.fotos_urls;
     if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch { arr = []; } }
-    if (Array.isArray(arr) && arr.length) return arr.filter(Boolean);
-    return obj.foto_url ? [obj.foto_url] : [];
+    if (Array.isArray(arr) && arr.length) {
+      return arr.map(it => typeof it === 'string'
+        ? { url: it, tipo: 'geral' }
+        : { url: it.url, tipo: it.tipo || 'geral' }
+      ).filter(it => it.url);
+    }
+    return obj.foto_url ? [{ url: obj.foto_url, tipo: 'geral' }] : [];
   }
 
-  // Monta o bloco de evidências fotográficas (1 ou várias imagens).
+  function _grupoFotosVerificar(rotulo, fotos) {
+    if (!fotos.length) return '';
+    return `<div style="flex:1;min-width:200px;">` +
+      `<div style="font-size:10px;font-weight:600;color:#4a5568;text-transform:uppercase;margin-bottom:3px;">${rotulo}</div>` +
+      `<div style="display:flex;flex-wrap:wrap;gap:6px;">` +
+      fotos.map(f => `<img src="${f.url}" style="max-width:48%;max-height:180px;border-radius:4px;border:1px solid #e2e8f0;object-fit:cover;">`).join('') +
+      `</div></div>`;
+  }
+
+  // Monta o bloco de evidências fotográficas (Antes / Depois) para a validação pública.
   function galeriaFotosVerificar(obj) {
-    const fs = lerFotos(obj);
-    if (!fs.length) return '';
-    return '<div style="font-size:10px;color:#718096;text-transform:uppercase;margin:8px 0 3px;">Evidências Fotográficas</div>' +
-      '<div style="display:flex;flex-wrap:wrap;gap:6px;">' +
-      fs.map(u => `<img src="${u}" style="max-width:48%;max-height:180px;border-radius:4px;border:1px solid #e2e8f0;object-fit:cover;">`).join('') +
-      '</div>';
+    const fotos = lerFotos(obj);
+    if (!fotos.length) return '';
+    const antes  = fotos.filter(f => f.tipo === 'antes');
+    const depois = fotos.filter(f => f.tipo === 'depois');
+    const geral  = fotos.filter(f => f.tipo !== 'antes' && f.tipo !== 'depois');
+    const titulo = '<div style="font-size:10px;color:#718096;text-transform:uppercase;margin:8px 0 3px;">Evidências Fotográficas</div>';
+    if (antes.length || depois.length) {
+      return titulo + `<div style="display:flex;flex-wrap:wrap;gap:12px;">${_grupoFotosVerificar('Antes', antes)}${_grupoFotosVerificar('Depois', depois)}</div>` +
+        (geral.length ? `<div style="margin-top:8px;">${_grupoFotosVerificar('Outras', geral)}</div>` : '');
+    }
+    return titulo + `<div style="display:flex;flex-wrap:wrap;gap:6px;">` +
+      geral.map(f => `<img src="${f.url}" style="max-width:48%;max-height:180px;border-radius:4px;border:1px solid #e2e8f0;object-fit:cover;">`).join('') +
+      `</div>`;
   }
 
   // Compatibilidade: lê meta_pmoc (novo) com fallback para observacoes regex (legado)

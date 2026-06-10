@@ -156,24 +156,47 @@ async function uploadFotos(fileList, pasta, msgId) {
   return urls;
 }
 
-// Lê fotos_urls (array novo) com fallback para foto_url (campo legado único).
+// Lê fotos_urls e normaliza para [{url, tipo}], onde tipo ∈ 'antes'|'depois'|'geral'.
+// Compatível com: array de objetos {url,tipo} (novo), array de strings (versão anterior)
+// e foto_url único (legado) — esses dois últimos viram tipo 'geral'.
 function lerFotos(obj) {
   if (!obj) return [];
   let arr = obj.fotos_urls;
   if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch { arr = []; } }
-  if (Array.isArray(arr) && arr.length) return arr.filter(Boolean);
-  return obj.foto_url ? [obj.foto_url] : [];
+  if (Array.isArray(arr) && arr.length) {
+    return arr.map(it => typeof it === 'string'
+      ? { url: it, tipo: 'geral' }
+      : { url: it.url, tipo: it.tipo || 'geral' }
+    ).filter(it => it.url);
+  }
+  return obj.foto_url ? [{ url: obj.foto_url, tipo: 'geral' }] : [];
 }
 
-// Galeria de evidências fotográficas para os laudos impressos.
-function galeriaFotosHTML(obj, titulo = 'Evidências Fotográficas') {
-  const fotos = lerFotos(obj);
+// Renderiza um grupo de imagens (mini-galeria) sob um rótulo.
+function _grupoFotosHTML(rotulo, fotos) {
   if (!fotos.length) return '';
-  const imgs = fotos.map(u =>
-    `<img src="${u}" style="max-width:48%;max-height:200px;border-radius:4px;border:1px solid #e2e8f0;object-fit:cover;">`
+  const imgs = fotos.map(f =>
+    `<img src="${f.url}" style="max-width:48%;max-height:200px;border-radius:4px;border:1px solid #e2e8f0;object-fit:cover;">`
   ).join('');
-  return `<div class="laudo-section"><div class="laudo-section-title">${titulo}</div>` +
+  return `<div style="flex:1;min-width:240px;">` +
+         `<div style="font-size:11px;font-weight:600;color:#4a5568;text-transform:uppercase;margin-bottom:4px;">${rotulo}</div>` +
          `<div style="display:flex;flex-wrap:wrap;gap:8px;">${imgs}</div></div>`;
+}
+
+// Galeria de evidências fotográficas para os laudos impressos (Antes / Depois).
+function galeriaFotosHTML(obj, titulo = 'Evidências Fotográficas') {
+  const fotos  = lerFotos(obj);
+  if (!fotos.length) return '';
+  const antes  = fotos.filter(f => f.tipo === 'antes');
+  const depois = fotos.filter(f => f.tipo === 'depois');
+  const geral  = fotos.filter(f => f.tipo !== 'antes' && f.tipo !== 'depois');
+  const corpo  = (antes.length || depois.length)
+    ? `<div style="display:flex;flex-wrap:wrap;gap:16px;">${_grupoFotosHTML('Antes', antes)}${_grupoFotosHTML('Depois', depois)}</div>`
+      + (geral.length ? `<div style="margin-top:10px;">${_grupoFotosHTML('Outras', geral)}</div>` : '')
+    : `<div style="display:flex;flex-wrap:wrap;gap:8px;">${
+        geral.map(f => `<img src="${f.url}" style="max-width:48%;max-height:200px;border-radius:4px;border:1px solid #e2e8f0;object-fit:cover;">`).join('')
+      }</div>`;
+  return `<div class="laudo-section"><div class="laudo-section-title">${titulo}</div>${corpo}</div>`;
 }
 
 // Preview ao vivo das imagens selecionadas, antes de salvar.
@@ -789,7 +812,12 @@ if ($('btn-salvar-ficha')) {
       assinatura_fiscal_url = await uploadAssinatura(blob, 'fiscal', `fiscal_${Date.now()}`);
     }
 
-    const fotos_urls = await uploadFotos($('pmoc-foto')?.files, 'pmoc', 'msg-ficha');
+    const fAntes  = await uploadFotos($('pmoc-foto-antes')?.files,  'pmoc', 'msg-ficha');
+    const fDepois = await uploadFotos($('pmoc-foto-depois')?.files, 'pmoc', 'msg-ficha');
+    const fotos_urls = [
+      ...fAntes.map(url  => ({ url, tipo: 'antes'  })),
+      ...fDepois.map(url => ({ url, tipo: 'depois' })),
+    ];
     const { data: colab }     = await db.from('colaboradores').select('nome, assinatura_url, assinatura_digital').eq('id', tecnico_id).single();
     const { data: { user } }  = await db.auth.getUser();
 
@@ -1050,7 +1078,12 @@ if ($('btn-salvar-os')) {
       descricao_defeito: $('os-defeito').value.trim(),
       laudo_tecnico:    $('os-laudo').value.trim(),
     };
-    const fotos_urls = await uploadFotos($('os-foto')?.files, 'os', 'msg-os');
+    const fAntes  = await uploadFotos($('os-foto-antes')?.files,  'os', 'msg-os');
+    const fDepois = await uploadFotos($('os-foto-depois')?.files, 'os', 'msg-os');
+    const fotos_urls = [
+      ...fAntes.map(url  => ({ url, tipo: 'antes'  })),
+      ...fDepois.map(url => ({ url, tipo: 'depois' })),
+    ];
     if (fotos_urls.length) payload.fotos_urls = fotos_urls;
 
     const idEd = $('os-id-edicao').value;
@@ -1064,8 +1097,10 @@ if ($('btn-salvar-os')) {
 }
 
 // Ativa o preview das imagens selecionadas nos formulários PMOC e OS.
-montarPreviewFotos('pmoc-foto', 'pmoc-foto-preview');
-montarPreviewFotos('os-foto',  'os-foto-preview');
+montarPreviewFotos('pmoc-foto-antes',  'pmoc-foto-antes-preview');
+montarPreviewFotos('pmoc-foto-depois', 'pmoc-foto-depois-preview');
+montarPreviewFotos('os-foto-antes',    'os-foto-antes-preview');
+montarPreviewFotos('os-foto-depois',   'os-foto-depois-preview');
 
 async function carregarOrdensServico() {
   const tbody = $('tbody-os'); if (!tbody) return;
@@ -1265,8 +1300,8 @@ function alternarSubAbasRH(m) {
 }
 function resetarFormOS()  {
   ['os-defeito','os-laudo','os-id-edicao'].forEach(id => { if ($(id)) $(id).value = ''; });
-  if ($('os-foto')) $('os-foto').value = '';
-  if ($('os-foto-preview')) $('os-foto-preview').innerHTML = '';
+  ['os-foto-antes','os-foto-depois'].forEach(id => { if ($(id)) $(id).value = ''; });
+  ['os-foto-antes-preview','os-foto-depois-preview'].forEach(id => { if ($(id)) $(id).innerHTML = ''; });
 }
 function resetarFormOSG() { ['osg-setor','osg-requisitado','osg-falha'].forEach(id => { if ($(id)) $(id).value = ''; }); }
 
@@ -1850,8 +1885,8 @@ function resetarFormPMOC() {
   if (btnSalvar) { btnSalvar.textContent = '✓ Registrar Ficha PMOC'; btnSalvar.style.background = ''; }
   const btnCancelar = $('btn-cancelar-edicao-pmoc');
   if (btnCancelar) btnCancelar.style.display = 'none';
-  if ($('pmoc-foto')) $('pmoc-foto').value = '';
-  if ($('pmoc-foto-preview')) $('pmoc-foto-preview').innerHTML = '';
+  ['pmoc-foto-antes','pmoc-foto-depois'].forEach(id => { if ($(id)) $(id).value = ''; });
+  ['pmoc-foto-antes-preview','pmoc-foto-depois-preview'].forEach(id => { if ($(id)) $(id).innerHTML = ''; });
 }
 
 async function excluirFichaPMOC(id) {
