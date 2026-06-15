@@ -671,10 +671,21 @@ async function exportarEquipamentosXLSX() {
       'tensao-ven':      'Tensão (V)',
     };
 
+    // Helper: garante que extras_tecnico seja sempre um objeto JS,
+    // independente de vir como string JSON (Supabase) ou objeto (cache local)
+    const parseExtras = (raw) => {
+      if (!raw) return {};
+      if (typeof raw === 'object' && !Array.isArray(raw)) return raw;
+      if (typeof raw === 'string') {
+        try { return JSON.parse(raw); } catch (e) { return {}; }
+      }
+      return {};
+    };
+
     // Coletar todas as chaves de extras_tecnico presentes nos dados
     const extrasKeys = new Set();
     equipamentos.forEach(eq => {
-      Object.keys(eq.extras_tecnico || {}).forEach(k => extrasKeys.add(k));
+      Object.keys(parseExtras(eq.extras_tecnico)).forEach(k => extrasKeys.add(k));
     });
 
     // ── Cabeçalho da planilha ──
@@ -701,7 +712,7 @@ async function exportarEquipamentosXLSX() {
 
     // ── Linhas de dados ──
     const linhas = equipamentos.map(eq => {
-      const extras = eq.extras_tecnico || {};
+      const extras = parseExtras(eq.extras_tecnico);
       const crit = eq.criticidade || 'Média';
       const classeLetra = crit === 'Alta' ? 'A' : crit === 'Baixa' ? 'C' : 'B';
 
