@@ -9,6 +9,7 @@
     <script src="config.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
   <div class="app-container">
@@ -40,6 +41,7 @@
         <h2>⚙️ Painel Central de Controle de Ativos</h2>
         <button class="btn-refresh" style="margin-left:auto;background:#10b981;border-color:#10b981;color:#fff;" onclick="gerarTokensFaltantes()">➕ Gerar QR Faltantes</button>
         <button class="btn-refresh" style="background:#1a56db;border-color:#1a56db;color:#fff;" onclick="imprimirTodasEtiquetas()">🏷️ Imprimir Todas as Etiquetas</button>
+        <button class="btn-refresh" id="btn-exportar-xlsx" style="background:#7c3aed;border-color:#7c3aed;color:#fff;" onclick="exportarEquipamentosXLSX()">📥 Exportar Planilha</button>
       </div>
       <div class="section-content">
         <div class="card">

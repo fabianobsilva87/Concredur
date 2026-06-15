@@ -614,6 +614,216 @@ async function gerarTokensFaltantes() {
   alert(`✓ QR Code gerado para ${semToken.length} ativo(s).`);
 }
 
+// ===================== EXPORTAÇÃO XLSX =====================
+async function exportarEquipamentosXLSX() {
+  const btn = $('btn-exportar-xlsx');
+  if (btn) { btn.textContent = '⏳ Gerando...'; btn.disabled = true; }
+
+  try {
+    // Usa o cache global; se vazio, busca direto do banco
+    let equipamentos = globalEquipamentos;
+    if (!equipamentos.length) {
+      const { data } = await db.from('equipamentos').select('*').order('tag', { ascending: true });
+      equipamentos = data || [];
+    }
+
+    if (!equipamentos.length) {
+      alert('Nenhum equipamento cadastrado para exportar.');
+      return;
+    }
+
+    // Labels amigáveis para a categoria
+    const CAT_LABEL = {
+      AC:   'Ar Condicionado',
+      BEB:  'Bebedouro',
+      CLIM: 'Climatizador Evaporativo',
+      VEN:  'Ventilador/Exaustor',
+      OUT:  'Outros',
+    };
+
+    // Labels amigáveis para campos de extras_tecnico por categoria
+    const EXTRAS_LABEL = {
+      // AC
+      'potencia':        'Potência (BTU/h)',
+      'ciclo':           'Ciclo',
+      'tensao':          'Tensão (V)',
+      'gas':             'Gás Refrigerante',
+      'instalacao-ac':   'Tipo de Instalação',
+      'validade':        'Validade do Lacre/Filtro',
+      // BEB
+      'cap-beb':         'Capacidade (L/h)',
+      'tipo-beb':        'Tipo de Bebedouro',
+      'filtro-beb':      'Tipo de Filtro',
+      'validade-filtro-beb':  'Validade do Filtro',
+      'lacre-beb':       'Número do Lacre',
+      'validade-lacre-beb':   'Validade do Lacre',
+      // CLIM
+      'vazao-clim':      'Vazão de Ar (m³/h)',
+      'tipo-clim':       'Tipo de Climatizador',
+      'painel-clim':     'Número do Painel',
+      'validade-painel-clim': 'Validade do Painel',
+      'tensao-clim':     'Tensão (V)',
+      'consumo-clim':    'Consumo (W)',
+      // VEN
+      'potencia-ven':    'Potência do Motor (W/CV)',
+      'tipo-ven':        'Tipo de Ventilador',
+      'diametro-ven':    'Diâmetro da Hélice (mm)',
+      'tensao-ven':      'Tensão (V)',
+    };
+
+    // Coletar todas as chaves de extras_tecnico presentes nos dados
+    const extrasKeys = new Set();
+    equipamentos.forEach(eq => {
+      Object.keys(eq.extras_tecnico || {}).forEach(k => extrasKeys.add(k));
+    });
+
+    // ── Cabeçalho da planilha ──
+    const cabecalho = [
+      'TAG',
+      'Categoria',
+      'Produto / Modelo',
+      'Marca',
+      'Nº de Série',
+      'Patrimônio',
+      'Instituição / Unidade',
+      'Bloco / Edificação',
+      'Setor Interno',
+      'Sala / Identificação',
+      'Criticidade',
+      'Classe (A/B/C)',
+      'Potência Geral',
+      'Validade Geral',
+      ...([...extrasKeys].map(k => EXTRAS_LABEL[k] || k)),
+      'Possui QR Code',
+      'ID do Registro',
+      'Data de Cadastro',
+    ];
+
+    // ── Linhas de dados ──
+    const linhas = equipamentos.map(eq => {
+      const extras = eq.extras_tecnico || {};
+      const crit = eq.criticidade || 'Média';
+      const classeLetra = crit === 'Alta' ? 'A' : crit === 'Baixa' ? 'C' : 'B';
+
+      // Data de cadastro: campo created_at do Supabase
+      const dataCadastro = eq.created_at
+        ? new Date(eq.created_at).toLocaleDateString('pt-BR')
+        : '—';
+
+      return [
+        eq.tag             || '',
+        CAT_LABEL[eq.categoria] || eq.categoria || '',
+        eq.produto         || '',
+        eq.marca           || '',
+        eq.nr_serie        || '',
+        eq.patrimonio      || '',
+        eq.instituicao     || '',
+        eq.bloco           || '',
+        eq.setor           || '',
+        eq.sala            || '',
+        `Classe ${crit}`,
+        classeLetra,
+        eq.potencia        || '',
+        eq.validade        || '',
+        ...([...extrasKeys].map(k => extras[k] || '')),
+        eq.qrcode_token ? 'Sim' : 'Não',
+        String(eq.id),
+        dataCadastro,
+      ];
+    });
+
+    // ── Montar workbook com SheetJS ──
+    const wb = XLSX.utils.book_new();
+
+    // Aba 1 — Inventário completo
+    const wsData = [cabecalho, ...linhas];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Larguras de colunas (caracteres)
+    ws['!cols'] = [
+      { wch: 14 }, // TAG
+      { wch: 22 }, // Categoria
+      { wch: 28 }, // Produto
+      { wch: 18 }, // Marca
+      { wch: 18 }, // Série
+      { wch: 14 }, // Patrimônio
+      { wch: 24 }, // Instituição
+      { wch: 20 }, // Bloco
+      { wch: 20 }, // Setor
+      { wch: 18 }, // Sala
+      { wch: 16 }, // Criticidade
+      { wch: 10 }, // Classe
+      { wch: 18 }, // Potência
+      { wch: 16 }, // Validade
+      ...[...extrasKeys].map(() => ({ wch: 22 })),
+      { wch: 12 }, // QR Code
+      { wch: 38 }, // ID
+      { wch: 16 }, // Data
+    ];
+
+    // Estilo do cabeçalho (linha 1): negrito + fundo azul escuro
+    const rangeRef = XLSX.utils.encode_range(
+      { r: 0, c: 0 },
+      { r: 0, c: cabecalho.length - 1 }
+    );
+    if (!ws['!rows']) ws['!rows'] = [];
+    ws['!rows'][0] = { hpt: 20 };
+
+    Object.keys(ws).filter(k => !k.startsWith('!')).forEach(addr => {
+      if (!ws[addr].s) ws[addr].s = {};
+      const r = XLSX.utils.decode_cell(addr).r;
+      if (r === 0) {
+        ws[addr].s = {
+          font:      { bold: true, color: { rgb: 'FFFFFF' } },
+          fill:      { fgColor: { rgb: '1A3C6E' } },
+          alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+        };
+      }
+    });
+
+    // Aba 2 — Resumo por criticidade
+    const contagens = { Alta: 0, Média: 0, Baixa: 0 };
+    equipamentos.forEach(eq => {
+      const c = eq.criticidade || 'Média';
+      if (contagens[c] !== undefined) contagens[c]++;
+    });
+
+    const wsSumData = [
+      ['Resumo do Inventário de Ativos — Concredur'],
+      [''],
+      ['Classe de Criticidade', 'Quantidade', '% do Total'],
+      ['Classe Alta (A)',  contagens['Alta'],  `=B4/B7`],
+      ['Classe Média (B)', contagens['Média'], `=B5/B7`],
+      ['Classe Baixa (C)', contagens['Baixa'], `=B6/B7`],
+      ['TOTAL',           `=SUM(B4:B6)`,      ''],
+      [''],
+      ['Data de exportação', new Date().toLocaleDateString('pt-BR')],
+      ['Total de registros', equipamentos.length],
+    ];
+
+    const wsSum = XLSX.utils.aoa_to_sheet(wsSumData);
+    wsSum['!cols'] = [{ wch: 24 }, { wch: 14 }, { wch: 14 }];
+
+    // Formatar coluna C (percentuais) como %
+    ['C4','C5','C6'].forEach(addr => {
+      if (wsSum[addr]) wsSum[addr].z = '0.0%';
+    });
+
+    XLSX.utils.book_append_sheet(wb, ws,    'Inventário');
+    XLSX.utils.book_append_sheet(wb, wsSum, 'Resumo');
+
+    // ── Download ──
+    const dataHoje = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `Concredur_Inventario_Ativos_${dataHoje}.xlsx`);
+
+  } catch (err) {
+    console.error('[exportarEquipamentosXLSX]', err);
+    alert('Erro ao gerar a planilha: ' + err.message);
+  } finally {
+    if (btn) { btn.textContent = '📥 Exportar Planilha'; btn.disabled = false; }
+  }
+}
+
 async function atualizarSelectEquipamentos() {
   const { data } = await db.from('equipamentos').select('id, tag, produto, categoria');
   ['pmoc-equipamento','os-equipamento'].map($).filter(Boolean).forEach(sel => {
