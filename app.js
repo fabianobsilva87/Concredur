@@ -1670,11 +1670,14 @@ function _abrirJanelaEtiqueta(lista) {
 
     .etq-meta {
       display: flex; align-items: center; justify-content: space-between;
-      gap: 14px; padding: 18px 26px 14px; flex-wrap: wrap;
+      gap: 10px; padding: 18px 26px 14px;
+      flex-wrap: nowrap; overflow: hidden;
     }
     .etq-codigo {
-      font-size: 26px; font-weight: 800; letter-spacing: 0.16em;
-      color: #1a202c;
+      font-size: clamp(16px, 3.8vw, 26px);
+      font-weight: 800; letter-spacing: 0.12em;
+      color: #1a202c; min-width: 0; flex-shrink: 1;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .etq-categoria {
       display: inline-flex; align-items: center; gap: 7px;
@@ -1703,6 +1706,7 @@ function _abrirJanelaEtiqueta(lista) {
       .grade { max-width: 100%; gap: 8mm;
                grid-template-columns: ${isSingle ? '1fr' : 'repeat(2, 1fr)'}; }
       .etiqueta { break-inside: avoid; ${isSingle ? 'max-width: 150mm; margin: 0 auto;' : ''} }
+      .etq-codigo { font-size: clamp(14px, 3.2vw, 22px); }
       @page { margin: 10mm; size: A4 portrait; }
     }
   </style>
