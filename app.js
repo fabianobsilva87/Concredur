@@ -1562,9 +1562,17 @@ async function imprimirTodasEtiquetas() {
 }
 
 function _abrirJanelaEtiqueta(lista) {
+  // SVGs inline por categoria — renderização 100% consistente em tela e impressão
+  const catIconSVG = {
+    AC:   `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/><line x1="19.07" y1="4.93" x2="4.93" y2="19.07"/><circle cx="12" cy="12" r="3"/></svg>`,
+    BEB:  `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8 8 5 12 5 16a7 7 0 0 0 14 0c0-4-3-8-7-14z"/></svg>`,
+    CLIM: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M17.7 7.7A7.1 7.1 0 1 0 21 15"/><path d="M17 8h5V3"/></svg>`,
+    VEN:  `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2 2 0 1 1 22 12H2"/></svg>`,
+    OUT:  `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>`,
+  };
   const catLabel = {
-    AC:'❄️ Ar Condicionado', BEB:'💧 Bebedouro',
-    CLIM:'🌀 Climatizador', VEN:'💨 Ventilador/Exaustor', OUT:'🔧 Outros',
+    AC:'Ar Condicionado', BEB:'Bebedouro',
+    CLIM:'Climatizador', VEN:'Ventilador/Exaustor', OUT:'Outros',
   };
   const catTitulo = {
     AC:'AR CONDICIONADO', BEB:'BEBEDOURO',
@@ -1574,8 +1582,10 @@ function _abrirJanelaEtiqueta(lista) {
 
   const etiquetasHTML = lista.map(({ eq, url }) => {
     const tag      = eq.tag      || '—';
-    const catNome  = catLabel[eq.categoria]  || '🔧 Equipamento';
-    const titulo   = catTitulo[eq.categoria] || 'EQUIPAMENTO';
+    const cat      = eq.categoria || 'OUT';
+    const iconSVG  = catIconSVG[cat]  || catIconSVG.OUT;
+    const catNome  = catLabel[cat]    || 'Equipamento';
+    const titulo   = catTitulo[cat]   || 'EQUIPAMENTO';
     const qrSrc    = `https://api.qrserver.com/v1/create-qr-code/?size=${QR_SIZE}x${QR_SIZE}&data=${encodeURIComponent(url)}&format=png&margin=2`;
 
     return `
@@ -1589,7 +1599,7 @@ function _abrirJanelaEtiqueta(lista) {
 
       <div class="etq-meta">
         <div class="etq-codigo">${tag}</div>
-        <div class="etq-categoria">${catNome}</div>
+        <div class="etq-categoria">${iconSVG} ${catNome}</div>
       </div>
 
       <div class="etq-divider"></div>
@@ -1667,10 +1677,12 @@ function _abrirJanelaEtiqueta(lista) {
       color: #1a202c;
     }
     .etq-categoria {
+      display: inline-flex; align-items: center; gap: 7px;
       border: 1.5px solid #1e3a5f; border-radius: 999px;
-      padding: 8px 18px; font-size: 14px; font-weight: 700; color: #1e3a5f;
+      padding: 7px 16px; font-size: 14px; font-weight: 700; color: #1e3a5f;
       white-space: nowrap;
     }
+    .etq-categoria svg { flex-shrink: 0; color: #1e3a5f; }
 
     .etq-divider { border-top: 2px solid #e8edf3; margin: 0 26px 18px; }
 
