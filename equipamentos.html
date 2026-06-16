@@ -81,7 +81,20 @@
             <div class="form-grid">
               <div class="form-group">
                 <label>Capacidade (BTU/h)</label>
-                <input type="text" id="eq-potencia" placeholder="Ex: 9.000 / 12.000 / 18.000 BTU">
+                <select id="eq-potencia" class="form-input-style">
+                  <option value="">— Selecione —</option>
+                  <option value="7000">7.000 BTU/h</option>
+                  <option value="9000">9.000 BTU/h</option>
+                  <option value="12000">12.000 BTU/h</option>
+                  <option value="18000">18.000 BTU/h</option>
+                  <option value="22000">22.000 BTU/h</option>
+                  <option value="24000">24.000 BTU/h</option>
+                  <option value="30000">30.000 BTU/h</option>
+                  <option value="36000">36.000 BTU/h</option>
+                  <option value="48000">48.000 BTU/h</option>
+                  <option value="60000">60.000 BTU/h</option>
+                  <option value="80000+">Acima de 60.000 BTU/h</option>
+                </select>
               </div>
               <div class="form-group">
                 <label>Tipo de Ciclo</label>
@@ -111,6 +124,10 @@
                   <option value="R-404A">R-404A</option>
                   <option value="R-134A">R-134A</option>
                 </select>
+              </div>
+              <div class="form-group">
+                <label>Quantidade de Gás (KG)</label>
+                <input type="number" id="eq-qtd-gas" step="0.01" min="0" placeholder="Ex: 1.20">
               </div>
               <div class="form-group">
                 <label>Tipo de Instalação</label>
