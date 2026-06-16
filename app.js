@@ -418,7 +418,7 @@ function toggleItemsPorFrequencia() {
 
 // ===================== EQUIPAMENTOS =====================
 const EQ_CAMPOS_EXTRAS = {
-  AC:   ['eq-potencia','eq-ciclo','eq-tensao','eq-gas','eq-qtd-gas','eq-instalacao-ac','eq-validade'],
+  AC:   ['eq-potencia','eq-ciclo','eq-tecnologia','eq-tensao','eq-gas','eq-qtd-gas','eq-instalacao-ac','eq-validade'],
   BEB:  ['eq-cap-beb','eq-tipo-beb','eq-filtro-beb','eq-validade-filtro-beb','eq-lacre-beb','eq-validade-lacre-beb'],
   CLIM: ['eq-vazao-clim','eq-tipo-clim','eq-painel-clim','eq-validade-painel-clim','eq-tensao-clim','eq-consumo-clim'],
   VEN:  ['eq-potencia-ven','eq-tipo-ven','eq-diametro-ven','eq-tensao-ven'],
@@ -646,6 +646,7 @@ async function exportarEquipamentosXLSX() {
       // AC
       'potencia':        'Potência (BTU/h)',
       'ciclo':           'Ciclo',
+      'tecnologia':      'Tecnologia do Compressor',
       'tensao':          'Tensão (V)',
       'gas':             'Gás Refrigerante',
       'qtd-gas':         'Quantidade de Gás (KG)',
