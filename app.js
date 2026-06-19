@@ -633,6 +633,56 @@ function filtrarEquipamentos(delta) {
 function mudarPaginaEquipamento(d) { filtrarEquipamentos(d); }
 
 // Exporta os ativos (respeitando os filtros aplicados na tela) para um arquivo .xlsx
+// Emite um relatório geral (impressão/PDF), em formato paisagem, com todos os ativos
+// cadastrados — respeita os mesmos filtros aplicados na tela (TAG/nome, criticidade, bloco).
+function emitirRelatorioGeralAtivos() {
+  const items = obterEquipamentosFiltrados();
+  if (!items.length) { alert('Nenhum ativo encontrado para gerar o relatório com os filtros atuais.'); return; }
+
+  const linhas = items.map(eq => {
+    const local   = [eq.instituicao, eq.bloco, eq.setor, eq.sala].filter(Boolean).join(' / ') || '—';
+    const crit    = eq.criticidade || 'Média';
+    const critCls = crit === 'Alta' ? 'danger' : crit === 'Baixa' ? 'success' : 'warning';
+    return `<tr>
+      <td>${escapeHTML(eq.tag || '')}</td>
+      <td>${escapeHTML(EQ_CATEGORIA_LABEL[eq.categoria] || eq.categoria || '')}</td>
+      <td>${escapeHTML(eq.produto || '')}<br><small style="color:#718096;">${escapeHTML(eq.marca || '')}</small></td>
+      <td>${escapeHTML(local)}</td>
+      <td>${escapeHTML(eq.nr_serie || '—')}</td>
+      <td>${escapeHTML(eq.patrimonio || '—')}</td>
+      <td style="text-align:center;"><span class="tag-badge ${critCls}">${escapeHTML(crit)}</span></td>
+    </tr>`;
+  }).join('');
+
+  const html = `
+  <style>@page{size:A4 landscape;margin:12mm;}</style>
+  <div class="laudo-wrapper">
+    <div class="laudo-header">
+      <div><h1>🏗️ Relatório Geral de Ativos — CONCREDUR</h1><p>Inventário de equipamentos cadastrados</p></div>
+      <div class="laudo-header-meta">
+        <strong>Total de Ativos: ${items.length}</strong><br>
+        Data de Emissão: ${new Date().toLocaleDateString('pt-BR')}<br>
+        Emitido às ${new Date().toLocaleTimeString('pt-BR')}
+      </div>
+    </div>
+    <div class="laudo-section">
+      <table class="laudo-checklist-table">
+        <thead>
+          <tr>
+            <th>TAG</th><th>Categoria</th><th>Equipamento / Marca</th><th>Localização</th>
+            <th>Nº Série</th><th>Patrimônio</th><th style="text-align:center;">Criticidade</th>
+          </tr>
+        </thead>
+        <tbody>${linhas}</tbody>
+      </table>
+      <div style="margin-top:14px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:9px;color:#a0aec0;">
+        Documento gerado pelo Sistema Concredur · ${new Date().toLocaleString('pt-BR')}
+      </div>
+    </div>
+  </div>`;
+  imprimir('area-relatorio-ativos', html);
+}
+
 function exportarEquipamentosXLS() {
   if (typeof XLSX === 'undefined') {
     alert('Biblioteca de exportação (XLSX) não carregada. Recarregue a página e tente novamente.');
