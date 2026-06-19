@@ -1261,7 +1261,163 @@ function _assinaturaImg(url, style) {
   return url ? `<img src="${url}" style="${style}" alt="Assinatura">` : `<div style="height:55px;border-bottom:1px dashed #94a3b8;margin-bottom:4px;"></div>`;
 }
 
-function emitirRelatorioPMOC(b64) {
+// ===================== CHECKLISTS PMOC — definições completas por categoria/periodicidade =====================
+// Espelha exatamente os itens cadastrados no formulário (pmoc.html), para reconstruir o laudo
+// agrupado por periodicidade (Mensal/Trimestral/Semestral/Anual), igual ao modelo de referência.
+const CHECKLIST_PMOC_DEFS = {
+  AC: {
+    mensal: [
+      ['bio_01', '[BIO-01] Bandeja de Condensados — Limpeza e Pastilha Sanitizante'],
+      ['bio_02', '[BIO-02] Rede de Drenagem — Desobstrução e Teste de Escoamento'],
+      ['fil_01', '[FIL-01] Filtros de Ar (G4/F7/F9) — Higienização ou Substituição'],
+      ['mec_01', '[MEC-01] Conjunto Ventilação — Ruídos, Coxins e Fixadores'],
+    ],
+    trimestral: [
+      ['bio_03', '[BIO-03] Serpentinas — Limpeza Química com Produto Específico por Pressão'],
+      ['ele_01', '[ELE-01] Medição de Corrente/Tensão dos Compressores e Motores'],
+      ['ele_02', '[ELE-02] Reaperto Geral dos Bornes de Comando e Potência'],
+      ['fil_02', '[FIL-02] Diferencial de Pressão de Filtros — Medição com Manômetro'],
+      ['mec_02', '[MEC-02] Lubrificação de Rolamentos e Buchas do Motoventilador'],
+    ],
+    semestral: [
+      ['bio_04', '[BIO-04] Coleta de Amostra de Água para Análise Microbiológica'],
+      ['ele_03', '[ELE-03] Medição de Isolamento Elétrico (Megôhmetro) dos Motores'],
+      ['ele_04', '[ELE-04] Teste dos Dispositivos de Proteção (Pressostatos e Termostatos)'],
+      ['ins_01', '[INS-01] Inspeção Estrutural — Suportes, Fixações e Isolamento Térmico das Linhas'],
+      ['mec_03', '[MEC-03] Inspeção e Substituição de Correias e Polias (se aplicável)'],
+      ['ref_01', '[REF-01] Verificação de Carga de Gás Refrigerante (Pressão de Alta/Baixa)'],
+      ['ref_02', '[REF-02] Verificação de Vazamentos no Circuito Frigorífico (Detector de Gás)'],
+    ],
+    anual: [
+      ['bio_05', '[BIO-05] Higienização Completa e Laudos Microbiológicos do Sistema de Ar'],
+      ['ele_05', '[ELE-05] Revisão de Capacitores e Contatores com Desgaste Visível'],
+      ['ele_06', '[ELE-06] Termografia Elétrica do Painel de Comando e Cabos de Alimentação'],
+      ['ins_02', '[INS-02] Revisão Geral do PMOC — Atualização de Documentação e ART'],
+      ['ins_03', '[INS-03] Análise de Desempenho — Delta T Evaporador, COP e Eficiência do Sistema'],
+      ['mec_04', '[MEC-04] Substituição de Rolamentos, Buchas e Selos Mecânicos Desgastados'],
+      ['mec_05', '[MEC-05] Limpeza e Inspeção do Compressor — Verificação de Óleo e Visor'],
+      ['ref_03', '[REF-03] Substituição de Gás Refrigerante (se necessário) e Registro ART/Boletim'],
+    ],
+  },
+  BEB: {
+    mensal: [
+      ['beb_01', '[BEB-01] Limpeza Externa — Gabinete, Torneiras e Bica (produto neutro)'],
+      ['beb_02', '[BEB-02] Verificação do Funcionamento do Sistema de Refrigeração (temperatura adequada)'],
+      ['beb_03', '[BEB-03] Inspeção Visual de Vazamentos nas Conexões e Tubulações'],
+      ['beb_04', '[BEB-04] Verificação e Higienização da Bandeja Coletora'],
+    ],
+    trimestral: [
+      ['beb_05', '[BEB-05] Higienização Interna Completa com Solução Sanitizante (hipoclorito)'],
+      ['beb_06', '[BEB-06] Limpeza e Verificação do Reservatório Interno de Água'],
+      ['beb_07', '[BEB-07] Verificação de Carga de Gás / Funcionamento do Compressor'],
+      ['beb_08', '[BEB-08] Verificação de Validade e Condição do Elemento Filtrante'],
+    ],
+    semestral: [
+      ['beb_09', '[BEB-09] Substituição do Elemento Filtrante (carvão ativado / sedimentos)'],
+      ['beb_10', '[BEB-10] Análise Microbiológica da Água (coleta para laudo laboratorial)'],
+      ['beb_11', '[BEB-11] Verificação e Regulagem da Temperatura de Saída da Água'],
+      ['beb_12', '[BEB-12] Aplicação de Lacre e Registro de Sanitização com Número de Protocolo'],
+    ],
+    anual: [
+      ['beb_13', '[BEB-13] Revisão Completa do Sistema de Refrigeração (compressor, termostato, serpentina)'],
+      ['beb_14', '[BEB-14] Substituição de Vedações, O-rings e Torneiras com Desgaste Aparente'],
+      ['beb_15', '[BEB-15] Laudo Sanitário Anual — Documentação e Registro em Livro de Controle ANVISA'],
+    ],
+  },
+  CLIM: {
+    mensal: [
+      ['clm_01', '[CLM-01] Limpeza do Reservatório de Água — Remoção de Lodo e Calcário'],
+      ['clm_02', '[CLM-02] Limpeza e Inspeção do Painel Evaporativo (sem danificar as células)'],
+      ['clm_03', '[CLM-03] Verificação do Nível e Funcionamento da Boia de Controle de Água'],
+      ['clm_04', '[CLM-04] Verificação da Bomba d\'Água — Funcionamento e Fluxo de Distribuição'],
+      ['clm_05', '[CLM-05] Inspeção do Ventilador Axial — Ruídos, Vibração e Fixação da Hélice'],
+    ],
+    trimestral: [
+      ['clm_06', '[CLM-06] Limpeza Química do Reservatório — Descalcificação com Produto Específico'],
+      ['clm_07', '[CLM-07] Verificação e Limpeza dos Distribuidores de Água (chuveiros/aspersores)'],
+      ['clm_08', '[CLM-08] Medição de Corrente do Motor do Ventilador e da Bomba (amperagem)'],
+      ['clm_09', '[CLM-09] Lubrificação de Rolamentos do Motor e da Bomba'],
+    ],
+    semestral: [
+      ['clm_10', '[CLM-10] Inspeção do Estado do Painel Evaporativo — Avaliação para Substituição'],
+      ['clm_11', '[CLM-11] Análise Microbiológica da Água do Reservatório (Controle de Legionela)'],
+      ['clm_12', '[CLM-12] Verificação do Sistema Elétrico — Quadro, Contactores e Proteções'],
+      ['clm_13', '[CLM-13] Tratamento Biocida da Água — Aplicação de Produto Antiincrustante'],
+    ],
+    anual: [
+      ['clm_14', '[CLM-14] Substituição do Painel Evaporativo (celulose ou polipropileno)'],
+      ['clm_15', '[CLM-15] Revisão Geral da Bomba — Impelidor, Eixo e Vedação Mecânica'],
+      ['clm_16', '[CLM-16] Laudo e Documentação Técnica Anual — Relatório de Controle de Qualidade da Água'],
+    ],
+  },
+  VEN: {
+    mensal: [
+      ['ven_01', '[VEN-01] Limpeza das Pás / Hélice e Grelha de Proteção (remoção de poeira acumulada)'],
+      ['ven_02', '[VEN-02] Verificação de Ruídos Anormais, Vibração Excessiva e Folgas Mecânicas'],
+      ['ven_03', '[VEN-03] Verificação de Fixação — Parafusos, Bucins e Suportes'],
+    ],
+    trimestral: [
+      ['ven_04', '[VEN-04] Lubrificação dos Rolamentos / Buchas com Graxa Adequada'],
+      ['ven_05', '[VEN-05] Medição de Corrente do Motor (amperagem nominal x real)'],
+      ['ven_06', '[VEN-06] Verificação e Reaperto das Conexões Elétricas no Quadro de Comando'],
+    ],
+    semestral: [
+      ['ven_07', '[VEN-07] Medição de Isolamento Elétrico (Megôhmetro) do Motor'],
+      ['ven_08', '[VEN-08] Análise de Vibração com Acelerômetro — Verificação de Desbalanceamento'],
+    ],
+    anual: [
+      ['ven_09', '[VEN-09] Substituição de Rolamentos e Buchas com Desgaste Aparente'],
+      ['ven_10', '[VEN-10] Balanceamento Dinâmico das Pás / Hélice (se aplicável)'],
+    ],
+  },
+  OUT: {
+    mensal: [
+      ['ger_01', '[GER-01] Inspeção Visual Geral do Equipamento — Estado de Conservação e Integridade'],
+      ['ger_02', '[GER-02] Limpeza Geral — Remoção de Poeira, Oxidação e Sujidades'],
+      ['ger_03', '[GER-03] Verificação de Fixação — Suportes, Parafusos e Estrutura'],
+      ['ger_04', '[GER-04] Verificação Elétrica — Conexões, Chave Geral e Proteções'],
+      ['ger_05', '[GER-05] Teste de Funcionamento e Verificação de Parâmetros Operacionais'],
+    ],
+    trimestral: [], semestral: [], anual: [],
+  },
+};
+const CHECKLIST_PERIODICIDADE_INFO = [
+  { key: 'mensal',     freqLetra: 'M', titulo: '🔧 Rotinas Mensais'     },
+  { key: 'trimestral', freqLetra: 'T', titulo: '📅 Rotinas Trimestrais' },
+  { key: 'semestral',  freqLetra: 'S', titulo: '📆 Rotinas Semestrais'  },
+  { key: 'anual',      freqLetra: 'A', titulo: '📋 Rotinas Anuais'      },
+];
+const CHECKLIST_STATUS_LABEL = {
+  C:  '<span class="ok">✓ Conforme</span>',
+  NC: '<span class="nok">✗ Não Conforme</span>',
+  NA: '<span class="na">N/A</span>',
+};
+
+// Monta as tabelas do checklist agrupadas por periodicidade, de forma cumulativa conforme a
+// frequência do PMOC (Mensal ⊂ Trimestral ⊂ Semestral ⊂ Anual) — mesma regra usada no formulário.
+function montarSecoesChecklistPMOC(categoria, frequenciaPalavra, checklist) {
+  const freqMapInverso = { Mensal: 'M', Trimestral: 'T', Semestral: 'S', Anual: 'A' };
+  const freqLetra = freqMapInverso[frequenciaPalavra] || 'M';
+  const ativas    = FREQ_HIERARQUIA[freqLetra] || ['M'];
+  const defs      = CHECKLIST_PMOC_DEFS[categoria] || CHECKLIST_PMOC_DEFS.OUT;
+
+  return CHECKLIST_PERIODICIDADE_INFO
+    .filter(p => ativas.includes(p.freqLetra) && (defs[p.key] || []).length)
+    .map(p => {
+      const linhas = defs[p.key].map(([codigo, label]) => {
+        const status = checklist[codigo];
+        return `<tr><td>${escapeHTML(label)}</td><td style="text-align:center;width:110px;">${CHECKLIST_STATUS_LABEL[status] || CHECKLIST_STATUS_LABEL.NA}</td></tr>`;
+      }).join('');
+      return `
+        <div style="font-size:10px;font-weight:700;color:#1a56db;margin:12px 0 4px;">${p.titulo}</div>
+        <table class="laudo-checklist-table">
+          <thead><tr><th>Item Verificado</th><th style="text-align:center;width:110px;">Status</th></tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>`;
+    }).join('');
+}
+
+async function emitirRelatorioPMOC(b64) {
   const f  = JSON.parse(decodeURIComponent(escape(atob(b64))));
   const eq = f.equipamentos || {};
   // ── Lê meta_pmoc (novo JSONB) com fallback automático para observacoes legado ──
@@ -1273,16 +1429,14 @@ function emitirRelatorioPMOC(b64) {
   const checklist  = meta.checklist       || {};
   const obsLimpa   = meta._obsLimpa       || '';
 
-  const labelChk = {
-    'limpeza-filtro':'Limpeza de Filtro','limpeza-evaporadora':'Limpeza Evaporadora',
-    'limpeza-condensadora':'Limpeza Condensadora','verificacao-dreno':'Verificação de Dreno',
-    'verificacao-eletrica':'Verificação Elétrica','verificacao-fluido':'Verificação de Fluido',
-    'teste-operacao':'Teste de Operação','verificacao-ruidos':'Verificação de Ruídos','limpeza-geral':'Limpeza Geral',
-  };
-  const statusChk = { OK:'<span class="ok">✓ OK</span>', NOK:'<span class="nok">✗ NOK</span>', NA:'<span class="na">N/A</span>' };
-  const chkRows = Object.entries(checklist).map(([k,v]) =>
-    `<tr><td>${labelChk[k]||k}</td><td style="text-align:center;">${statusChk[v]||v}</td></tr>`
-  ).join('');
+  const checklistHTML = montarSecoesChecklistPMOC(tipo, freq, checklist);
+
+  // Responsável Técnico (CREA) — registro ativo cadastrado em Empresas › Responsáveis
+  let respTecnico = null;
+  try {
+    const { data } = await db.from('responsaveis_seguranca').select('nome, crea').eq('ativo', true).maybeSingle();
+    respTecnico = data || null;
+  } catch (e) { respTecnico = null; }
 
   const assinaturaTecnicoHTML = _assinaturaImg(lerAssinaturaURL(f,'assinatura_tecnico_url','assinatura_digital'),'max-width:200px;max-height:65px;display:block;margin:0 auto 4px;');
   const assinaturaFiscalHTML  = _assinaturaImg(lerAssinaturaURL(f,'assinatura_fiscal_url','assinatura_fiscal'), 'max-width:200px;max-height:65px;display:block;margin:0 auto 4px;');
@@ -1322,13 +1476,10 @@ function emitirRelatorioPMOC(b64) {
         <div class="laudo-field"><label>Data da Inspeção</label><span>${escapeHTML(dataInsp)}</span></div>
       </div>
     </div>
-    ${chkRows ? `
+    ${checklistHTML ? `
     <div class="laudo-section">
-      <div class="laudo-section-title">Checklist de Manutenção</div>
-      <table class="laudo-checklist-table">
-        <thead><tr><th>Item Verificado</th><th style="text-align:center;width:80px;">Status</th></tr></thead>
-        <tbody>${chkRows}</tbody>
-      </table>
+      <div class="laudo-section-title">Checklist de Manutenção — Por Periodicidade</div>
+      ${checklistHTML}
     </div>` : ''}
     ${obsLimpa ? `
     <div class="laudo-section">
@@ -1338,7 +1489,7 @@ function emitirRelatorioPMOC(b64) {
     ${fotoHTML}
     <div class="laudo-section">
       <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;">
-        <div style="display:flex;gap:32px;align-items:flex-end;flex:1;">
+        <div style="display:flex;gap:32px;align-items:flex-end;flex:1;flex-wrap:wrap;">
           <div class="laudo-assinatura-box" style="min-width:160px;text-align:center;">
             ${assinaturaTecnicoHTML}
             <div class="laudo-assinatura-linha">${escapeHTML(f.tecnico_nome)}<br>Técnico Executor</div>
@@ -1347,6 +1498,11 @@ function emitirRelatorioPMOC(b64) {
             ${assinaturaFiscalHTML}
             <div class="laudo-assinatura-linha">${escapeHTML(fiscalNome)}<br>Fiscal / Validador do Serviço</div>
           </div>
+          ${respTecnico ? `
+          <div class="laudo-assinatura-box" style="min-width:160px;text-align:center;">
+            <div style="height:65px;"></div>
+            <div class="laudo-assinatura-linha">${escapeHTML(respTecnico.nome)}<br>Responsável Técnico${respTecnico.crea ? ' — CREA-MT ' + escapeHTML(respTecnico.crea) : ''}</div>
+          </div>` : ''}
         </div>
         <div style="text-align:center;flex-shrink:0;">
           ${qrCodeHTML}
