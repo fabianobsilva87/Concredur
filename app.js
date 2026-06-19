@@ -132,13 +132,85 @@ async function uploadFoto(file, pasta, msgId) {
       blob = file;
     }
   }
-  const nomeArq = `${pasta}/foto_${Date.now()}.jpg`;
+  const sufixo  = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const nomeArq = `${pasta}/foto_${sufixo}.jpg`;
   const { error } = await db.storage
     .from('fotos-pmoc')
     .upload(nomeArq, blob, { contentType: 'image/jpeg', upsert: false });
   if (error) return null;
   const { data: { publicUrl } } = db.storage.from('fotos-pmoc').getPublicUrl(nomeArq);
   return publicUrl;
+}
+
+// ===================== MÚLTIPLAS FOTOS (laudo PMOC / OS) =====================
+// Faz upload de várias imagens e retorna um array de URLs públicas.
+async function uploadFotos(fileList, pasta, msgId) {
+  const files = Array.from(fileList || []).filter(Boolean);
+  if (!files.length) return [];
+  const urls = [];
+  for (let i = 0; i < files.length; i++) {
+    if (msgId) msgForm(msgId, `📤 Enviando imagem ${i + 1} de ${files.length}...`, 'blue');
+    const url = await uploadFoto(files[i], pasta, null);
+    if (url) urls.push(url);
+  }
+  return urls;
+}
+
+// Lê fotos_urls e normaliza para [{url, tipo}], onde tipo ∈ 'antes'|'depois'|'geral'.
+// Compatível com: array de objetos {url,tipo} (novo), array de strings (versão anterior)
+// e foto_url único (legado) — esses dois últimos viram tipo 'geral'.
+function lerFotos(obj) {
+  if (!obj) return [];
+  let arr = obj.fotos_urls;
+  if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch { arr = []; } }
+  if (Array.isArray(arr) && arr.length) {
+    return arr.map(it => typeof it === 'string'
+      ? { url: it, tipo: 'geral' }
+      : { url: it.url, tipo: it.tipo || 'geral' }
+    ).filter(it => it.url);
+  }
+  return obj.foto_url ? [{ url: obj.foto_url, tipo: 'geral' }] : [];
+}
+
+// Renderiza um grupo de imagens (mini-galeria) sob um rótulo.
+function _grupoFotosHTML(rotulo, fotos) {
+  if (!fotos.length) return '';
+  const imgs = fotos.map(f =>
+    `<img src="${f.url}" style="max-width:48%;max-height:200px;border-radius:4px;border:1px solid #e2e8f0;object-fit:cover;">`
+  ).join('');
+  return `<div style="flex:1;min-width:240px;">` +
+         `<div style="font-size:11px;font-weight:600;color:#4a5568;text-transform:uppercase;margin-bottom:4px;">${rotulo}</div>` +
+         `<div style="display:flex;flex-wrap:wrap;gap:8px;">${imgs}</div></div>`;
+}
+
+// Galeria de evidências fotográficas para os laudos impressos (Antes / Depois).
+function galeriaFotosHTML(obj, titulo = 'Evidências Fotográficas') {
+  const fotos  = lerFotos(obj);
+  if (!fotos.length) return '';
+  const antes  = fotos.filter(f => f.tipo === 'antes');
+  const depois = fotos.filter(f => f.tipo === 'depois');
+  const geral  = fotos.filter(f => f.tipo !== 'antes' && f.tipo !== 'depois');
+  const corpo  = (antes.length || depois.length)
+    ? `<div style="display:flex;flex-wrap:wrap;gap:16px;">${_grupoFotosHTML('Antes', antes)}${_grupoFotosHTML('Depois', depois)}</div>`
+      + (geral.length ? `<div style="margin-top:10px;">${_grupoFotosHTML('Outras', geral)}</div>` : '')
+    : `<div style="display:flex;flex-wrap:wrap;gap:8px;">${
+        geral.map(f => `<img src="${f.url}" style="max-width:48%;max-height:200px;border-radius:4px;border:1px solid #e2e8f0;object-fit:cover;">`).join('')
+      }</div>`;
+  return `<div class="laudo-section"><div class="laudo-section-title">${titulo}</div>${corpo}</div>`;
+}
+
+// Preview ao vivo das imagens selecionadas, antes de salvar.
+function montarPreviewFotos(inputId, previewId) {
+  const input = $(inputId), prev = $(previewId);
+  if (!input || !prev) return;
+  input.addEventListener('change', () => {
+    const files = Array.from(input.files || []);
+    prev.innerHTML = !files.length ? '' :
+      `<div style="font-size:12px;color:#4a5568;margin-bottom:6px;">${files.length} imagem(ns) selecionada(s)</div>` +
+      `<div style="display:flex;flex-wrap:wrap;gap:6px;">${
+        files.map(f => `<img src="${URL.createObjectURL(f)}" style="width:64px;height:64px;object-fit:cover;border-radius:4px;border:1px solid #cbd5e0;">`).join('')
+      }</div>`;
+  });
 }
 
 // ── Fase 2: upload de assinatura PNG para Storage (substitui Base64 no DB) ──
@@ -331,181 +403,6 @@ function calcularCriticidadeFluxograma() {
 }
 
 const FREQ_HIERARQUIA = { M: ['M'], T: ['M','T'], S: ['M','T','S'], A: ['M','T','S','A'] };
-
-// ====================================================================
-//  CHECKLIST-MESTRE PMOC — usado na impressão do laudo
-//  Cada item: { k: chave salva, f: frequência mínima, d: descrição }
-//  Extraído do formulário (pmoc.html). Mantém o laudo completo e legível.
-// ====================================================================
-const CHECKLIST_PMOC = {
-  AC: [
-    { k:'fil_01', f:'M', d:'Filtros de Ar (G4/F7/F9) — Higienização ou Substituição' },
-    { k:'bio_01', f:'M', d:'Bandeja de Condensados — Limpeza e Pastilha Sanitizante' },
-    { k:'bio_02', f:'M', d:'Rede de Drenagem — Desobstrução e Teste de Escoamento' },
-    { k:'mec_01', f:'M', d:'Conjunto Ventilação — Ruídos, Coxins e Fixadores' },
-    { k:'fil_02', f:'T', d:'Diferencial de Pressão de Filtros — Medição com Manômetro' },
-    { k:'bio_03', f:'T', d:'Serpentinas — Limpeza Química com Produto Específico por Pressão' },
-    { k:'ele_01', f:'T', d:'Medição de Corrente/Tensão dos Compressores e Motores' },
-    { k:'ele_02', f:'T', d:'Reaperto Geral dos Bornes de Comando e Potência' },
-    { k:'mec_02', f:'T', d:'Lubrificação de Rolamentos e Buchas do Motoventilador' },
-    { k:'ref_01', f:'S', d:'Verificação de Carga de Gás Refrigerante (Pressão de Alta/Baixa)' },
-    { k:'ref_02', f:'S', d:'Verificação de Vazamentos no Circuito Frigorífico (Detector de Gás)' },
-    { k:'ele_03', f:'S', d:'Medição de Isolamento Elétrico (Megôhmetro) dos Motores' },
-    { k:'ele_04', f:'S', d:'Teste dos Dispositivos de Proteção (Pressostatos e Termostatos)' },
-    { k:'mec_03', f:'S', d:'Inspeção e Substituição de Correias e Polias (se aplicável)' },
-    { k:'bio_04', f:'S', d:'Coleta de Amostra de Água para Análise Microbiológica' },
-    { k:'ins_01', f:'S', d:'Inspeção Estrutural — Suportes, Fixações e Isolamento Térmico das Linhas' },
-    { k:'ref_03', f:'A', d:'Substituição de Gás Refrigerante (se necessário) e Registro ART/Boletim' },
-    { k:'mec_04', f:'A', d:'Substituição de Rolamentos, Buchas e Selos Mecânicos Desgastados' },
-    { k:'mec_05', f:'A', d:'Limpeza e Inspeção do Compressor — Verificação de Óleo e Visor' },
-    { k:'ele_05', f:'A', d:'Revisão de Capacitores e Contatores com Desgaste Visível' },
-    { k:'ele_06', f:'A', d:'Termografia Elétrica do Painel de Comando e Cabos de Alimentação' },
-    { k:'bio_05', f:'A', d:'Higienização Completa e Laudos Microbiológicos do Sistema de Ar' },
-    { k:'ins_02', f:'A', d:'Revisão Geral do PMOC — Atualização de Documentação e ART' },
-    { k:'ins_03', f:'A', d:'Análise de Desempenho — Delta T Evaporador, COP e Eficiência do Sistema' },
-  ],
-  BEB: [
-    { k:'beb_01', f:'M', d:'Limpeza Externa — Gabinete, Torneiras e Bica (produto neutro)' },
-    { k:'beb_02', f:'M', d:'Verificação do Funcionamento do Sistema de Refrigeração (temperatura adequada)' },
-    { k:'beb_03', f:'M', d:'Inspeção Visual de Vazamentos nas Conexões e Tubulações' },
-    { k:'beb_04', f:'M', d:'Verificação e Higienização da Bandeja Coletora' },
-    { k:'beb_05', f:'T', d:'Higienização Interna Completa com Solução Sanitizante (hipoclorito)' },
-    { k:'beb_06', f:'T', d:'Limpeza e Verificação do Reservatório Interno de Água' },
-    { k:'beb_07', f:'T', d:'Verificação de Carga de Gás / Funcionamento do Compressor' },
-    { k:'beb_08', f:'T', d:'Verificação de Validade e Condição do Elemento Filtrante' },
-    { k:'beb_09', f:'S', d:'Substituição do Elemento Filtrante (carvão ativado / sedimentos)' },
-    { k:'beb_10', f:'S', d:'Análise Microbiológica da Água (coleta para laudo laboratorial)' },
-    { k:'beb_11', f:'S', d:'Verificação e Regulagem da Temperatura de Saída da Água' },
-    { k:'beb_12', f:'S', d:'Aplicação de Lacre e Registro de Sanitização com Número de Protocolo' },
-    { k:'beb_13', f:'A', d:'Revisão Completa do Sistema de Refrigeração (compressor, termostato, serpentina)' },
-    { k:'beb_14', f:'A', d:'Substituição de Vedações, O-rings e Torneiras com Desgaste Aparente' },
-    { k:'beb_15', f:'A', d:'Laudo Sanitário Anual — Documentação e Registro em Livro de Controle ANVISA' },
-  ],
-  CLIM: [
-    { k:'clm_01', f:'M', d:'Limpeza do Reservatório de Água — Remoção de Lodo e Calcário' },
-    { k:'clm_02', f:'M', d:'Limpeza e Inspeção do Painel Evaporativo (sem danificar as células)' },
-    { k:'clm_03', f:'M', d:'Verificação do Nível e Funcionamento da Boia de Controle de Água' },
-    { k:'clm_04', f:'M', d:'Verificação da Bomba d\'Água — Funcionamento e Fluxo de Distribuição' },
-    { k:'clm_05', f:'M', d:'Inspeção do Ventilador Axial — Ruídos, Vibração e Fixação da Hélice' },
-    { k:'clm_06', f:'T', d:'Limpeza Química do Reservatório — Descalcificação com Produto Específico' },
-    { k:'clm_07', f:'T', d:'Verificação e Limpeza dos Distribuidores de Água (chuveiros/aspersores)' },
-    { k:'clm_08', f:'T', d:'Medição de Corrente do Motor do Ventilador e da Bomba (amperagem)' },
-    { k:'clm_09', f:'T', d:'Lubrificação de Rolamentos do Motor e da Bomba' },
-    { k:'clm_10', f:'S', d:'Inspeção do Estado do Painel Evaporativo — Avaliação para Substituição' },
-    { k:'clm_11', f:'S', d:'Análise Microbiológica da Água do Reservatório (Controle de Legionela)' },
-    { k:'clm_12', f:'S', d:'Verificação do Sistema Elétrico — Quadro, Contactores e Proteções' },
-    { k:'clm_13', f:'S', d:'Tratamento Biocida da Água — Aplicação de Produto Antiincrustante' },
-    { k:'clm_14', f:'A', d:'Substituição do Painel Evaporativo (celulose ou polipropileno)' },
-    { k:'clm_15', f:'A', d:'Revisão Geral da Bomba — Impelidor, Eixo e Vedação Mecânica' },
-    { k:'clm_16', f:'A', d:'Laudo e Documentação Técnica Anual — Relatório de Controle de Qualidade da Água' },
-  ],
-  VEN: [
-    { k:'ven_01', f:'M', d:'Limpeza das Pás / Hélice e Grelha de Proteção (remoção de poeira acumulada)' },
-    { k:'ven_02', f:'M', d:'Verificação de Ruídos Anormais, Vibração Excessiva e Folgas Mecânicas' },
-    { k:'ven_03', f:'M', d:'Verificação de Fixação — Parafusos, Bucins e Suportes' },
-    { k:'ven_04', f:'T', d:'Lubrificação dos Rolamentos / Buchas com Graxa Adequada' },
-    { k:'ven_05', f:'T', d:'Medição de Corrente do Motor (amperagem nominal x real)' },
-    { k:'ven_06', f:'T', d:'Verificação e Reaperto das Conexões Elétricas no Quadro de Comando' },
-    { k:'ven_07', f:'S', d:'Medição de Isolamento Elétrico (Megôhmetro) do Motor' },
-    { k:'ven_08', f:'S', d:'Análise de Vibração com Acelerômetro — Verificação de Desbalanceamento' },
-    { k:'ven_09', f:'A', d:'Substituição de Rolamentos e Buchas com Desgaste Aparente' },
-    { k:'ven_10', f:'A', d:'Balanceamento Dinâmico das Pás / Hélice (se aplicável)' },
-  ],
-  OUT: [
-    { k:'ger_01', f:'M', d:'Inspeção Visual Geral do Equipamento — Estado de Conservação e Integridade' },
-    { k:'ger_02', f:'M', d:'Limpeza Geral — Remoção de Poeira, Oxidação e Sujidades' },
-    { k:'ger_03', f:'M', d:'Verificação de Fixação — Suportes, Parafusos e Estrutura' },
-    { k:'ger_04', f:'M', d:'Verificação Elétrica — Conexões, Chave Geral e Proteções' },
-    { k:'ger_05', f:'M', d:'Teste de Funcionamento e Verificação de Parâmetros Operacionais' },
-  ],
-};
-
-// Rótulos do checklist legado (registros anteriores à migração de chaves)
-const LABEL_CHK_LEGADO = {
-  'limpeza-filtro':'Limpeza de Filtro','limpeza-evaporadora':'Limpeza Evaporadora',
-  'limpeza-condensadora':'Limpeza Condensadora','verificacao-dreno':'Verificação de Dreno',
-  'verificacao-eletrica':'Verificação Elétrica','verificacao-fluido':'Verificação de Fluido',
-  'teste-operacao':'Teste de Operação','verificacao-ruidos':'Verificação de Ruídos','limpeza-geral':'Limpeza Geral',
-};
-
-// Status: novo formato (C/NC/NA) + legado (OK/NOK/NA)
-const STATUS_CHK_PMOC = {
-  C:  '<span class="ok">✓ Conforme</span>',
-  NC: '<span class="nok">✗ Não Conforme</span>',
-  NA: '<span class="na">N/A</span>',
-  OK: '<span class="ok">✓ OK</span>',
-  NOK:'<span class="nok">✗ NOK</span>',
-};
-
-const FREQ_LABEL_PARA_CODIGO = { Mensal:'M', Trimestral:'T', Semestral:'S', Anual:'A' };
-
-// Descrição do item a partir do código (mestre → fallback legado → o próprio código)
-function descricaoItemPMOC(k) {
-  for (const cat in CHECKLIST_PMOC) {
-    const it = CHECKLIST_PMOC[cat].find(x => x.k === k);
-    if (it) return it.d;
-  }
-  return LABEL_CHK_LEGADO[k] || k;
-}
-
-// Status formatado (C/NC/NA ou legado OK/NOK)
-function statusItemPMOC(v) {
-  if (v === undefined || v === null || v === '') return '<span class="na">—</span>';
-  return STATUS_CHK_PMOC[v] || escapeHTML(String(v));
-}
-
-// Títulos das seções por periodicidade (iguais aos do formulário de preenchimento)
-const TITULO_PERIODICIDADE = {
-  M: '🔧 Rotinas Mensais',
-  T: '📅 Rotinas Trimestrais',
-  S: '📆 Rotinas Semestrais',
-  A: '📋 Rotinas Anuais',
-};
-function _linhaChkPMOC(desc, status) {
-  return `<tr><td>${escapeHTML(desc)}</td><td style="text-align:center;width:120px;">${statusItemPMOC(status)}</td></tr>`;
-}
-function _cabecalhoGrupoChk(titulo) {
-  return `<tr><td colspan="2" style="background:#eef2f7;color:#1a56db;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.06em;padding:6px 8px;border-bottom:1px solid #cbd5e0;">${titulo}</td></tr>`;
-}
-
-// Monta as linhas do checklist do laudo impresso.
-// Renderiza APENAS os itens preenchidos, com a descrição correta, agrupados
-// por periodicidade (Mensais / Trimestrais / Semestrais / Anuais), como no formulário.
-// Registros legados (chaves antigas) caem numa lista simples sem agrupamento.
-function montarLinhasChecklistPMOC(catCodigo, freqLabel, checklist) {
-  checklist = checklist || {};
-  const chaves    = Object.keys(checklist);
-  if (!chaves.length) return '';
-  const temLegado = chaves.some(k => LABEL_CHK_LEGADO[k]);
-  const mestre    = CHECKLIST_PMOC[catCodigo];
-
-  // Legado / categoria desconhecida: lista simples só com os itens salvos
-  if (!mestre || temLegado) {
-    return chaves.map(k => _linhaChkPMOC(descricaoItemPMOC(k), checklist[k])).join('');
-  }
-
-  // Formato novo: agrupa os itens preenchidos por periodicidade, na ordem do mestre
-  const grupos = { M:[], T:[], S:[], A:[] };
-  const usados = new Set();
-  mestre.forEach(it => {
-    if (it.k in checklist) { grupos[it.f].push(it); usados.add(it.k); }
-  });
-
-  let html = '';
-  ['M','T','S','A'].forEach(f => {
-    if (!grupos[f].length) return;
-    html += _cabecalhoGrupoChk(TITULO_PERIODICIDADE[f]);
-    grupos[f].forEach(it => { html += _linhaChkPMOC(it.d, checklist[it.k]); });
-  });
-
-  // Segurança: chaves salvas que não existem no mestre (não perder dados)
-  const sobras = chaves.filter(k => !usados.has(k));
-  if (sobras.length) {
-    html += _cabecalhoGrupoChk('Outros Itens');
-    sobras.forEach(k => { html += _linhaChkPMOC(descricaoItemPMOC(k), checklist[k]); });
-  }
-  return html;
-}
 function toggleItemsPorFrequencia() {
   const freq = $('pmoc-frequencia')?.value || 'M';
   const ativas = FREQ_HIERARQUIA[freq] || ['M'];
@@ -517,48 +414,6 @@ function toggleItemsPorFrequencia() {
         if (!mostrar) el.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
       });
     });
-}
-
-// ===================== LOCAIS: INSTITUIÇÕES / BLOCOS =====================
-// Usado no formulário de equipamentos (combos em cascata: Instituição -> Bloco)
-let globalInstituicoes = [];
-let globalBlocos = [];
-
-async function carregarLocaisParaEquipamento() {
-  const [{ data: insts, error: errInst }, { data: blocosData, error: errBloco }] = await Promise.all([
-    db.from('instituicoes').select('*').eq('ativa', true).order('nome'),
-    db.from('blocos').select('*').eq('ativa', true).order('nome'),
-  ]);
-  if (errInst || errBloco) {
-    console.error('Erro ao carregar Instituições/Blocos:', errInst || errBloco);
-  }
-  globalInstituicoes = insts || [];
-  globalBlocos = blocosData || [];
-  popularSelectInstituicoesEquipamento();
-}
-
-function popularSelectInstituicoesEquipamento(selecionadaId) {
-  const sel = $('eq-instituicao'); if (!sel) return;
-  sel.innerHTML = '<option value="">— Selecione —</option>' +
-    globalInstituicoes.map(i => `<option value="${i.id}">${escapeHTML(i.nome)}</option>`).join('');
-  sel.value = selecionadaId || '';
-}
-
-function popularSelectBlocosEquipamento(instituicaoId, selecionadaId) {
-  const sel = $('eq-bloco'); if (!sel) return;
-  if (!instituicaoId) {
-    sel.innerHTML = '<option value="">— Selecione a instituição primeiro —</option>';
-    return;
-  }
-  const blocosFiltrados = globalBlocos.filter(b => b.instituicao_id === instituicaoId);
-  sel.innerHTML = '<option value="">— Selecione —</option>' +
-    blocosFiltrados.map(b => `<option value="${b.id}">${escapeHTML(b.nome)}</option>`).join('');
-  sel.value = selecionadaId || '';
-}
-
-function aoTrocarInstituicaoEquipamento() {
-  const sel = $('eq-instituicao');
-  popularSelectBlocosEquipamento(sel?.value || '');
 }
 
 // ===================== EQUIPAMENTOS =====================
@@ -588,27 +443,23 @@ if ($('btn-salvar')) {
     const tag = $('eq-tag')?.value.trim(); const cat = $('eq-categoria')?.value;
     if (!tag || !cat) { msgForm('msg-equipamento', 'TAG e Categoria são obrigatórias.', 'red'); return; }
     msgForm('msg-equipamento', 'Salvando...', 'blue');
-    // Instituição/Bloco agora são selecionados (não digitados); gravamos o ID
-    // de referência e também o nome em texto, mantendo compatibilidade com
-    // laudos, PMOC, verificar.html e filtros que já leem eq.bloco/eq.instituicao.
-    const selInst = $('eq-instituicao');
-    const selBloco = $('eq-bloco');
-    const instituicaoId = selInst?.value || null;
-    const blocoId = selBloco?.value || null;
-    const instituicaoNome = instituicaoId ? (selInst.options[selInst.selectedIndex]?.text || null) : null;
-    const blocoNome = blocoId ? (selBloco.options[selBloco.selectedIndex]?.text || null) : null;
+    // Localização agora vem de catálogos (instituicoes / blocos) selecionados, não mais texto livre.
+    // bloco/instituicao (texto) são mantidos em sincronia automaticamente para compatibilidade
+    // com laudos, QR público, dashboard e filtros já existentes.
+    const instId  = $('eq-instituicao-id')?.value || '';
+    const blocoId = $('eq-bloco-id')?.value       || '';
     const payload = {
       tag, categoria: cat,
       marca:      $('eq-marca')?.value.trim()      || null,
       produto:    $('eq-produto')?.value.trim()    || null,
       nr_serie:   $('eq-serie')?.value.trim()      || null,
       patrimonio: $('eq-patrimonio')?.value.trim() || null,
-      instituicao_id: instituicaoId,
-      bloco_id:       blocoId,
-      instituicao: instituicaoNome,
-      bloco:       blocoNome,
       setor:      $('eq-setor')?.value.trim()      || null,
       sala:       $('eq-sala')?.value.trim()       || null,
+      instituicao_id: instId  || null,
+      bloco_id:       blocoId || null,
+      instituicao: instId  ? $('eq-instituicao-id').selectedOptions[0].textContent : null,
+      bloco:       blocoId ? $('eq-bloco-id').selectedOptions[0].textContent       : null,
       criticidade: calcularCriticidadeFluxograma(),
     };
     const extras = {};
@@ -660,16 +511,13 @@ async function carregarEquipamentoParaEdicao() {
   if ($('eq-produto'))     $('eq-produto').value     = eq.produto     || '';
   if ($('eq-serie'))       $('eq-serie').value       = eq.nr_serie    || '';
   if ($('eq-patrimonio'))  $('eq-patrimonio').value  = eq.patrimonio  || '';
-  if ($('eq-bloco') && $('eq-instituicao')) {
-    // globalInstituicoes/globalBlocos já devem estar carregados (carregarLocaisParaEquipamento
-    // roda no DOMContentLoaded antes desta função). Popula pelo ID salvo; se o ativo
-    // ainda não tiver sido migrado (instituicao_id/bloco_id nulos), os selects ficam
-    // em branco e o usuário precisa reselecionar uma vez para vincular corretamente.
-    popularSelectInstituicoesEquipamento(eq.instituicao_id || '');
-    popularSelectBlocosEquipamento(eq.instituicao_id || '', eq.bloco_id || '');
-  }
+  if ($('eq-instituicao-id')) $('eq-instituicao-id').value = eq.instituicao_id || '';
   if ($('eq-setor'))       $('eq-setor').value       = eq.setor       || '';
   if ($('eq-sala'))        $('eq-sala').value        = eq.sala        || '';
+  if ($('eq-bloco-id')) {
+    await popularSelectBlocos(eq.instituicao_id || '', 'eq-bloco-id');
+    $('eq-bloco-id').value = eq.bloco_id || '';
+  }
   if ($('eq-potencia') && eq.potencia) $('eq-potencia').value = eq.potencia;
   if ($('eq-validade') && eq.validade) $('eq-validade').value = eq.validade;
 
@@ -939,6 +787,174 @@ if ($('btn-salvar-funcao')) {
   });
 }
 
+// ===================== LOCAIS: INSTITUIÇÕES & BLOCOS (catálogo de localização dos ativos) =====================
+// Substitui os antigos campos de texto livre "Bloco/Edificação" e "Instituição/Unidade"
+// em equipamentos.html por seleção a partir de um cadastro centralizado (locais.html).
+// Bloco é sempre vinculado em cascata a uma Instituição (instituicao_id).
+
+// Popula um <select> de Instituições/Unidades. comTodasOpcao=true usa "Todas as Instituições"
+// como placeholder (uso em filtros); caso contrário usa "— Selecione —" (uso em formulários).
+async function popularSelectInstituicoes(selectId, comTodasOpcao) {
+  const sel = $(selectId); if (!sel) return;
+  const valorAtual = sel.value;
+  const { data } = await db.from('instituicoes').select('id, nome').order('nome', { ascending: true });
+  sel.innerHTML = (comTodasOpcao ? '<option value="">Todas as Instituições</option>' : '<option value="">— Selecione —</option>')
+    + (data || []).map(i => `<option value="${i.id}">${escapeHTML(i.nome)}</option>`).join('');
+  if (valorAtual) sel.value = valorAtual;
+}
+
+// Popula um <select> de Blocos/Edificações filtrado pela Instituição escolhida (cascata).
+// Sem instituicaoId, o select fica vazio e desabilitado.
+async function popularSelectBlocos(instituicaoId, selectId) {
+  const sel = $(selectId); if (!sel) return;
+  if (!instituicaoId) {
+    sel.innerHTML = '<option value="">— Selecione a instituição primeiro —</option>';
+    sel.disabled = true;
+    return;
+  }
+  const { data } = await db.from('blocos').select('id, nome').eq('instituicao_id', instituicaoId).order('nome', { ascending: true });
+  sel.disabled = false;
+  sel.innerHTML = '<option value="">— Selecione —</option>'
+    + (data || []).map(b => `<option value="${b.id}">${escapeHTML(b.nome)}</option>`).join('');
+}
+
+// Disparado pelo onchange do select de Instituição em equipamentos.html
+async function atualizarSelectBlocosCascata(manterValor) {
+  const instId = $('eq-instituicao-id')?.value || '';
+  const blocoAnterior = manterValor ? $('eq-bloco-id')?.value : '';
+  await popularSelectBlocos(instId, 'eq-bloco-id');
+  if (blocoAnterior) $('eq-bloco-id').value = blocoAnterior;
+}
+
+// ----- CRUD: Instituições / Unidades -----
+let _instituicoesCache = [];
+
+async function carregarInstituicoes() {
+  const tbody = $('tbody-instituicoes'); if (!tbody) return;
+  const { data: instituicoes } = await db.from('instituicoes').select('*').order('nome', { ascending: true });
+  const { data: blocosTodos }  = await db.from('blocos').select('instituicao_id');
+  _instituicoesCache = instituicoes || [];
+  const countMap = {};
+  (blocosTodos || []).forEach(b => { countMap[b.instituicao_id] = (countMap[b.instituicao_id] || 0) + 1; });
+  tbody.innerHTML = _instituicoesCache.length ? _instituicoesCache.map(i => `<tr>
+      <td><strong>${escapeHTML(i.nome)}</strong></td>
+      <td style="text-align:center;"><span class="tag-badge">${countMap[i.id] || 0}</span></td>
+      <td style="display:flex;gap:4px;">
+        <button class="btn-secondary" style="padding:3px 10px;font-size:11px;" onclick="editarInstituicao('${i.id}')">✏️ Editar</button>
+        <button class="btn-excluir" onclick="excluirInstituicao('${i.id}')">✕</button>
+      </td>
+    </tr>`).join('') : '<tr><td colspan="3" class="td-loading">Sem registros.</td></tr>';
+}
+
+function editarInstituicao(id) {
+  const i = _instituicoesCache.find(x => x.id === id); if (!i) return;
+  $('inst-id-edicao').value = i.id;
+  $('inst-nome').value = i.nome || '';
+  $('btn-salvar-instituicao').textContent = '💾 Atualizar Instituição';
+  $('btn-cancelar-instituicao').style.display = 'inline-flex';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function resetarFormInstituicao() {
+  $('inst-id-edicao').value = '';
+  $('inst-nome').value = '';
+  $('btn-salvar-instituicao').textContent = '💾 Salvar Instituição';
+  $('btn-cancelar-instituicao').style.display = 'none';
+}
+
+async function excluirInstituicao(id) {
+  if (!confirm('Remover esta Instituição/Unidade? Só será possível se não houver Blocos ou Ativos vinculados a ela.')) return;
+  const { error } = await db.from('instituicoes').delete().eq('id', id);
+  if (error) { alert('Não foi possível remover: ' + error.message); return; }
+  carregarInstituicoes();
+  popularSelectInstituicoes('bloco-instituicao');
+  popularSelectInstituicoes('filtro-bloco-instituicao', true);
+}
+
+if ($('btn-salvar-instituicao')) {
+  $('btn-salvar-instituicao').addEventListener('click', async () => {
+    const nome = $('inst-nome')?.value.trim();
+    if (!nome) { msgForm('msg-instituicao', 'Informe o nome da Instituição/Unidade.', 'red'); return; }
+    msgForm('msg-instituicao', 'Salvando...', 'blue');
+    const idEd = $('inst-id-edicao')?.value;
+    const { error } = idEd
+      ? await db.from('instituicoes').update({ nome }).eq('id', idEd)
+      : await db.from('instituicoes').insert([{ nome }]);
+    if (error) { msgForm('msg-instituicao', 'Erro: ' + error.message, 'red'); return; }
+    msgForm('msg-instituicao', idEd ? '✓ Instituição atualizada!' : '✓ Instituição salva!', 'green');
+    resetarFormInstituicao();
+    carregarInstituicoes();
+    popularSelectInstituicoes('bloco-instituicao');
+    popularSelectInstituicoes('filtro-bloco-instituicao', true);
+  });
+}
+
+// ----- CRUD: Blocos / Edificações -----
+let _blocosCache = [];
+
+async function carregarBlocos() {
+  const tbody = $('tbody-blocos'); if (!tbody) return;
+  const filtroInst = $('filtro-bloco-instituicao')?.value || '';
+  let query = db.from('blocos').select('*, instituicoes(nome)').order('nome', { ascending: true });
+  if (filtroInst) query = query.eq('instituicao_id', filtroInst);
+  const { data: blocos } = await query;
+  const { data: eqs } = await db.from('equipamentos').select('bloco_id');
+  _blocosCache = blocos || [];
+  const countMap = {};
+  (eqs || []).forEach(e => { if (e.bloco_id) countMap[e.bloco_id] = (countMap[e.bloco_id] || 0) + 1; });
+  tbody.innerHTML = _blocosCache.length ? _blocosCache.map(b => `<tr>
+      <td><strong>${escapeHTML(b.nome)}</strong></td>
+      <td>${escapeHTML(b.instituicoes?.nome)}</td>
+      <td style="text-align:center;"><span class="tag-badge">${countMap[b.id] || 0}</span></td>
+      <td style="display:flex;gap:4px;">
+        <button class="btn-secondary" style="padding:3px 10px;font-size:11px;" onclick="editarBloco('${b.id}')">✏️ Editar</button>
+        <button class="btn-excluir" onclick="excluirBloco('${b.id}')">✕</button>
+      </td>
+    </tr>`).join('') : '<tr><td colspan="4" class="td-loading">Sem registros.</td></tr>';
+}
+
+function editarBloco(id) {
+  const b = _blocosCache.find(x => x.id === id); if (!b) return;
+  $('bloco-id-edicao').value = b.id;
+  $('bloco-instituicao').value = b.instituicao_id || '';
+  $('bloco-nome').value = b.nome || '';
+  $('btn-salvar-bloco').textContent = '💾 Atualizar Bloco';
+  $('btn-cancelar-bloco').style.display = 'inline-flex';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function resetarFormBloco() {
+  $('bloco-id-edicao').value = '';
+  $('bloco-instituicao').value = '';
+  $('bloco-nome').value = '';
+  $('btn-salvar-bloco').textContent = '💾 Salvar Bloco';
+  $('btn-cancelar-bloco').style.display = 'none';
+}
+
+async function excluirBloco(id) {
+  if (!confirm('Remover este Bloco/Edificação? Só será possível se não houver Ativos vinculados a ele.')) return;
+  const { error } = await db.from('blocos').delete().eq('id', id);
+  if (error) { alert('Não foi possível remover: ' + error.message); return; }
+  carregarBlocos();
+}
+
+if ($('btn-salvar-bloco')) {
+  $('btn-salvar-bloco').addEventListener('click', async () => {
+    const instituicao_id = $('bloco-instituicao')?.value;
+    const nome = $('bloco-nome')?.value.trim();
+    if (!instituicao_id || !nome) { msgForm('msg-bloco', 'Selecione a Instituição e informe o nome do Bloco.', 'red'); return; }
+    msgForm('msg-bloco', 'Salvando...', 'blue');
+    const idEd = $('bloco-id-edicao')?.value;
+    const { error } = idEd
+      ? await db.from('blocos').update({ instituicao_id, nome }).eq('id', idEd)
+      : await db.from('blocos').insert([{ instituicao_id, nome }]);
+    if (error) { msgForm('msg-bloco', 'Erro: ' + error.message, 'red'); return; }
+    msgForm('msg-bloco', idEd ? '✓ Bloco atualizado!' : '✓ Bloco salvo!', 'green');
+    resetarFormBloco();
+    carregarBlocos();
+  });
+}
+
 // ===================== FORMULÁRIO PMOC =====================
 if ($('btn-salvar-ficha')) {
   $('btn-salvar-ficha').addEventListener('click', async () => {
@@ -974,7 +990,12 @@ if ($('btn-salvar-ficha')) {
       assinatura_fiscal_url = await uploadAssinatura(blob, 'fiscal', `fiscal_${Date.now()}`);
     }
 
-    const foto_url = await uploadFoto($('pmoc-foto')?.files[0], 'pmoc', 'msg-ficha');
+    const fAntes  = await uploadFotos($('pmoc-foto-antes')?.files,  'pmoc', 'msg-ficha');
+    const fDepois = await uploadFotos($('pmoc-foto-depois')?.files, 'pmoc', 'msg-ficha');
+    const fotos_urls = [
+      ...fAntes.map(url  => ({ url, tipo: 'antes'  })),
+      ...fDepois.map(url => ({ url, tipo: 'depois' })),
+    ];
     const { data: colab }     = await db.from('colaboradores').select('nome, assinatura_url, assinatura_digital').eq('id', tecnico_id).single();
     const { data: { user } }  = await db.auth.getUser();
 
@@ -987,7 +1008,7 @@ if ($('btn-salvar-ficha')) {
       assinatura_tecnico_url: lerAssinaturaURL(colab,'assinatura_url','assinatura_digital') || null,
       assinatura_fiscal_url:  assinatura_fiscal_url || null,
     };
-    if (foto_url) payload.foto_url = foto_url;
+    if (fotos_urls.length) payload.fotos_urls = fotos_urls;
 
     const idEdicao = $('pmoc-id-edicao')?.value;
     const { error } = idEdicao
@@ -1066,17 +1087,23 @@ function emitirRelatorioPMOC(b64) {
   const checklist  = meta.checklist       || {};
   const obsLimpa   = meta._obsLimpa       || '';
 
-  // Laudo completo: lista todos os itens da frequência (preenchidos e não), descrição correta
-  const chkRows = montarLinhasChecklistPMOC(tipo, freq, checklist);
+  const labelChk = {
+    'limpeza-filtro':'Limpeza de Filtro','limpeza-evaporadora':'Limpeza Evaporadora',
+    'limpeza-condensadora':'Limpeza Condensadora','verificacao-dreno':'Verificação de Dreno',
+    'verificacao-eletrica':'Verificação Elétrica','verificacao-fluido':'Verificação de Fluido',
+    'teste-operacao':'Teste de Operação','verificacao-ruidos':'Verificação de Ruídos','limpeza-geral':'Limpeza Geral',
+  };
+  const statusChk = { OK:'<span class="ok">✓ OK</span>', NOK:'<span class="nok">✗ NOK</span>', NA:'<span class="na">N/A</span>' };
+  const chkRows = Object.entries(checklist).map(([k,v]) =>
+    `<tr><td>${labelChk[k]||k}</td><td style="text-align:center;">${statusChk[v]||v}</td></tr>`
+  ).join('');
 
   const assinaturaTecnicoHTML = _assinaturaImg(lerAssinaturaURL(f,'assinatura_tecnico_url','assinatura_digital'),'max-width:200px;max-height:65px;display:block;margin:0 auto 4px;');
   const assinaturaFiscalHTML  = _assinaturaImg(lerAssinaturaURL(f,'assinatura_fiscal_url','assinatura_fiscal'), 'max-width:200px;max-height:65px;display:block;margin:0 auto 4px;');
   const urlValidacao = gerarUrlValidacao(f.id, 'pmoc');
   const qrCodeHTML   = gerarQrCodeSVG(urlValidacao, 100);
   const codigoLaudo  = `L-PMOC-${f.id.toString().slice(0,6).toUpperCase()}`;
-  const fotoHTML     = f.foto_url
-    ? `<div class="laudo-section"><div class="laudo-section-title">Evidência Fotográfica</div><img src="${f.foto_url}" style="max-width:100%;max-height:200px;border-radius:4px;border:1px solid #e2e8f0;"></div>`
-    : '';
+  const fotoHTML = galeriaFotosHTML(f);
 
   const html = `
   <div class="laudo-wrapper">
@@ -1194,7 +1221,7 @@ function emitirRelatorioOS(os) {
       <div class="laudo-section-title">Diagnóstico Técnico / Ações Executadas</div>
       <p style="font-size:12px;line-height:1.7;min-height:60px;">${escapeHTML(os.laudo_tecnico || 'Não informado.')}</p>
     </div>
-    ${os.foto_url ? `<div class="laudo-section"><div class="laudo-section-title">Evidência Fotográfica</div><img src="${os.foto_url}" style="max-width:100%;max-height:200px;border-radius:4px;border:1px solid #e2e8f0;"></div>` : ''}
+    ${galeriaFotosHTML(os)}
     <div class="laudo-section">
       <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;">
         <div style="flex:1;">
@@ -1229,13 +1256,29 @@ if ($('btn-salvar-os')) {
       descricao_defeito: $('os-defeito').value.trim(),
       laudo_tecnico:    $('os-laudo').value.trim(),
     };
+    const fAntes  = await uploadFotos($('os-foto-antes')?.files,  'os', 'msg-os');
+    const fDepois = await uploadFotos($('os-foto-depois')?.files, 'os', 'msg-os');
+    const fotos_urls = [
+      ...fAntes.map(url  => ({ url, tipo: 'antes'  })),
+      ...fDepois.map(url => ({ url, tipo: 'depois' })),
+    ];
+    if (fotos_urls.length) payload.fotos_urls = fotos_urls;
+
     const idEd = $('os-id-edicao').value;
     const { error } = idEd
       ? await db.from('ordens_servico').update(payload).eq('id', idEd)
       : await db.from('ordens_servico').insert([payload]);
-    if (!error) { resetarFormOS(); carregarOrdensServico(); carregarCentralUnificadaOS(); }
+    if (error) { msgForm('msg-os', 'Erro: ' + error.message, 'red'); return; }
+    msgForm('msg-os', idEd ? '✓ OS atualizada!' : '✓ OS registrada!', 'green');
+    resetarFormOS(); carregarOrdensServico(); carregarCentralUnificadaOS();
   });
 }
+
+// Ativa o preview das imagens selecionadas nos formulários PMOC e OS.
+montarPreviewFotos('pmoc-foto-antes',  'pmoc-foto-antes-preview');
+montarPreviewFotos('pmoc-foto-depois', 'pmoc-foto-depois-preview');
+montarPreviewFotos('os-foto-antes',    'os-foto-antes-preview');
+montarPreviewFotos('os-foto-depois',   'os-foto-depois-preview');
 
 async function carregarOrdensServico() {
   const tbody = $('tbody-os'); if (!tbody) return;
@@ -1433,7 +1476,11 @@ function alternarSubAbasRH(m) {
   if ($('sub-rh-colab'))    $('sub-rh-colab').style.display    = m === 'colab'    ? 'block' : 'none';
   if ($('sub-rh-cargo'))    $('sub-rh-cargo').style.display    = m === 'cargo'    ? 'block' : 'none';
 }
-function resetarFormOS()  { ['os-defeito','os-laudo','os-id-edicao'].forEach(id => { if ($(id)) $(id).value = ''; }); }
+function resetarFormOS()  {
+  ['os-defeito','os-laudo','os-id-edicao'].forEach(id => { if ($(id)) $(id).value = ''; });
+  ['os-foto-antes','os-foto-depois'].forEach(id => { if ($(id)) $(id).value = ''; });
+  ['os-foto-antes-preview','os-foto-depois-preview'].forEach(id => { if ($(id)) $(id).innerHTML = ''; });
+}
 function resetarFormOSG() { ['osg-setor','osg-requisitado','osg-falha'].forEach(id => { if ($(id)) $(id).value = ''; }); }
 
 // ===================== QR CODE =====================
@@ -2016,6 +2063,8 @@ function resetarFormPMOC() {
   if (btnSalvar) { btnSalvar.textContent = '✓ Registrar Ficha PMOC'; btnSalvar.style.background = ''; }
   const btnCancelar = $('btn-cancelar-edicao-pmoc');
   if (btnCancelar) btnCancelar.style.display = 'none';
+  ['pmoc-foto-antes','pmoc-foto-depois'].forEach(id => { if ($(id)) $(id).value = ''; });
+  ['pmoc-foto-antes-preview','pmoc-foto-depois-preview'].forEach(id => { if ($(id)) $(id).innerHTML = ''; });
 }
 
 async function excluirFichaPMOC(id) {

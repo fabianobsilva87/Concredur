@@ -29,6 +29,7 @@
         <div class="nav-label">Administração</div>
         <div class="nav-item" onclick="location.href='colaborador.html'"><span>👷</span> Colaboradores</div>
         <div class="nav-item" onclick="location.href='empresas.html'"><span>🏢</span> Empresas</div>
+        <div class="nav-item" onclick="location.href='locais.html'"><span>📍</span> Locais</div>
         <div class="nav-item" onclick="location.href='usuarios.html'"><span>👥</span> Gestão de Usuários</div>
       </nav>
       <div class="sidebar-footer"><button id="btn-logout" class="btn-sair">⬅ Sair</button></div>
@@ -273,13 +274,13 @@
             <div class="form-grid">
               <div class="form-group">
                 <label>Instituição / Unidade</label>
-                <select id="eq-instituicao" class="form-input-style" onchange="aoTrocarInstituicaoEquipamento()">
+                <select id="eq-instituicao-id" class="form-input-style" onchange="atualizarSelectBlocosCascata()">
                   <option value="">— Selecione —</option>
                 </select>
               </div>
               <div class="form-group">
                 <label>Bloco / Edificação</label>
-                <select id="eq-bloco" class="form-input-style">
+                <select id="eq-bloco-id" class="form-input-style" disabled>
                   <option value="">— Selecione a instituição primeiro —</option>
                 </select>
               </div>
@@ -292,9 +293,8 @@
                 <input type="text" id="eq-sala" placeholder="Ex: Sala 204, Copa, Corredor B">
               </div>
             </div>
-            <p style="font-size:11px;color:#718096;margin-top:6px;">
-              Não encontrou a unidade ou o bloco? Cadastre em
-              <a href="empresas.html" target="_blank" style="color:#1a56db;">Empresas → 📍 Locais (Unidades/Blocos)</a>.
+            <p style="font-size:11px;margin-top:8px;">
+              <a href="locais.html" target="_blank">+ Cadastrar nova Instituição/Unidade ou Bloco/Edificação</a>
             </p>
           </div>
 
@@ -349,9 +349,8 @@
   <script>
     // Inicializar estado do formulário no carregamento
     window.addEventListener('DOMContentLoaded', async () => {
-      // Carrega Instituições/Unidades e Blocos/Edificações para popular os combos
-      await carregarLocaisParaEquipamento();
       toggleCamposEquipamento();
+      await popularSelectInstituicoes('eq-instituicao-id');
       // Se houver ?edit=ID na URL, carrega os dados para edição
       await carregarEquipamentoParaEdicao();
     });

@@ -29,6 +29,7 @@
       <div class="nav-label">Administração</div>
       <div class="nav-item active" onclick="location.href='colaborador.html'"><span>👷</span> Colaboradores</div>
       <div class="nav-item" onclick="location.href='empresas.html'"><span>🏢</span> Empresas</div>
+      <div class="nav-item" onclick="location.href='locais.html'"><span>📍</span> Locais</div>
       <div class="nav-item" onclick="location.href='usuarios.html'"><span>👥</span> Gestão de Usuários</div>
     </nav>
     <div class="sidebar-footer"><button id="btn-logout" class="btn-sair">⬅ Sair</button></div>
@@ -55,11 +56,6 @@
             <div class="form-group"><label>CPF *</label><input type="text" id="colab-cpf" class="input-cpf" placeholder="000.000.000-00" maxlength="14"></div>
             <div class="form-group"><label>Cargo / Função</label><select id="colab-funcao" class="form-input-style"><option value="">-- Selecione --</option></select></div>
             <div class="form-group"><label>Data de Contratação</label><input type="date" id="colab-contratacao"></div>
-            <div class="form-group">
-              <label>Registro de Classe (CREA/CFT)</label>
-              <input type="text" id="colab-registro-classe" placeholder="Ex: CREA-MT 044726">
-              <p style="font-size:10px;color:#a0aec0;margin-top:3px;">Preencha apenas para técnicos habilitados a atuar como Responsável Técnico (RT) em laudos PMOC.</p>
-            </div>
           </div>
 
           <!-- ASSINATURA DIGITAL -->
@@ -102,12 +98,11 @@
                   <th>CPF</th>
                   <th>Função</th>
                   <th>Contratação</th>
-                  <th>Registro de Classe</th>
                   <th>Assinatura</th>
                   <th>Ações</th>
                 </tr>
               </thead>
-              <tbody id="tbody-colaboradores"><tr><td colspan="7" class="td-loading">Carregando...</td></tr></tbody>
+              <tbody id="tbody-colaboradores"><tr><td colspan="6" class="td-loading">Carregando...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -117,7 +112,6 @@
       <div id="aba-cargo" class="app-sub-panel" style="display:none;">
         <div class="card">
           <h3 class="card-title">🪪 Novo Cargo / Função</h3>
-          <input type="hidden" id="func-id-edicao" value="">
           <div class="form-grid">
             <div class="form-group"><label>Nome do Cargo *</label><input type="text" id="func-nome" placeholder="Ex: Mecânico de Refrigeração"></div>
             <div class="form-group"><label>Salário Base (R$)</label><input type="number" id="func-salario" placeholder="0,00"></div>
@@ -129,7 +123,7 @@
               </select>
             </div>
           </div>
-          <div class="btn-row"><button id="btn-salvar-funcao" class="btn-primary">💾 Salvar Cargo</button><button id="btn-cancelar-funcao" class="btn-secondary" style="display:none;" onclick="resetarFormFuncao()">✕ Cancelar</button></div>
+          <div class="btn-row"><button id="btn-salvar-funcao" class="btn-primary">💾 Salvar Cargo</button></div>
           <p id="msg-funcao" class="msg-form"></p>
         </div>
         <div class="card">
@@ -189,7 +183,6 @@ function editarColaborador(id) {
   document.getElementById('colab-cpf').value = cpfF;
   document.getElementById('colab-funcao').value = c.funcao_id || '';
   document.getElementById('colab-contratacao').value = c.data_contratacao || '';
-  document.getElementById('colab-registro-classe').value = c.registro_classe || '';
 
   // Bug 1 fix: usa lerAssinaturaURL para checar Storage URL e Base64 legado
   const urlAssin = lerAssinaturaURL(c, 'assinatura_url', 'assinatura_digital');
@@ -217,7 +210,6 @@ function resetarFormColaborador() {
   document.getElementById('colab-cpf').value = '';
   document.getElementById('colab-funcao').value = '';
   document.getElementById('colab-contratacao').value = '';
-  document.getElementById('colab-registro-classe').value = '';
   document.getElementById('assinatura-preview-existente').style.display = 'none';
   _mostrarCanvas(true);
   limparCanvasColabAssinatura();
