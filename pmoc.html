@@ -75,6 +75,17 @@
                 <option value="A">Anual</option>
               </select>
             </div>
+            <div class="form-group">
+              <label>Responsável Técnico (RT)</label>
+              <select id="pmoc-rt" class="form-input-style">
+                <option value="">-- Nenhum (laudo sem RT) --</option>
+              </select>
+              <p style="font-size:10px;color:#a0aec0;margin-top:3px;">Lista apenas colaboradores com Registro de Classe cadastrado.</p>
+            </div>
+            <div class="form-group">
+              <label>Nº da ART do Laudo</label>
+              <input type="text" id="pmoc-art" class="form-input-style" placeholder="Nº da Anotação de Responsabilidade Técnica (opcional)">
+            </div>
             <div class="form-group" style="grid-column:span 2;">
               <label>📷 Registro Fotográfico de Campo</label>
               <div style="display:flex;gap:12px;flex-wrap:wrap;">
@@ -109,6 +120,10 @@
             <div class="checklist-row"><div><strong>[BIO-01]</strong> Bandeja de Condensados — Limpeza e Pastilha Sanitizante</div><div class="radio-group"><label><input type="radio" name="bio_01" value="C"> C</label><label><input type="radio" name="bio_01" value="NC"> NC</label><label><input type="radio" name="bio_01" value="NA"> NA</label></div></div>
             <div class="checklist-row"><div><strong>[BIO-02]</strong> Rede de Drenagem — Desobstrução e Teste de Escoamento</div><div class="radio-group"><label><input type="radio" name="bio_02" value="C"> C</label><label><input type="radio" name="bio_02" value="NC"> NC</label><label><input type="radio" name="bio_02" value="NA"> NA</label></div></div>
             <div class="checklist-row"><div><strong>[MEC-01]</strong> Conjunto Ventilação — Ruídos, Coxins e Fixadores</div><div class="radio-group"><label><input type="radio" name="mec_01" value="C"> C</label><label><input type="radio" name="mec_01" value="NC"> NC</label><label><input type="radio" name="mec_01" value="NA"> NA</label></div></div>
+            <div class="checklist-row"><div><strong>[AMB-01]</strong> Verificação de Odores Desagradáveis e Qualidade do Ar no Ambiente</div><div class="radio-group"><label><input type="radio" name="amb_01" value="C"> C</label><label><input type="radio" name="amb_01" value="NC"> NC</label><label><input type="radio" name="amb_01" value="NA"> NA</label></div></div>
+            <div class="checklist-row"><div><strong>[AMB-02]</strong> Verificação de Fontes de Ruído e Conforto Acústico do Ambiente</div><div class="radio-group"><label><input type="radio" name="amb_02" value="C"> C</label><label><input type="radio" name="amb_02" value="NC"> NC</label><label><input type="radio" name="amb_02" value="NA"> NA</label></div></div>
+            <div class="checklist-row"><div><strong>[AMB-03]</strong> Verificação de Infiltrações, Umidade e Sinais de Bolor no Ambiente</div><div class="radio-group"><label><input type="radio" name="amb_03" value="C"> C</label><label><input type="radio" name="amb_03" value="NC"> NC</label><label><input type="radio" name="amb_03" value="NA"> NA</label></div></div>
+            <div class="checklist-row"><div><strong>[AMB-04]</strong> Verificação de Armazenagem de Produtos Químicos e Fontes de Radiação</div><div class="radio-group"><label><input type="radio" name="amb_04" value="C"> C</label><label><input type="radio" name="amb_04" value="NC"> NC</label><label><input type="radio" name="amb_04" value="NA"> NA</label></div></div>
 
             <div class="checklist-section-title freq-item-t" style="display:none;">📅 Rotinas Trimestrais (adicional)</div>
             <div class="checklist-row freq-item-t" style="display:none;"><div><strong>[FIL-02]</strong> Diferencial de Pressão de Filtros — Medição com Manômetro</div><div class="radio-group"><label><input type="radio" name="fil_02" value="C"> C</label><label><input type="radio" name="fil_02" value="NC"> NC</label><label><input type="radio" name="fil_02" value="NA"> NA</label></div></div>
@@ -125,6 +140,11 @@
             <div class="checklist-row freq-item-s" style="display:none;"><div><strong>[MEC-03]</strong> Inspeção e Substituição de Correias e Polias (se aplicável)</div><div class="radio-group"><label><input type="radio" name="mec_03" value="C"> C</label><label><input type="radio" name="mec_03" value="NC"> NC</label><label><input type="radio" name="mec_03" value="NA"> NA</label></div></div>
             <div class="checklist-row freq-item-s" style="display:none;"><div><strong>[BIO-04]</strong> Coleta de Amostra de Água para Análise Microbiológica</div><div class="radio-group"><label><input type="radio" name="bio_04" value="C"> C</label><label><input type="radio" name="bio_04" value="NC"> NC</label><label><input type="radio" name="bio_04" value="NA"> NA</label></div></div>
             <div class="checklist-row freq-item-s" style="display:none;"><div><strong>[INS-01]</strong> Inspeção Estrutural — Suportes, Fixações e Isolamento Térmico das Linhas</div><div class="radio-group"><label><input type="radio" name="ins_01" value="C"> C</label><label><input type="radio" name="ins_01" value="NC"> NC</label><label><input type="radio" name="ins_01" value="NA"> NA</label></div></div>
+            <div class="checklist-row freq-item-s" style="display:none;"><div><strong>[DUT-01]</strong> Dutos e Caixa de Plenum — Sujeira, Danos e Corrosão (Interna/Externa)</div><div class="radio-group"><label><input type="radio" name="dut_01" value="C"> C</label><label><input type="radio" name="dut_01" value="NC"> NC</label><label><input type="radio" name="dut_01" value="NA"> NA</label></div></div>
+            <div class="checklist-row freq-item-s" style="display:none;"><div><strong>[DUT-02]</strong> Vedação das Portas de Inspeção e Conexões dos Dutos</div><div class="radio-group"><label><input type="radio" name="dut_02" value="C"> C</label><label><input type="radio" name="dut_02" value="NC"> NC</label><label><input type="radio" name="dut_02" value="NA"> NA</label></div></div>
+            <div class="checklist-row freq-item-s" style="display:none;"><div><strong>[DUT-03]</strong> Isolamento Térmico dos Dutos — Estado de Conservação</div><div class="radio-group"><label><input type="radio" name="dut_03" value="C"> C</label><label><input type="radio" name="dut_03" value="NC"> NC</label><label><input type="radio" name="dut_03" value="NA"> NA</label></div></div>
+            <div class="checklist-row freq-item-s" style="display:none;"><div><strong>[DUT-04]</strong> Bocas de Insuflamento e Retorno — Limpeza, Fixação e Medição de Vazão</div><div class="radio-group"><label><input type="radio" name="dut_04" value="C"> C</label><label><input type="radio" name="dut_04" value="NC"> NC</label><label><input type="radio" name="dut_04" value="NA"> NA</label></div></div>
+            <div class="checklist-row freq-item-s" style="display:none;"><div><strong>[DUT-05]</strong> Registros de Ar (Dampers) de Retorno, Corta-Fogo e Gravidade — Funcionamento</div><div class="radio-group"><label><input type="radio" name="dut_05" value="C"> C</label><label><input type="radio" name="dut_05" value="NC"> NC</label><label><input type="radio" name="dut_05" value="NA"> NA</label></div></div>
 
             <div class="checklist-section-title freq-item-a" style="display:none;">📋 Rotinas Anuais (adicional)</div>
             <div class="checklist-row freq-item-a" style="display:none;"><div><strong>[REF-03]</strong> Substituição de Gás Refrigerante (se necessário) e Registro ART/Boletim</div><div class="radio-group"><label><input type="radio" name="ref_03" value="C"> C</label><label><input type="radio" name="ref_03" value="NC"> NC</label><label><input type="radio" name="ref_03" value="NA"> NA</label></div></div>
