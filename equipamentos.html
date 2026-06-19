@@ -81,20 +81,7 @@
             <div class="form-grid">
               <div class="form-group">
                 <label>Capacidade (BTU/h)</label>
-                <select id="eq-potencia" class="form-input-style">
-                  <option value="">— Selecione —</option>
-                  <option value="7000">7.000 BTU/h</option>
-                  <option value="9000">9.000 BTU/h</option>
-                  <option value="12000">12.000 BTU/h</option>
-                  <option value="18000">18.000 BTU/h</option>
-                  <option value="22000">22.000 BTU/h</option>
-                  <option value="24000">24.000 BTU/h</option>
-                  <option value="30000">30.000 BTU/h</option>
-                  <option value="36000">36.000 BTU/h</option>
-                  <option value="48000">48.000 BTU/h</option>
-                  <option value="60000">60.000 BTU/h</option>
-                  <option value="80000+">Acima de 60.000 BTU/h</option>
-                </select>
+                <input type="text" id="eq-potencia" placeholder="Ex: 9.000 / 12.000 / 18.000 BTU">
               </div>
               <div class="form-group">
                 <label>Tipo de Ciclo</label>
@@ -102,14 +89,6 @@
                   <option value="">— Selecione —</option>
                   <option value="Frio">Só Frio</option>
                   <option value="Frio/Calor">Frio e Calor (Reversível)</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Tecnologia do Compressor</label>
-                <select id="eq-tecnologia" class="form-input-style">
-                  <option value="">— Selecione —</option>
-                  <option value="Convencional">Convencional</option>
-                  <option value="Inverter">Inverter</option>
                 </select>
               </div>
               <div class="form-group">
@@ -132,10 +111,6 @@
                   <option value="R-404A">R-404A</option>
                   <option value="R-134A">R-134A</option>
                 </select>
-              </div>
-              <div class="form-group">
-                <label>Quantidade de Gás (KG)</label>
-                <input type="number" id="eq-qtd-gas" step="0.01" min="0" placeholder="Ex: 1.20">
               </div>
               <div class="form-group">
                 <label>Tipo de Instalação</label>
@@ -297,8 +272,16 @@
             <div class="eq-section-title">2. Localização do Ativo</div>
             <div class="form-grid">
               <div class="form-group">
+                <label>Instituição / Unidade</label>
+                <select id="eq-instituicao" class="form-input-style" onchange="aoTrocarInstituicaoEquipamento()">
+                  <option value="">— Selecione —</option>
+                </select>
+              </div>
+              <div class="form-group">
                 <label>Bloco / Edificação</label>
-                <input type="text" id="eq-bloco" placeholder="Ex: Bloco A, Prédio Central">
+                <select id="eq-bloco" class="form-input-style">
+                  <option value="">— Selecione a instituição primeiro —</option>
+                </select>
               </div>
               <div class="form-group">
                 <label>Setor Interno</label>
@@ -308,11 +291,11 @@
                 <label>Sala / Identificação</label>
                 <input type="text" id="eq-sala" placeholder="Ex: Sala 204, Copa, Corredor B">
               </div>
-              <div class="form-group">
-                <label>Instituição / Unidade</label>
-                <input type="text" id="eq-instituicao" placeholder="Ex: Matriz Sede, Filial Centro">
-              </div>
             </div>
+            <p style="font-size:11px;color:#718096;margin-top:6px;">
+              Não encontrou a unidade ou o bloco? Cadastre em
+              <a href="empresas.html" target="_blank" style="color:#1a56db;">Empresas → 📍 Locais (Unidades/Blocos)</a>.
+            </p>
           </div>
 
           <!-- ===== BLOCO 7: CRITICIDADE (sempre visível após tipo) ===== -->
@@ -366,6 +349,8 @@
   <script>
     // Inicializar estado do formulário no carregamento
     window.addEventListener('DOMContentLoaded', async () => {
+      // Carrega Instituições/Unidades e Blocos/Edificações para popular os combos
+      await carregarLocaisParaEquipamento();
       toggleCamposEquipamento();
       // Se houver ?edit=ID na URL, carrega os dados para edição
       await carregarEquipamentoParaEdicao();

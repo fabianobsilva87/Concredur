@@ -39,6 +39,7 @@
       <button class="btn-refresh" onclick="alternarAba('empregadora')">🏛️ Empresa Empregadora</button>
       <button class="btn-refresh" style="background:#7c3aed;border-color:#7c3aed;color:#fff;" onclick="alternarAba('contratante')">🤝 Empresas Contratantes</button>
       <button class="btn-refresh" style="background:#0891b2;border-color:#0891b2;color:#fff;" onclick="alternarAba('responsavel')">👷 Resp. de Segurança</button>
+      <button class="btn-refresh" style="background:#b45309;border-color:#b45309;color:#fff;" onclick="alternarAba('locais')">📍 Locais (Unidades/Blocos)</button>
     </div>
 
     <div class="section-content">
@@ -274,6 +275,95 @@
         </div>
       </div>
 
+      <!-- ===== ABA: LOCAIS (INSTITUIÇÕES/UNIDADES E BLOCOS/EDIFICAÇÕES) ===== -->
+      <div id="aba-locais" class="app-sub-panel" style="display:none;">
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px 16px;margin-bottom:20px;font-size:12px;color:#92400e;">
+          📍 <strong>Sobre estas listas:</strong> os valores cadastrados aqui aparecem como opções de seleção no cadastro de Ativos (Equipamentos), em vez de serem digitados livremente. Cada Bloco/Edificação pertence a uma Instituição/Unidade.
+        </div>
+
+        <!-- Instituições / Unidades -->
+        <div class="card">
+          <div class="card-header-admin" style="background:linear-gradient(135deg,#92400e,#b45309);">
+            <h2>🏛️ Instituições / Unidades</h2>
+            <p style="font-size:12px;opacity:.8;margin-top:4px;">Ex: Matriz Sede, Filial Centro, Campus UNIVAG.</p>
+          </div>
+
+          <input type="hidden" id="inst-id-edicao" value="">
+          <div class="form-grid" style="grid-template-columns:2fr 1fr;align-items:end;">
+            <div class="form-group">
+              <label>Nome da Instituição / Unidade *</label>
+              <input type="text" id="inst-nome" placeholder="Ex: Matriz Sede, Filial Centro">
+            </div>
+            <div class="btn-row" style="margin:0;">
+              <button id="btn-salvar-instituicao" class="btn-primary" style="background:#b45309;">💾 Salvar</button>
+              <button id="btn-cancelar-instituicao" class="btn-secondary" style="display:none;" onclick="limparFormInstituicao()">✕ Cancelar</button>
+            </div>
+          </div>
+          <p id="msg-instituicao" class="msg-form"></p>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h3 class="card-title" style="margin:0;">Instituições / Unidades Cadastradas</h3>
+            <button class="btn-refresh" onclick="carregarInstituicoes()">↺ Atualizar</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Nome</th><th>Status</th><th>Ações</th></tr>
+              </thead>
+              <tbody id="tbody-instituicoes">
+                <tr><td colspan="3" class="td-loading">Carregando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Blocos / Edificações -->
+        <div class="card">
+          <div class="card-header-admin" style="background:linear-gradient(135deg,#78350f,#92400e);">
+            <h2>🏢 Blocos / Edificações</h2>
+            <p style="font-size:12px;opacity:.8;margin-top:4px;">Ex: Bloco A, Prédio Central. Cada bloco pertence a uma Instituição/Unidade.</p>
+          </div>
+
+          <input type="hidden" id="bloco-id-edicao" value="">
+          <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr;align-items:end;">
+            <div class="form-group">
+              <label>Instituição / Unidade *</label>
+              <select id="bloco-instituicao" class="form-input-style">
+                <option value="">— Selecione —</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Nome do Bloco / Edificação *</label>
+              <input type="text" id="bloco-nome" placeholder="Ex: Bloco A, Prédio Central">
+            </div>
+            <div class="btn-row" style="margin:0;">
+              <button id="btn-salvar-bloco" class="btn-primary" style="background:#92400e;">💾 Salvar</button>
+              <button id="btn-cancelar-bloco" class="btn-secondary" style="display:none;" onclick="limparFormBloco()">✕ Cancelar</button>
+            </div>
+          </div>
+          <p id="msg-bloco" class="msg-form"></p>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h3 class="card-title" style="margin:0;">Blocos / Edificações Cadastrados</h3>
+            <button class="btn-refresh" onclick="carregarBlocos()">↺ Atualizar</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Bloco / Edificação</th><th>Instituição / Unidade</th><th>Status</th><th>Ações</th></tr>
+              </thead>
+              <tbody id="tbody-blocos">
+                <tr><td colspan="4" class="td-loading">Carregando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </div>
   </main>
 </div>
@@ -309,7 +399,7 @@ function atualizarPreviewResp() {
 
 // ===== ALTERNÂNCIA DE ABAS =====
 function alternarAba(aba) {
-  ['empregadora','contratante','responsavel'].forEach(a => {
+  ['empregadora','contratante','responsavel','locais'].forEach(a => {
     const el = document.getElementById('aba-' + a);
     if (el) el.style.display = a === aba ? 'block' : 'none';
   });
@@ -582,12 +672,173 @@ document.getElementById('btn-salvar-responsavel')?.addEventListener('click', asy
   carregarResponsaveis();
 });
 
+// ===== LOCAIS: INSTITUIÇÕES / UNIDADES =====
+let _instituicoesCache = [];
+
+async function carregarInstituicoes() {
+  const tbody = document.getElementById('tbody-instituicoes'); if (!tbody) return;
+  const { data, error } = await db.from('instituicoes').select('*').order('ativa', { ascending: false }).order('nome');
+  if (error) { tbody.innerHTML = `<tr><td colspan="3" class="td-loading">Erro: ${error.message}</td></tr>`; return; }
+  _instituicoesCache = data || [];
+  if (!_instituicoesCache.length) { tbody.innerHTML = '<tr><td colspan="3" class="td-loading">Nenhuma instituição/unidade cadastrada.</td></tr>'; return; }
+  tbody.innerHTML = _instituicoesCache.map(i => `<tr>
+    <td><strong>${escapeHTML(i.nome)}</strong></td>
+    <td>${i.ativa
+      ? '<span class="tag-badge success">✅ Ativa</span>'
+      : `<button class="btn-primary" style="padding:3px 8px;font-size:11px;background:#059669;" onclick="ativarInstituicao('${i.id}')">✓ Ativar</button>`}</td>
+    <td style="display:flex;gap:4px;">
+      <button class="btn-secondary" style="padding:3px 8px;font-size:11px;" onclick="editarInstituicao('${i.id}')">✏️ Editar</button>
+      ${i.ativa ? `<button class="btn-secondary" style="padding:3px 8px;font-size:11px;" onclick="inativarInstituicao('${i.id}')">🚫 Inativar</button>` : ''}
+      <button class="btn-excluir" style="padding:3px 8px;font-size:11px;" onclick="excluirInstituicao('${i.id}','${i.nome.replace(/'/g,"\\'")}')">✕</button>
+    </td>
+  </tr>`).join('');
+  // Mantém o select de Bloco (Instituição-pai) atualizado com a lista completa
+  popularSelectInstituicaoParaBloco();
+}
+
+function popularSelectInstituicaoParaBloco(selecionadaId) {
+  const sel = document.getElementById('bloco-instituicao'); if (!sel) return;
+  const ativas = _instituicoesCache.filter(i => i.ativa);
+  sel.innerHTML = '<option value="">— Selecione —</option>' +
+    ativas.map(i => `<option value="${i.id}">${escapeHTML(i.nome)}</option>`).join('');
+  if (selecionadaId) sel.value = selecionadaId;
+}
+
+async function ativarInstituicao(id) {
+  await db.from('instituicoes').update({ ativa: true }).eq('id', id);
+  carregarInstituicoes();
+}
+
+async function inativarInstituicao(id) {
+  if (!confirm('Inativar esta instituição/unidade? Ela deixará de aparecer como opção no cadastro de ativos.')) return;
+  await db.from('instituicoes').update({ ativa: false }).eq('id', id);
+  carregarInstituicoes();
+}
+
+function editarInstituicao(id) {
+  const i = _instituicoesCache.find(x => x.id === id); if (!i) return;
+  document.getElementById('inst-id-edicao').value = id;
+  document.getElementById('inst-nome').value = i.nome || '';
+  document.getElementById('btn-cancelar-instituicao').style.display = 'inline-flex';
+  alternarAba('locais');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function limparFormInstituicao() {
+  document.getElementById('inst-id-edicao').value = '';
+  document.getElementById('inst-nome').value = '';
+  document.getElementById('btn-cancelar-instituicao').style.display = 'none';
+}
+
+async function excluirInstituicao(id, nome) {
+  if (!confirm(`Excluir a instituição/unidade "${nome}"? Isso também excluirá os Blocos vinculados a ela. Ativos que já usam estes registros NÃO serão apagados, mas perderão o vínculo.`)) return;
+  const { error } = await db.from('instituicoes').delete().eq('id', id);
+  if (error) { msgForm('msg-instituicao', 'Erro: ' + error.message, 'red'); return; }
+  carregarInstituicoes();
+  carregarBlocos();
+}
+
+document.getElementById('btn-salvar-instituicao')?.addEventListener('click', async () => {
+  const nome = document.getElementById('inst-nome').value.trim();
+  if (!nome) { msgForm('msg-instituicao', 'Informe o nome da instituição/unidade.', 'red'); return; }
+
+  msgForm('msg-instituicao', 'Salvando...', 'blue');
+  const idEd = document.getElementById('inst-id-edicao').value;
+  const { error } = idEd
+    ? await db.from('instituicoes').update({ nome }).eq('id', idEd)
+    : await db.from('instituicoes').insert([{ nome, ativa: true }]);
+  if (error) { msgForm('msg-instituicao', 'Erro: ' + error.message, 'red'); return; }
+
+  msgForm('msg-instituicao', '✓ Instituição/Unidade salva com sucesso!', 'green');
+  limparFormInstituicao();
+  carregarInstituicoes();
+});
+
+// ===== LOCAIS: BLOCOS / EDIFICAÇÕES =====
+let _blocosCache = [];
+
+async function carregarBlocos() {
+  const tbody = document.getElementById('tbody-blocos'); if (!tbody) return;
+  const { data, error } = await db.from('blocos').select('*, instituicoes(nome)').order('ativa', { ascending: false }).order('nome');
+  if (error) { tbody.innerHTML = `<tr><td colspan="4" class="td-loading">Erro: ${error.message}</td></tr>`; return; }
+  _blocosCache = data || [];
+  if (!_blocosCache.length) { tbody.innerHTML = '<tr><td colspan="4" class="td-loading">Nenhum bloco/edificação cadastrado.</td></tr>'; return; }
+  tbody.innerHTML = _blocosCache.map(b => `<tr>
+    <td><strong>${escapeHTML(b.nome)}</strong></td>
+    <td>${escapeHTML(b.instituicoes?.nome || '—')}</td>
+    <td>${b.ativa
+      ? '<span class="tag-badge success">✅ Ativo</span>'
+      : `<button class="btn-primary" style="padding:3px 8px;font-size:11px;background:#059669;" onclick="ativarBloco('${b.id}')">✓ Ativar</button>`}</td>
+    <td style="display:flex;gap:4px;">
+      <button class="btn-secondary" style="padding:3px 8px;font-size:11px;" onclick="editarBloco('${b.id}')">✏️ Editar</button>
+      ${b.ativa ? `<button class="btn-secondary" style="padding:3px 8px;font-size:11px;" onclick="inativarBloco('${b.id}')">🚫 Inativar</button>` : ''}
+      <button class="btn-excluir" style="padding:3px 8px;font-size:11px;" onclick="excluirBloco('${b.id}','${b.nome.replace(/'/g,"\\'")}')">✕</button>
+    </td>
+  </tr>`).join('');
+}
+
+async function ativarBloco(id) {
+  await db.from('blocos').update({ ativa: true }).eq('id', id);
+  carregarBlocos();
+}
+
+async function inativarBloco(id) {
+  if (!confirm('Inativar este bloco/edificação? Ele deixará de aparecer como opção no cadastro de ativos.')) return;
+  await db.from('blocos').update({ ativa: false }).eq('id', id);
+  carregarBlocos();
+}
+
+function editarBloco(id) {
+  const b = _blocosCache.find(x => x.id === id); if (!b) return;
+  document.getElementById('bloco-id-edicao').value = id;
+  popularSelectInstituicaoParaBloco(b.instituicao_id);
+  document.getElementById('bloco-nome').value = b.nome || '';
+  document.getElementById('btn-cancelar-bloco').style.display = 'inline-flex';
+  alternarAba('locais');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function limparFormBloco() {
+  document.getElementById('bloco-id-edicao').value = '';
+  document.getElementById('bloco-instituicao').value = '';
+  document.getElementById('bloco-nome').value = '';
+  document.getElementById('btn-cancelar-bloco').style.display = 'none';
+}
+
+async function excluirBloco(id, nome) {
+  if (!confirm(`Excluir o bloco/edificação "${nome}"? Ativos que já usam este registro NÃO serão apagados, mas perderão o vínculo.`)) return;
+  const { error } = await db.from('blocos').delete().eq('id', id);
+  if (error) { msgForm('msg-bloco', 'Erro: ' + error.message, 'red'); return; }
+  carregarBlocos();
+}
+
+document.getElementById('btn-salvar-bloco')?.addEventListener('click', async () => {
+  const instituicaoId = document.getElementById('bloco-instituicao').value;
+  const nome = document.getElementById('bloco-nome').value.trim();
+  if (!instituicaoId) { msgForm('msg-bloco', 'Selecione a Instituição/Unidade.', 'red'); return; }
+  if (!nome) { msgForm('msg-bloco', 'Informe o nome do bloco/edificação.', 'red'); return; }
+
+  msgForm('msg-bloco', 'Salvando...', 'blue');
+  const idEd = document.getElementById('bloco-id-edicao').value;
+  const payload = { instituicao_id: instituicaoId, nome };
+  const { error } = idEd
+    ? await db.from('blocos').update(payload).eq('id', idEd)
+    : await db.from('blocos').insert([{ ...payload, ativa: true }]);
+  if (error) { msgForm('msg-bloco', 'Erro: ' + error.message, 'red'); return; }
+
+  msgForm('msg-bloco', '✓ Bloco/Edificação salvo com sucesso!', 'green');
+  limparFormBloco();
+  carregarBlocos();
+});
+
 // ===== INIT =====
 window.addEventListener('DOMContentLoaded', async () => {
   await Promise.all([
     carregarEmpresas('empregadora'),
     carregarContratantes(),
     carregarResponsaveis(),
+    carregarInstituicoes(),
+    carregarBlocos(),
   ]);
 });
 </script>
