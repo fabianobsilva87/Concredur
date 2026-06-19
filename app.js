@@ -612,6 +612,7 @@ async function atualizarSelectFuncoes() {
 }
 
 let _colabCache = [];
+let _funcoesCache = [];
 async function carregarColaboradores() {
   const tbody = $('tbody-colaboradores'); if (!tbody) return;
   const { data } = await db.from('colaboradores').select('*, funcoes(nome)').order('nome', { ascending: true });
@@ -644,23 +645,52 @@ async function excluirColaborador(id) {
 async function carregarFuncoes() {
   const tbody = $('tbody-funcoes'); if (!tbody) return;
   const { data: funcoes } = await db.from('funcoes').select('*').order('nome', { ascending: true });
+  _funcoesCache = funcoes || [];
   const { data: colabs }  = await db.from('colaboradores').select('funcao_id');
   const countMap = {};
   (colabs||[]).forEach(c => { if (c.funcao_id) countMap[c.funcao_id] = (countMap[c.funcao_id]||0)+1; });
   const nivelCor = { Junior:'#dbeafe', Pleno:'#d1fae5', Senior:'#fef3c7' };
-  tbody.innerHTML = (funcoes||[]).length ? funcoes.map(f => {
+  tbody.innerHTML = _funcoesCache.length ? _funcoesCache.map(f => {
     const nivel = f.nivel || 'Pleno';
     return `<tr>
       <td><strong>${escapeHTML(f.nome)}</strong></td>
       <td><span style="background:${nivelCor[nivel]||'#f3f4f6'};padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;">${escapeHTML(nivel)}</span></td>
       <td>R$ ${Number(f.salario||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
       <td style="text-align:center;"><span class="tag-badge">${countMap[f.id]||0}</span></td>
-      <td><button class="btn-excluir" onclick="excluirFuncao('${f.id}')">✕</button></td>
+      <td style="display:flex;gap:4px;">
+        <button class="btn-secondary" style="padding:3px 10px;font-size:11px;" onclick="editarFuncao('${f.id}')">✏️ Editar</button>
+        <button class="btn-excluir" onclick="excluirFuncao('${f.id}')">✕</button>
+      </td>
     </tr>`;
   }).join('') : '<tr><td colspan="5" class="td-loading">Sem registros.</td></tr>';
 }
 async function excluirFuncao(id) {
   if (confirm('Remover função?')) { await db.from('funcoes').delete().eq('id', id); carregarFuncoes(); }
+}
+
+function editarFuncao(id) {
+  const f = _funcoesCache.find(x => String(x.id) === String(id));
+  if (!f) return;
+  if ($('func-id-edicao')) $('func-id-edicao').value = f.id;
+  if ($('func-nome'))      $('func-nome').value      = f.nome || '';
+  if ($('func-salario'))   $('func-salario').value   = f.salario || '';
+  if ($('func-nivel'))     $('func-nivel').value     = f.nivel || 'Pleno';
+  const btn = $('btn-salvar-funcao');
+  if (btn) { btn.textContent = '💾 Salvar Alterações'; btn.style.background = '#d97706'; }
+  const btnCancelar = $('btn-cancelar-funcao');
+  if (btnCancelar) btnCancelar.style.display = 'inline-block';
+  $('func-nome')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function resetarFormFuncao() {
+  if ($('func-id-edicao')) $('func-id-edicao').value = '';
+  if ($('func-nome'))      $('func-nome').value      = '';
+  if ($('func-salario'))   $('func-salario').value   = '';
+  if ($('func-nivel'))     $('func-nivel').value     = 'Pleno';
+  const btn = $('btn-salvar-funcao');
+  if (btn) { btn.textContent = '💾 Salvar Cargo'; btn.style.background = ''; }
+  const btnCancelar = $('btn-cancelar-funcao');
+  if (btnCancelar) btnCancelar.style.display = 'none';
 }
 
 if ($('btn-salvar-colaborador')) {
@@ -711,12 +741,22 @@ if ($('btn-salvar-colaborador')) {
 if ($('btn-salvar-funcao')) {
   $('btn-salvar-funcao').addEventListener('click', async () => {
     const nome = $('func-nome')?.value.trim(); if (!nome) return;
-    const { error } = await db.from('funcoes').insert([{
+    const payload = {
       nome,
       salario: parseFloat($('func-salario')?.value) || 0,
       nivel:   $('func-nivel')?.value || 'Pleno',
-    }]);
-    if (!error) { msgForm('msg-funcao', '✓ Salva!', 'green'); carregarFuncoes(); atualizarSelectFuncoes(); $('func-nome').value = ''; }
+    };
+    const idEd = $('func-id-edicao')?.value;
+    const { error } = idEd
+      ? await db.from('funcoes').update(payload).eq('id', idEd)
+      : await db.from('funcoes').insert([payload]);
+    if (!error) {
+      msgForm('msg-funcao', idEd ? '✓ Cargo atualizado!' : '✓ Salva!', 'green');
+      carregarFuncoes(); atualizarSelectFuncoes();
+      resetarFormFuncao();
+    } else {
+      msgForm('msg-funcao', 'Erro: ' + error.message, 'red');
+    }
   });
 }
 

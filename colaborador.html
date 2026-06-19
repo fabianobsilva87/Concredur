@@ -117,6 +117,7 @@
       <div id="aba-cargo" class="app-sub-panel" style="display:none;">
         <div class="card">
           <h3 class="card-title">🪪 Novo Cargo / Função</h3>
+          <input type="hidden" id="func-id-edicao" value="">
           <div class="form-grid">
             <div class="form-group"><label>Nome do Cargo *</label><input type="text" id="func-nome" placeholder="Ex: Mecânico de Refrigeração"></div>
             <div class="form-group"><label>Salário Base (R$)</label><input type="number" id="func-salario" placeholder="0,00"></div>
@@ -128,7 +129,7 @@
               </select>
             </div>
           </div>
-          <div class="btn-row"><button id="btn-salvar-funcao" class="btn-primary">💾 Salvar Cargo</button></div>
+          <div class="btn-row"><button id="btn-salvar-funcao" class="btn-primary">💾 Salvar Cargo</button><button id="btn-cancelar-funcao" class="btn-secondary" style="display:none;" onclick="resetarFormFuncao()">✕ Cancelar</button></div>
           <p id="msg-funcao" class="msg-form"></p>
         </div>
         <div class="card">
