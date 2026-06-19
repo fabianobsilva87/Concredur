@@ -418,7 +418,7 @@ function toggleItemsPorFrequencia() {
 
 // ===================== EQUIPAMENTOS =====================
 const EQ_CAMPOS_EXTRAS = {
-  AC:   ['eq-ciclo','eq-tensao','eq-gas','eq-gas-qtd','eq-instalacao-ac','eq-validade'],
+  AC:   ['eq-ciclo','eq-tensao','eq-gas','eq-gas-qtd','eq-tec-compressor','eq-instalacao-ac','eq-validade'],
   BEB:  ['eq-cap-beb','eq-tipo-beb','eq-filtro-beb','eq-validade-filtro-beb','eq-lacre-beb','eq-validade-lacre-beb'],
   CLIM: ['eq-vazao-clim','eq-tipo-clim','eq-painel-clim','eq-validade-painel-clim','eq-tensao-clim','eq-consumo-clim'],
   VEN:  ['eq-potencia-ven','eq-tipo-ven','eq-diametro-ven','eq-tensao-ven'],
@@ -683,6 +683,14 @@ function emitirRelatorioGeralAtivos() {
   imprimir('area-relatorio-ativos', html);
 }
 
+const EQ_CATEGORIA_LABEL_PLANO = {
+  AC:'Ar Condicionado', BEB:'Bebedouro',
+  CLIM:'Climatizador Evaporativo', VEN:'Ventilador/Exaustor', OUT:'Outros',
+};
+const EQ_CLASSE_LETRA = { Alta:'A', Média:'B', Baixa:'C' };
+
+// Exporta os ativos (respeitando os filtros aplicados na tela) para um arquivo .xlsx,
+// no formato de Inventário de Ativos (aba "Inventário" + aba "Resumo" com totais por criticidade)
 function exportarEquipamentosXLS() {
   if (typeof XLSX === 'undefined') {
     alert('Biblioteca de exportação (XLSX) não carregada. Recarregue a página e tente novamente.');
@@ -691,32 +699,77 @@ function exportarEquipamentosXLS() {
   const items = obterEquipamentosFiltrados();
   if (!items.length) { alert('Nenhum ativo encontrado para exportar com os filtros atuais.'); return; }
 
-  const linhas = items.map(eq => ({
-    'TAG':                  eq.tag         || '',
-    'Categoria':            EQ_CATEGORIA_LABEL[eq.categoria] || eq.categoria || '',
-    'Produto / Equipamento':eq.produto     || '',
-    'Marca':                eq.marca       || '',
-    'Nº de Série':          eq.nr_serie    || '',
-    'Patrimônio':           eq.patrimonio  || '',
-    'Instituição / Unidade':eq.instituicao || '',
-    'Bloco / Edificação':   eq.bloco       || '',
-    'Setor':                eq.setor       || '',
-    'Sala':                 eq.sala        || '',
-    'Criticidade':          eq.criticidade || '',
-    'Potência':             eq.potencia    || '',
-    'Validade':             eq.validade ? fmtDate(eq.validade) : '',
-    'QR Code Gerado':       eq.qrcode_token ? 'Sim' : 'Não',
-  }));
-
-  const ws = XLSX.utils.json_to_sheet(linhas);
-  ws['!cols'] = [
-    { wch: 14 }, { wch: 22 }, { wch: 28 }, { wch: 16 }, { wch: 16 }, { wch: 14 },
-    { wch: 22 }, { wch: 20 }, { wch: 16 }, { wch: 18 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 14 },
+  // ----- Aba 1: Inventário -----
+  const linhas = items.map(eq => {
+    const extras = eq.extras_tecnico || {};
+    const crit    = eq.criticidade || 'Média';
+    const isAC    = eq.categoria === 'AC';
+    return {
+      'TAG':                       eq.tag         || '',
+      'Categoria':                 EQ_CATEGORIA_LABEL_PLANO[eq.categoria] || eq.categoria || '',
+      'Produto / Modelo':          eq.produto     || '',
+      'Marca':                     eq.marca       || '',
+      'Nº de Série':               eq.nr_serie    || '',
+      'Patrimônio':                eq.patrimonio  || '',
+      'Instituição / Unidade':     eq.instituicao || '',
+      'Bloco / Edificação':        eq.bloco       || '',
+      'Setor Interno':             eq.setor       || '',
+      'Sala / Identificação':      eq.sala        || '',
+      'Criticidade':               'Classe ' + crit,
+      'Classe (A/B/C)':            EQ_CLASSE_LETRA[crit] || '',
+      'Potência Geral':            eq.potencia    || '',
+      'Validade Geral':            eq.validade ? fmtDate(eq.validade) : '',
+      'Gás Refrigerante':          extras.gas     || '',
+      'Ciclo':                     extras.ciclo   || '',
+      'Tensão (V)':                extras.tensao  || '',
+      'Quantidade de Gás (KG)':    extras['gas-qtd'] || '',
+      'Potência (BTU/h)':          isAC ? (eq.potencia || '') : '',
+      'Tecnologia do Compressor':  extras['tec-compressor']  || '',
+      'Tipo de Instalação':        extras['instalacao-ac']   || '',
+      'Possui QR Code':            eq.qrcode_token ? 'Sim' : 'Não',
+      'ID do Registro':            eq.id          || '',
+      'Data de Cadastro':          eq.created_at ? fmtDate(eq.created_at) : '',
+    };
+  });
+  const wsInv = XLSX.utils.json_to_sheet(linhas);
+  wsInv['!cols'] = [
+    { wch: 14 }, { wch: 22 }, { wch: 28 }, { wch: 18 }, { wch: 18 }, { wch: 14 },
+    { wch: 24 }, { wch: 20 }, { wch: 20 }, { wch: 18 }, { wch: 16 }, { wch: 10 },
+    { wch: 18 }, { wch: 16 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 22 },
+    { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 12 }, { wch: 38 }, { wch: 16 },
   ];
+
+  // ----- Aba 2: Resumo -----
+  const qtdAlta  = items.filter(e => (e.criticidade || 'Média') === 'Alta').length;
+  const qtdMedia = items.filter(e => (e.criticidade || 'Média') === 'Média').length;
+  const qtdBaixa = items.filter(e => (e.criticidade || 'Média') === 'Baixa').length;
+  const dataExportacao = new Date().toLocaleDateString('pt-BR');
+
+  const resumoAOA = [
+    ['Resumo do Inventário de Ativos — Concredur'],
+    [],
+    ['Classe de Criticidade', 'Quantidade', '% do Total'],
+    ['Classe Alta (A)',  qtdAlta,  0],
+    ['Classe Média (B)', qtdMedia, 0],
+    ['Classe Baixa (C)', qtdBaixa, 0],
+    ['TOTAL', 0],
+    [],
+    ['Data de exportação', dataExportacao],
+    ['Total de registros', items.length],
+  ];
+  const wsResumo = XLSX.utils.aoa_to_sheet(resumoAOA);
+  // Fórmulas reais do Excel (recalculadas automaticamente se os números forem editados)
+  wsResumo['C4'] = { t: 'n', f: 'B4/B7', z: '0.0%' };
+  wsResumo['C5'] = { t: 'n', f: 'B5/B7', z: '0.0%' };
+  wsResumo['C6'] = { t: 'n', f: 'B6/B7', z: '0.0%' };
+  wsResumo['B7'] = { t: 'n', f: 'SUM(B4:B6)' };
+  wsResumo['!cols'] = [{ wch: 24 }, { wch: 14 }, { wch: 14 }];
+
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Ativos');
+  XLSX.utils.book_append_sheet(wb, wsInv,    'Inventário');
+  XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo');
   const dataHoje = hoje();
-  XLSX.writeFile(wb, `Concredur_Ativos_${dataHoje}.xlsx`);
+  XLSX.writeFile(wb, `Concredur_Inventario_Ativos_${dataHoje}.xlsx`);
 }
 async function excluirEquipamento(id) {
   if (confirm('Remover ativo?')) { await db.from('equipamentos').delete().eq('id', id); carregarEquipamentos(); }
