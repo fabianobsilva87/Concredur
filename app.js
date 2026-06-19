@@ -418,7 +418,7 @@ function toggleItemsPorFrequencia() {
 
 // ===================== EQUIPAMENTOS =====================
 const EQ_CAMPOS_EXTRAS = {
-  AC:   ['eq-potencia','eq-ciclo','eq-tensao','eq-gas','eq-instalacao-ac','eq-validade'],
+  AC:   ['eq-ciclo','eq-tensao','eq-gas','eq-gas-qtd','eq-instalacao-ac','eq-validade'],
   BEB:  ['eq-cap-beb','eq-tipo-beb','eq-filtro-beb','eq-validade-filtro-beb','eq-lacre-beb','eq-validade-lacre-beb'],
   CLIM: ['eq-vazao-clim','eq-tipo-clim','eq-painel-clim','eq-validade-painel-clim','eq-tensao-clim','eq-consumo-clim'],
   VEN:  ['eq-potencia-ven','eq-tipo-ven','eq-diametro-ven','eq-tensao-ven'],
@@ -429,14 +429,46 @@ const EQ_CATEGORIA_LABEL = {
   CLIM:'🌀 Climatizador Evaporativo', VEN:'💨 Ventilador/Exaustor', OUT:'🔧 Outros',
 };
 
+// ── Capacidade (BTU/h) — select de opções padrão + campo "Outro" para valores não listados ──
+function lerCapacidadeBTU() {
+  const sel = $('eq-btu'); if (!sel) return '';
+  if (sel.value === '__outro__') return ($('eq-btu-outro')?.value || '').trim();
+  return sel.value || '';
+}
+function definirCapacidadeBTU(valor) {
+  const sel = $('eq-btu'); const outroInput = $('eq-btu-outro');
+  if (!sel) return;
+  if (!valor) {
+    sel.value = '';
+    if (outroInput) { outroInput.value = ''; outroInput.style.display = 'none'; }
+    return;
+  }
+  const existeNaLista = Array.from(sel.options).some(o => o.value === valor);
+  if (existeNaLista) {
+    sel.value = valor;
+    if (outroInput) { outroInput.value = ''; outroInput.style.display = 'none'; }
+  } else {
+    sel.value = '__outro__';
+    if (outroInput) { outroInput.value = valor; outroInput.style.display = 'block'; }
+  }
+}
+function onChangeCapacidadeBTU() {
+  const sel = $('eq-btu'); const outroInput = $('eq-btu-outro');
+  if (!sel || !outroInput) return;
+  outroInput.style.display = sel.value === '__outro__' ? 'block' : 'none';
+  if (sel.value !== '__outro__') outroInput.value = '';
+}
+
 function toggleCamposEquipamento() {
   const cat = $('eq-categoria')?.value || '';
   document.querySelectorAll('.eq-campo-condicional').forEach(el => el.style.display = 'none');
   Object.values(EQ_CAMPOS_EXTRAS).flat().forEach(id => { if ($(id)) $(id).value = ''; });
+  definirCapacidadeBTU(''); // limpa também o select de Capacidade (BTU/h) e o campo "Outro"
   if (!cat) return;
   document.querySelectorAll(`.eq-campo-${cat}`).forEach(el => el.style.display = 'block');
   document.querySelectorAll('.eq-campo-localizacao, .eq-campo-criticidade').forEach(el => el.style.display = 'block');
 }
+
 
 if ($('btn-salvar')) {
   $('btn-salvar').addEventListener('click', async () => {
@@ -468,7 +500,13 @@ if ($('btn-salvar')) {
       extras[id.replace('eq-','')] = el.value.trim();
     });
     if (Object.keys(extras).length) payload.extras_tecnico = extras;
-    if ($('eq-potencia')?.value) payload.potencia = $('eq-potencia').value.trim();
+    // Capacidade (BTU/h) do AC vem do select + campo "Outro"; demais categorias usam eq-potencia normalmente
+    if (cat === 'AC') {
+      const btu = lerCapacidadeBTU();
+      if (btu) payload.potencia = btu;
+    } else if ($('eq-potencia')?.value) {
+      payload.potencia = $('eq-potencia').value.trim();
+    }
     if ($('eq-validade')?.value) payload.validade = $('eq-validade').value.trim();
 
     // Bug fix: UPDATE quando em modo edição (?edit=ID), INSERT quando novo
@@ -518,7 +556,11 @@ async function carregarEquipamentoParaEdicao() {
     await popularSelectBlocos(eq.instituicao_id || '', 'eq-bloco-id');
     $('eq-bloco-id').value = eq.bloco_id || '';
   }
-  if ($('eq-potencia') && eq.potencia) $('eq-potencia').value = eq.potencia;
+  if (eq.categoria === 'AC') {
+    definirCapacidadeBTU(eq.potencia || '');
+  } else if ($('eq-potencia') && eq.potencia) {
+    $('eq-potencia').value = eq.potencia;
+  }
   if ($('eq-validade') && eq.validade) $('eq-validade').value = eq.validade;
 
   // Preenche os campos técnicos extras (extras_tecnico JSONB)
@@ -541,16 +583,20 @@ async function carregarEquipamentos() {
   atualizarSelectEquipamentos();
 }
 
-function filtrarEquipamentos(delta) {
-  paginaAtualEquipamento = Math.max(0, paginaAtualEquipamento + delta);
+function obterEquipamentosFiltrados() {
   const termo = ($('search-eq-termo')?.value || '').toLowerCase();
   const crit  = $('search-eq-criticidade')?.value || '';
   const bloco = ($('search-eq-bloco')?.value || '').toLowerCase();
-  let items = globalEquipamentos.filter(e =>
+  return globalEquipamentos.filter(e =>
     (!termo || e.tag.toLowerCase().includes(termo) || (e.produto||'').toLowerCase().includes(termo)) &&
     (!crit  || (e.criticidade||'') === crit) &&
     (!bloco || (e.bloco||'').toLowerCase().includes(bloco))
   );
+}
+
+function filtrarEquipamentos(delta) {
+  paginaAtualEquipamento = Math.max(0, paginaAtualEquipamento + delta);
+  let items = obterEquipamentosFiltrados();
   const total = Math.max(1, Math.ceil(items.length / itensPorPagina));
   paginaAtualEquipamento = Math.min(paginaAtualEquipamento, total - 1);
   if ($('txt-eq-paginacao'))
@@ -585,6 +631,43 @@ function filtrarEquipamentos(delta) {
   }).join('');
 }
 function mudarPaginaEquipamento(d) { filtrarEquipamentos(d); }
+
+// Exporta os ativos (respeitando os filtros aplicados na tela) para um arquivo .xlsx
+function exportarEquipamentosXLS() {
+  if (typeof XLSX === 'undefined') {
+    alert('Biblioteca de exportação (XLSX) não carregada. Recarregue a página e tente novamente.');
+    return;
+  }
+  const items = obterEquipamentosFiltrados();
+  if (!items.length) { alert('Nenhum ativo encontrado para exportar com os filtros atuais.'); return; }
+
+  const linhas = items.map(eq => ({
+    'TAG':                  eq.tag         || '',
+    'Categoria':            EQ_CATEGORIA_LABEL[eq.categoria] || eq.categoria || '',
+    'Produto / Equipamento':eq.produto     || '',
+    'Marca':                eq.marca       || '',
+    'Nº de Série':          eq.nr_serie    || '',
+    'Patrimônio':           eq.patrimonio  || '',
+    'Instituição / Unidade':eq.instituicao || '',
+    'Bloco / Edificação':   eq.bloco       || '',
+    'Setor':                eq.setor       || '',
+    'Sala':                 eq.sala        || '',
+    'Criticidade':          eq.criticidade || '',
+    'Potência':             eq.potencia    || '',
+    'Validade':             eq.validade ? fmtDate(eq.validade) : '',
+    'QR Code Gerado':       eq.qrcode_token ? 'Sim' : 'Não',
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(linhas);
+  ws['!cols'] = [
+    { wch: 14 }, { wch: 22 }, { wch: 28 }, { wch: 16 }, { wch: 16 }, { wch: 14 },
+    { wch: 22 }, { wch: 20 }, { wch: 16 }, { wch: 18 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 14 },
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Ativos');
+  const dataHoje = hoje();
+  XLSX.writeFile(wb, `Concredur_Ativos_${dataHoje}.xlsx`);
+}
 async function excluirEquipamento(id) {
   if (confirm('Remover ativo?')) { await db.from('equipamentos').delete().eq('id', id); carregarEquipamentos(); }
 }

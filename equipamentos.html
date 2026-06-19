@@ -82,7 +82,21 @@
             <div class="form-grid">
               <div class="form-group">
                 <label>Capacidade (BTU/h)</label>
-                <input type="text" id="eq-potencia" placeholder="Ex: 9.000 / 12.000 / 18.000 BTU">
+                <select id="eq-btu" class="form-input-style" onchange="onChangeCapacidadeBTU()">
+                  <option value="">— Selecione —</option>
+                  <option value="7.000 BTU/h">7.000 BTU/h</option>
+                  <option value="9.000 BTU/h">9.000 BTU/h</option>
+                  <option value="12.000 BTU/h">12.000 BTU/h</option>
+                  <option value="18.000 BTU/h">18.000 BTU/h</option>
+                  <option value="21.000 BTU/h">21.000 BTU/h</option>
+                  <option value="24.000 BTU/h">24.000 BTU/h</option>
+                  <option value="30.000 BTU/h">30.000 BTU/h</option>
+                  <option value="36.000 BTU/h">36.000 BTU/h</option>
+                  <option value="48.000 BTU/h">48.000 BTU/h</option>
+                  <option value="60.000 BTU/h">60.000 BTU/h</option>
+                  <option value="__outro__">Outro (digitar)</option>
+                </select>
+                <input type="text" id="eq-btu-outro" class="form-input-style" placeholder="Informe a capacidade. Ex: 80.000 BTU/h" style="display:none;margin-top:6px;">
               </div>
               <div class="form-group">
                 <label>Tipo de Ciclo</label>
@@ -112,6 +126,10 @@
                   <option value="R-404A">R-404A</option>
                   <option value="R-134A">R-134A</option>
                 </select>
+              </div>
+              <div class="form-group">
+                <label>Quantidade de Gás Refrigerante (kg)</label>
+                <input type="text" id="eq-gas-qtd" placeholder="Ex: 0,800 kg / 1,200 kg">
               </div>
               <div class="form-group">
                 <label>Tipo de Instalação</label>
