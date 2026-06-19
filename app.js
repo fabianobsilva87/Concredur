@@ -1233,9 +1233,6 @@ function emitirLaudoPMOCBranco(equipamentoId) {
           <div class="laudo-assinatura-linha">Responsável Técnico — CREA / ART nº __________</div>
         </div>
       </div>
-      <div style="margin-top:14px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:9px;color:#a0aec0;">
-        Documento gerado em ${new Date().toLocaleString('pt-BR')} para preenchimento manual — não possui validade como laudo digital até ser registrado no sistema.
-      </div>
     </div>
   </div>`;
   imprimir('area-laudo-impressao', html);
