@@ -1165,7 +1165,7 @@ function emitirLaudoPMOCBranco(equipamentoId) {
   const chkBlocos = ['M', 'T', 'S', 'A'].map(periodo => {
     if (!gruposChk[periodo].length) return '';
     return `
-      <div class="laudo-chk-bloco" style="margin-bottom:10px;">
+      <div style="margin-bottom:10px;">
         <div style="font-size:10px;font-weight:700;color:#1a56db;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px;">${LABEL_PERIODO_PMOC[periodo]}</div>
         <table class="laudo-checklist-table">
           <thead><tr><th>Item Verificado</th><th style="text-align:center;width:170px;">Status</th></tr></thead>
