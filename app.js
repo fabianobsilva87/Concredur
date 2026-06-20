@@ -1273,6 +1273,10 @@ const CHECKLIST_PMOC_DEFS = {
       ['mec_01', '[MEC-01] Conjunto Ventilação — Ruídos, Coxins e Fixadores'],
     ],
     trimestral: [
+      ['amb_01', '[AMB-01] Ambiente Climatizado — Verificação de Sujidade, Odores Desagradáveis e Fontes de Ruído'],
+      ['amb_02', '[AMB-02] Verificação de Infiltrações e Armazenagem Inadequada de Produtos Químicos no Ambiente'],
+      ['amb_03', '[AMB-03] Verificação de Fontes de Radiação e Demais Riscos à Qualidade do Ar Interior'],
+      ['amb_04', '[AMB-04] Avaliação Geral das Condições de Limpeza e Conservação do Ambiente Climatizado'],
       ['bio_03', '[BIO-03] Serpentinas — Limpeza Química com Produto Específico por Pressão'],
       ['ele_01', '[ELE-01] Medição de Corrente/Tensão dos Compressores e Motores'],
       ['ele_02', '[ELE-02] Reaperto Geral dos Bornes de Comando e Potência'],
@@ -1281,6 +1285,11 @@ const CHECKLIST_PMOC_DEFS = {
     ],
     semestral: [
       ['bio_04', '[BIO-04] Coleta de Amostra de Água para Análise Microbiológica'],
+      ['dut_01', '[DUT-01] Dutos e Caixa de Plenum — Verificação de Sujeira (Interna/Externa), Danos e Corrosão'],
+      ['dut_02', '[DUT-02] Verificação da Vedação das Portas de Inspeção e das Conexões dos Dutos'],
+      ['dut_03', '[DUT-03] Verificação e Eliminação de Danos no Isolamento Térmico dos Dutos'],
+      ['dut_04', '[DUT-04] Bocas de Ar (Insuflamento/Retorno) — Verificação de Sujeira, Fixação e Medição de Vazão'],
+      ['dut_05', '[DUT-05] Registros de Ar (Dampers) e Tomada de Ar Externo — Funcionamento, Bloqueio e Balanceamento'],
       ['ele_03', '[ELE-03] Medição de Isolamento Elétrico (Megôhmetro) dos Motores'],
       ['ele_04', '[ELE-04] Teste dos Dispositivos de Proteção (Pressostatos e Termostatos)'],
       ['ins_01', '[INS-01] Inspeção Estrutural — Suportes, Fixações e Isolamento Térmico das Linhas'],
@@ -1415,6 +1424,97 @@ function montarSecoesChecklistPMOC(categoria, frequenciaPalavra, checklist) {
           <tbody>${linhas}</tbody>
         </table>`;
     }).join('');
+}
+
+// Monta o checklist completo (todas as periodicidades, sem filtrar por frequência) com
+// checkboxes ☐ C ☐ NC ☐ NA para preenchimento manual em campo — usado no laudo em branco.
+function montarChecklistEmBrancoHTML(categoria) {
+  const defs = CHECKLIST_PMOC_DEFS[categoria] || CHECKLIST_PMOC_DEFS.OUT;
+  return CHECKLIST_PERIODICIDADE_INFO
+    .filter(p => (defs[p.key] || []).length)
+    .map(p => {
+      const linhas = defs[p.key].map(([codigo, label]) =>
+        `<tr><td>${escapeHTML(label)}</td><td class="laudo-checkbox-status" style="text-align:center;width:150px;">☐ C &nbsp; ☐ NC &nbsp; ☐ NA</td></tr>`
+      ).join('');
+      return `
+        <div style="font-size:10px;font-weight:700;color:#1a56db;margin:12px 0 4px;">${p.titulo}</div>
+        <table class="laudo-checklist-table">
+          <thead><tr><th>Item Verificado</th><th style="text-align:center;width:150px;">Status</th></tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>`;
+    }).join('');
+}
+
+// Monta o laudo PMOC em branco (impressão/preenchimento manual em campo) de um único ativo.
+// Usa exatamente o mesmo checklist (CHECKLIST_PMOC_DEFS) do laudo digital e do formulário,
+// para garantir que as inspeções de campo fiquem 100% compatíveis com o que é exigido no sistema.
+function montarLaudoEmBrancoHTML(eq, ultimoDaLista) {
+  const categoria      = eq.categoria || 'OUT';
+  const checklistHTML  = montarChecklistEmBrancoHTML(categoria);
+  const classeQuebra   = ultimoDaLista ? '' : ' laudo-pagebreak';
+
+  return `
+  <div class="laudo-wrapper${classeQuebra}">
+    <div class="laudo-header">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="background:#fff;border-radius:6px;padding:4px 8px;"><img src="${LOGO_ETIQUETA}" alt="Logo" style="height:34px;width:auto;display:block;"></div>
+        <div><h1 style="font-size:15px;">Plano de Manutenção, Operação e Controle (PMOC)</h1></div>
+      </div>
+      <div class="laudo-header-meta">
+        <strong>Laudo para Preenchimento Manual</strong><br>
+        Frequência: ☐ Mensal &nbsp;☐ Trimestral &nbsp;☐ Semestral<br>
+        <span style="visibility:hidden;">Frequência: </span>☐ Anual
+      </div>
+    </div>
+    <div class="laudo-section">
+      <div class="laudo-section-title">Identificação do Ativo</div>
+      <div class="laudo-grid-3">
+        <div class="laudo-field"><label>TAG</label><span>${escapeHTML(eq.tag)}</span></div>
+        <div class="laudo-field"><label>Equipamento</label><span>${escapeHTML(eq.produto || categoria)}</span></div>
+        <div class="laudo-field"><label>Marca</label><span>${escapeHTML(eq.marca)}</span></div>
+        <div class="laudo-field"><label>Potência</label><span>${escapeHTML(eq.potencia)}</span></div>
+        <div class="laudo-field"><label>Nº Série</label><span>${escapeHTML(eq.nr_serie)}</span></div>
+        <div class="laudo-field"><label>Patrimônio</label><span>${escapeHTML(eq.patrimonio)}</span></div>
+        <div class="laudo-field"><label>Bloco</label><span>${escapeHTML(eq.bloco)}</span></div>
+        <div class="laudo-field"><label>Setor</label><span>${escapeHTML(eq.setor)}</span></div>
+        <div class="laudo-field"><label>Sala</label><span>${escapeHTML(eq.sala)}</span></div>
+      </div>
+    </div>
+    <div class="laudo-section">
+      <div class="laudo-section-title">Dados da Inspeção (preencher em campo)</div>
+      <div class="laudo-grid-3">
+        <div class="laudo-field-em-branco">Técnico Responsável</div>
+        <div class="laudo-field-em-branco">Data da Inspeção</div>
+        <div class="laudo-field-em-branco">Fiscal / Validador</div>
+      </div>
+    </div>
+    ${checklistHTML ? `
+    <div class="laudo-section">
+      <div class="laudo-section-title">Checklist de Manutenção — Por Periodicidade</div>
+      ${checklistHTML}
+    </div>` : ''}
+    <div class="laudo-section">
+      <div class="laudo-section-title">Observações Técnicas</div>
+      <div style="border:1px solid #e2e8f0;border-radius:4px;min-height:70px;"></div>
+    </div>
+    <div class="laudo-section">
+      <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-top:26px;">
+        <div class="laudo-assinatura-box"><div class="laudo-assinatura-linha">Técnico Executor</div></div>
+        <div class="laudo-assinatura-box"><div class="laudo-assinatura-linha">Fiscal / Validador do Serviço</div></div>
+        <div class="laudo-assinatura-box"><div class="laudo-assinatura-linha">Responsável Técnico — CREA / ART nº __________</div></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// Emite, em um único documento de impressão, o laudo PMOC em branco de cada ativo cadastrado
+// (respeita os filtros aplicados na tela de Gerenciamento de Ativos) — um ativo por página,
+// sem quebra de página no meio do checklist de cada ativo.
+function emitirLaudosEmBrancoPMOC() {
+  const items = obterEquipamentosFiltrados();
+  if (!items.length) { alert('Nenhum ativo encontrado para gerar laudos em branco com os filtros atuais.'); return; }
+  const html = items.map((eq, i) => montarLaudoEmBrancoHTML(eq, i === items.length - 1)).join('');
+  imprimir('area-laudos-em-branco', html);
 }
 
 async function emitirRelatorioPMOC(b64) {
@@ -2030,7 +2130,7 @@ function imprimir(areaId, html) {
   if (!win) { alert('Permita pop-ups para imprimir os laudos.'); return; }
   win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Concredur — Impressão</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}@page{margin:14mm;size:A4 portrait}html,body{font-family:'Inter',Arial,sans-serif;font-size:12px;color:#1a202c;background:#fff}.laudo-wrapper{width:100%}.laudo-header{background:#1a56db;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0}.laudo-header h1{font-size:18px;font-weight:700}.laudo-header p{font-size:11px;margin-top:4px;opacity:.85}.laudo-header-meta{text-align:right;font-size:11px}.laudo-section{border:1px solid #e2e8f0;border-top:none;padding:12px 16px;break-inside:avoid}.laudo-section:last-child{border-radius:0 0 6px 6px}.laudo-section-title{font-size:10px;font-weight:700;color:#1a56db;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0}.laudo-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}.laudo-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 16px}.laudo-field{margin-bottom:4px}.laudo-field label{font-size:9px;color:#718096;text-transform:uppercase;letter-spacing:.06em;display:block}.laudo-field span{font-size:12px;font-weight:600;color:#1a202c}.laudo-checklist-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:11px}.laudo-checklist-table th{background:#1a56db;color:#fff;padding:5px 8px;text-align:left;font-size:10px}.laudo-checklist-table td{padding:4px 8px;border-bottom:1px solid #e2e8f0}.laudo-checklist-table tr:nth-child(even) td{background:#f8fafc}.ok{color:#059669;font-weight:700}.nok{color:#dc2626;font-weight:700}.na{color:#a0aec0}.laudo-assinatura-box{text-align:center;min-width:180px}.laudo-assinatura-linha{border-top:1px solid #1a202c;margin-top:8px;padding-top:4px;font-size:10px;color:#4a5568}img{max-width:100%;height:auto;display:block}.tag-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#e2e8f0;color:#2d3748}.tag-badge.success{background:#d1fae5;color:#065f46}.tag-badge.warning{background:#fef3c7;color:#92400e}.tag-badge.danger{background:#fee2e2;color:#991b1b}.tag-badge.andamento{background:#dbeafe;color:#1e40af}</style></head>
+  <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}@page{margin:14mm;size:A4 portrait}html,body{font-family:'Inter',Arial,sans-serif;font-size:12px;color:#1a202c;background:#fff}.laudo-wrapper{width:100%}.laudo-header{background:#1a56db;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0}.laudo-header h1{font-size:18px;font-weight:700}.laudo-header p{font-size:11px;margin-top:4px;opacity:.85}.laudo-header-meta{text-align:right;font-size:11px}.laudo-section{border:1px solid #e2e8f0;border-top:none;padding:12px 16px;break-inside:avoid;page-break-inside:avoid}.laudo-section:last-child{border-radius:0 0 6px 6px}.laudo-section-title{font-size:10px;font-weight:700;color:#1a56db;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0;break-after:avoid;page-break-after:avoid}.laudo-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}.laudo-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 16px}.laudo-field{margin-bottom:4px}.laudo-field label{font-size:9px;color:#718096;text-transform:uppercase;letter-spacing:.06em;display:block}.laudo-field span{font-size:12px;font-weight:600;color:#1a202c}.laudo-checklist-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table th{background:#1a56db;color:#fff;padding:5px 8px;text-align:left;font-size:10px}.laudo-checklist-table td{padding:4px 8px;border-bottom:1px solid #e2e8f0}.laudo-checklist-table tr{break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table tr:nth-child(even) td{background:#f8fafc}.ok{color:#059669;font-weight:700}.nok{color:#dc2626;font-weight:700}.na{color:#a0aec0}.laudo-assinatura-box{text-align:center;min-width:180px;break-inside:avoid;page-break-inside:avoid}.laudo-assinatura-linha{border-top:1px solid #1a202c;margin-top:8px;padding-top:4px;font-size:10px;color:#4a5568}img{max-width:100%;height:auto;display:block}.tag-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#e2e8f0;color:#2d3748}.tag-badge.success{background:#d1fae5;color:#065f46}.tag-badge.warning{background:#fef3c7;color:#92400e}.tag-badge.danger{background:#fee2e2;color:#991b1b}.tag-badge.andamento{background:#dbeafe;color:#1e40af}.laudo-field-em-branco{font-size:9px;color:#a0aec0;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px dotted #cbd5e0;padding-bottom:20px;}.laudo-pagebreak{break-after:page;page-break-after:always;}.laudo-checkbox-status{white-space:nowrap;font-size:11px;color:#4a5568;}</style></head>
   <body>${html}<script>window.addEventListener('load',function(){setTimeout(function(){window.print();window.addEventListener('afterprint',function(){window.close();});},400);});<\/script></body></html>`);
   win.document.close();
 }
