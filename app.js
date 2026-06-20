@@ -1418,7 +1418,7 @@ function montarSecoesChecklistPMOC(categoria, frequenciaPalavra, checklist) {
         return `<tr><td>${escapeHTML(label)}</td><td style="text-align:center;width:110px;">${CHECKLIST_STATUS_LABEL[status] || CHECKLIST_STATUS_LABEL.NA}</td></tr>`;
       }).join('');
       return `
-        <div style="font-size:10px;font-weight:700;color:#1a56db;margin:12px 0 4px;">${p.titulo}</div>
+        <div style="font-size:10px;font-weight:700;color:#1a56db;margin:12px 0 4px;break-after:avoid;page-break-after:avoid;">${p.titulo}</div>
         <table class="laudo-checklist-table">
           <thead><tr><th>Item Verificado</th><th style="text-align:center;width:110px;">Status</th></tr></thead>
           <tbody>${linhas}</tbody>
@@ -1437,7 +1437,7 @@ function montarChecklistEmBrancoHTML(categoria) {
         `<tr><td>${escapeHTML(label)}</td><td class="laudo-checkbox-status" style="text-align:center;width:150px;">☐ C &nbsp; ☐ NC &nbsp; ☐ NA</td></tr>`
       ).join('');
       return `
-        <div style="font-size:10px;font-weight:700;color:#1a56db;margin:12px 0 4px;">${p.titulo}</div>
+        <div style="font-size:10px;font-weight:700;color:#1a56db;margin:12px 0 4px;break-after:avoid;page-break-after:avoid;">${p.titulo}</div>
         <table class="laudo-checklist-table">
           <thead><tr><th>Item Verificado</th><th style="text-align:center;width:150px;">Status</th></tr></thead>
           <tbody>${linhas}</tbody>
@@ -1489,7 +1489,7 @@ function montarLaudoEmBrancoHTML(eq, ultimoDaLista) {
       </div>
     </div>
     ${checklistHTML ? `
-    <div class="laudo-section">
+    <div class="laudo-section laudo-section-checklist">
       <div class="laudo-section-title">Checklist de Manutenção — Por Periodicidade</div>
       ${checklistHTML}
     </div>` : ''}
@@ -1577,7 +1577,7 @@ async function emitirRelatorioPMOC(b64) {
       </div>
     </div>
     ${checklistHTML ? `
-    <div class="laudo-section">
+    <div class="laudo-section laudo-section-checklist">
       <div class="laudo-section-title">Checklist de Manutenção — Por Periodicidade</div>
       ${checklistHTML}
     </div>` : ''}
@@ -2130,7 +2130,7 @@ function imprimir(areaId, html) {
   if (!win) { alert('Permita pop-ups para imprimir os laudos.'); return; }
   win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Concredur — Impressão</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}@page{margin:14mm;size:A4 portrait}html,body{font-family:'Inter',Arial,sans-serif;font-size:12px;color:#1a202c;background:#fff}.laudo-wrapper{width:100%}.laudo-header{background:#1a56db;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0}.laudo-header h1{font-size:18px;font-weight:700}.laudo-header p{font-size:11px;margin-top:4px;opacity:.85}.laudo-header-meta{text-align:right;font-size:11px}.laudo-section{border:1px solid #e2e8f0;border-top:none;padding:12px 16px;break-inside:avoid;page-break-inside:avoid}.laudo-section:last-child{border-radius:0 0 6px 6px}.laudo-section-title{font-size:10px;font-weight:700;color:#1a56db;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0;break-after:avoid;page-break-after:avoid}.laudo-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}.laudo-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 16px}.laudo-field{margin-bottom:4px}.laudo-field label{font-size:9px;color:#718096;text-transform:uppercase;letter-spacing:.06em;display:block}.laudo-field span{font-size:12px;font-weight:600;color:#1a202c}.laudo-checklist-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table th{background:#1a56db;color:#fff;padding:5px 8px;text-align:left;font-size:10px}.laudo-checklist-table td{padding:4px 8px;border-bottom:1px solid #e2e8f0}.laudo-checklist-table tr{break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table tr:nth-child(even) td{background:#f8fafc}.ok{color:#059669;font-weight:700}.nok{color:#dc2626;font-weight:700}.na{color:#a0aec0}.laudo-assinatura-box{text-align:center;min-width:180px;break-inside:avoid;page-break-inside:avoid}.laudo-assinatura-linha{border-top:1px solid #1a202c;margin-top:8px;padding-top:4px;font-size:10px;color:#4a5568}img{max-width:100%;height:auto;display:block}.tag-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#e2e8f0;color:#2d3748}.tag-badge.success{background:#d1fae5;color:#065f46}.tag-badge.warning{background:#fef3c7;color:#92400e}.tag-badge.danger{background:#fee2e2;color:#991b1b}.tag-badge.andamento{background:#dbeafe;color:#1e40af}.laudo-field-em-branco{font-size:9px;color:#a0aec0;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px dotted #cbd5e0;padding-bottom:20px;}.laudo-pagebreak{break-after:page;page-break-after:always;}.laudo-checkbox-status{white-space:nowrap;font-size:11px;color:#4a5568;}</style></head>
+  <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}@page{margin:14mm;size:A4 portrait}html,body{font-family:'Inter',Arial,sans-serif;font-size:12px;color:#1a202c;background:#fff}.laudo-wrapper{width:100%}.laudo-header{background:#1a56db;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0}.laudo-header h1{font-size:18px;font-weight:700}.laudo-header p{font-size:11px;margin-top:4px;opacity:.85}.laudo-header-meta{text-align:right;font-size:11px}.laudo-section{border:1px solid #e2e8f0;border-top:none;padding:12px 16px;break-inside:avoid;page-break-inside:avoid}.laudo-section:last-child{border-radius:0 0 6px 6px}.laudo-section-title{font-size:10px;font-weight:700;color:#1a56db;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0;break-after:avoid;page-break-after:avoid}.laudo-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}.laudo-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 16px}.laudo-field{margin-bottom:4px}.laudo-field label{font-size:9px;color:#718096;text-transform:uppercase;letter-spacing:.06em;display:block}.laudo-field span{font-size:12px;font-weight:600;color:#1a202c}.laudo-checklist-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table th{background:#1a56db;color:#fff;padding:5px 8px;text-align:left;font-size:10px}.laudo-checklist-table td{padding:4px 8px;border-bottom:1px solid #e2e8f0}.laudo-checklist-table tr{break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table tr:nth-child(even) td{background:#f8fafc}.ok{color:#059669;font-weight:700}.nok{color:#dc2626;font-weight:700}.na{color:#a0aec0}.laudo-assinatura-box{text-align:center;min-width:180px;break-inside:avoid;page-break-inside:avoid}.laudo-assinatura-linha{border-top:1px solid #1a202c;margin-top:8px;padding-top:4px;font-size:10px;color:#4a5568}img{max-width:100%;height:auto;display:block}.tag-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#e2e8f0;color:#2d3748}.tag-badge.success{background:#d1fae5;color:#065f46}.tag-badge.warning{background:#fef3c7;color:#92400e}.tag-badge.danger{background:#fee2e2;color:#991b1b}.tag-badge.andamento{background:#dbeafe;color:#1e40af}.laudo-field-em-branco{font-size:9px;color:#a0aec0;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px dotted #cbd5e0;padding-bottom:20px;}.laudo-pagebreak{break-after:page;page-break-after:always;}.laudo-checkbox-status{white-space:nowrap;font-size:11px;color:#4a5568;}.laudo-section-checklist{break-inside:auto !important;page-break-inside:auto !important;}</style></head>
   <body>${html}<script>window.addEventListener('load',function(){setTimeout(function(){window.print();window.addEventListener('afterprint',function(){window.close();});},400);});<\/script></body></html>`);
   win.document.close();
 }
