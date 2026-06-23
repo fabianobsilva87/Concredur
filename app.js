@@ -1960,7 +1960,7 @@ async function imprimirTodasEtiquetas() {
   _abrirJanelaEtiqueta(lista);
 }
 
-// ===================== ETIQUETA DE FILTRO — BEBEDOURO (EM BRANCO) =====================
+// ===================== ETIQUETA DE FILTRO (EM BRANCO) =====================
 // Gera folha A4 com 4 etiquetas em branco para preenchimento manual após troca de filtro.
 // Mesma identidade visual da etiqueta de ativo. Chamar via botão na tela de equipamentos.
 function imprimirEtiquetaFiltroEmBranco() {
@@ -1973,7 +1973,7 @@ function imprimirEtiquetaFiltroEmBranco() {
     <!-- CABEÇALHO — mesmo padrão azul escuro da etiqueta de ativo -->
     <div class="etq-top">
       <div class="etq-logo"><img src="${LOGO_ETIQUETA}" alt="Univag"></div>
-      <div class="etq-titulo">MANUTENÇÃO<br>FILTRO DE BEBEDOURO</div>
+      <div class="etq-titulo">MANUTENÇÃO<br>TROCA DE FILTRO</div>
     </div>
 
     <!-- CÓDIGO / TAG -->
@@ -1982,7 +1982,7 @@ function imprimirEtiquetaFiltroEmBranco() {
         <div class="etq-field-lbl">Código do equipamento (TAG)</div>
         <div class="etq-codigo-blank">${linha}</div>
       </div>
-      <div class="etq-categoria">💧 Bebedouro</div>
+      <div class="etq-categoria">🔧 Filtro</div>
     </div>
 
     <div class="etq-divider"></div>
@@ -2191,7 +2191,7 @@ function imprimirEtiquetaFiltroEmBranco() {
 <body>
   <div class="toolbar">
     <div>
-      <h2>🔖 Etiquetas de Filtro — Bebedouro (Em Branco)</h2>
+      <h2>🔖 Etiquetas de Filtro (Em Branco)</h2>
       <small>4 etiquetas por folha A4 · Preenchimento manual após troca de filtro</small>
     </div>
     <button class="btn-sec" onclick="window.close()">✕ Fechar</button>
