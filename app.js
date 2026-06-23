@@ -1960,6 +1960,255 @@ async function imprimirTodasEtiquetas() {
   _abrirJanelaEtiqueta(lista);
 }
 
+// ===================== ETIQUETA DE FILTRO — BEBEDOURO (EM BRANCO) =====================
+// Gera folha A4 com 4 etiquetas em branco para preenchimento manual após troca de filtro.
+// Mesma identidade visual da etiqueta de ativo. Chamar via botão na tela de equipamentos.
+function imprimirEtiquetaFiltroEmBranco() {
+  // Linha tracejada reutilizável para campos de preenchimento manual
+  const linha = `<div style="border-bottom:1.5px dashed #a0aec0;height:22px;margin-top:2px;"></div>`;
+
+  const etiqueta = `
+  <div class="etiqueta-filtro">
+
+    <!-- CABEÇALHO — mesmo padrão azul escuro da etiqueta de ativo -->
+    <div class="etq-top">
+      <div class="etq-logo"><img src="${LOGO_ETIQUETA}" alt="Univag"></div>
+      <div class="etq-titulo">MANUTENÇÃO<br>FILTRO DE BEBEDOURO</div>
+    </div>
+
+    <!-- CÓDIGO / TAG -->
+    <div class="etq-meta">
+      <div>
+        <div class="etq-field-lbl">Código do equipamento (TAG)</div>
+        <div class="etq-codigo-blank">${linha}</div>
+      </div>
+      <div class="etq-categoria">💧 Bebedouro</div>
+    </div>
+
+    <div class="etq-divider"></div>
+
+    <!-- CAMPOS DE PREENCHIMENTO -->
+    <div class="etq-campos">
+
+      <div class="etq-row-2">
+        <div class="etq-field">
+          <div class="etq-field-lbl">Tipo de filtro</div>
+          ${linha}
+        </div>
+        <div class="etq-field">
+          <div class="etq-field-lbl">Nº série / lote</div>
+          ${linha}
+        </div>
+      </div>
+
+      <div class="etq-row-2" style="margin-top:10px;">
+        <div class="etq-field">
+          <div class="etq-field-lbl">Data de instalação</div>
+          ${linha}
+        </div>
+        <div class="etq-field">
+          <div class="etq-field-lbl">Local (bloco / sala)</div>
+          ${linha}
+        </div>
+      </div>
+
+      <!-- VALIDADE — destaque azul, campo maior -->
+      <div class="etq-validade-box" style="margin-top:10px;">
+        <div class="etq-validade-lbl">DATA DE TROCA PREVISTA (VALIDADE DO FILTRO)</div>
+        <div style="border-bottom:2px dashed #2b6cb0;height:28px;margin-top:3px;"></div>
+      </div>
+
+    </div>
+
+    <!-- RODAPÉ -->
+    <div class="etq-footer">
+      <div class="etq-footer-col">
+        <div class="etq-field-lbl">Técnico responsável</div>
+        <div style="border-bottom:1.5px dashed #a0aec0;height:20px;width:160px;margin-top:2px;"></div>
+      </div>
+      <div class="etq-lacre-check">
+        <span class="etq-check-box"></span>
+        <span class="etq-check-lbl">Lacre aplicado</span>
+      </div>
+    </div>
+
+  </div>`;
+
+  // 4 etiquetas por folha
+  const grade = etiqueta.repeat(4);
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Etiquetas de Filtro — Univag</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', Arial, sans-serif;
+      background: #e2e8f0;
+      padding: 24px;
+      color: #1a202c;
+    }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      max-width: 960px; margin: 0 auto 20px;
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      background: #fff; padding: 14px 20px; border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.08);
+    }
+    .toolbar h2 { font-size: 15px; font-weight: 700; flex: 1; }
+    .toolbar small { font-size: 11px; color: #718096; display: block; margin-top: 2px; }
+    .btn-imp {
+      background: #1e3a5f; color: #fff; border: none;
+      border-radius: 7px; padding: 9px 22px; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .btn-imp:hover { background: #16304d; }
+    .btn-sec {
+      background: #fff; color: #4a5568; border: 1px solid #e2e8f0;
+      border-radius: 7px; padding: 8px 18px; font-size: 13px; cursor: pointer;
+    }
+
+    /* ── Grade 2×2 ── */
+    .grade {
+      max-width: 960px; margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 18px;
+    }
+
+    /* ── Etiqueta ── */
+    .etiqueta-filtro {
+      background: #fff;
+      border: 2.5px solid #1e3a5f;
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .etq-top {
+      display: flex; align-items: center; gap: 20px;
+      background: #1e3a5f;
+      padding: 16px 22px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .etq-logo img { height: 38px; width: auto; display: block; }
+    .etq-titulo {
+      font-size: 18px; font-weight: 800; line-height: 1.18;
+      color: #fff; letter-spacing: 0.01em;
+    }
+
+    .etq-meta {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      gap: 14px; padding: 14px 22px 12px; flex-wrap: wrap;
+    }
+    .etq-field-lbl {
+      font-size: 9px; font-weight: 700; color: #718096;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      margin-bottom: 2px;
+    }
+    .etq-codigo-blank { width: 180px; }
+    .etq-categoria {
+      border: 1.5px solid #1e3a5f; border-radius: 999px;
+      padding: 7px 16px; font-size: 13px; font-weight: 700; color: #1e3a5f;
+      white-space: nowrap; flex-shrink: 0;
+    }
+
+    .etq-divider { border-top: 2px solid #e8edf3; margin: 0 22px 14px; }
+
+    .etq-campos { padding: 0 22px; }
+    .etq-row-2 {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+    }
+    .etq-field { display: flex; flex-direction: column; }
+
+    /* Caixa de validade com destaque */
+    .etq-validade-box {
+      background: #ebf4ff;
+      border-radius: 8px;
+      padding: 8px 12px 10px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .etq-validade-lbl {
+      font-size: 8.5px; font-weight: 700; color: #2b6cb0;
+      text-transform: uppercase; letter-spacing: 0.08em;
+    }
+
+    /* Rodapé */
+    .etq-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 22px 14px;
+      margin-top: 12px;
+      border-top: 2px solid #e8edf3;
+      flex-wrap: wrap; gap: 10px;
+    }
+    .etq-footer-col { display: flex; flex-direction: column; }
+
+    /* Checkbox manual de lacre */
+    .etq-lacre-check {
+      display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    }
+    .etq-check-box {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2px solid #1e3a5f;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .etq-check-lbl {
+      font-size: 11px; font-weight: 700; color: #1e3a5f;
+    }
+
+    /* ── IMPRESSÃO ── */
+    @media print {
+      body {
+        background: #fff; padding: 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .toolbar { display: none !important; }
+      .grade {
+        max-width: 100%;
+        gap: 6mm;
+        grid-template-columns: repeat(2, 1fr);
+        padding: 0;
+      }
+      .etiqueta-filtro {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        border-radius: 6mm;
+      }
+      @page {
+        margin: 10mm;
+        size: A4 portrait;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <div>
+      <h2>🔖 Etiquetas de Filtro — Bebedouro (Em Branco)</h2>
+      <small>4 etiquetas por folha A4 · Preenchimento manual após troca de filtro</small>
+    </div>
+    <button class="btn-sec" onclick="window.close()">✕ Fechar</button>
+    <button class="btn-imp" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+  </div>
+  <div class="grade">
+    ${grade}
+  </div>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank', 'width=1000,height=760');
+  if (!win) { alert('Permita pop-ups neste site para abrir as etiquetas de filtro.'); return; }
+  win.document.write(html);
+  win.document.close();
+}
+
 function _abrirJanelaEtiqueta(lista) {
   const catLabel = {
     AC:'❄️ Ar Condicionado', BEB:'💧 Bebedouro',
