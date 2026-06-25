@@ -2468,13 +2468,46 @@ if ($('btn-login')) {
 }
 
 // ===================== DASHBOARD =====================
-const CHART_DEFAULTS = { responsive:true, maintainAspectRatio:true, devicePixelRatio:2 };
+const CHART_DEFAULTS = { responsive:true, maintainAspectRatio:false, devicePixelRatio:2 };
+
+// Paleta Tidepool fixa para categorias (nunca ciclada por índice)
+const DASH_CORES_GAS = {
+  'R-410A':  '#2a78d6',
+  'R-32':    '#1baf7a',
+  'R-22':    '#eda100',
+  'R-134A':  '#4a3aa7',
+  'R-404A':  '#e87ba4',
+  'Outros':  '#888780',
+};
+const DASH_CORES_CAT = {
+  AC:   '#2a78d6',
+  BEB:  '#1baf7a',
+  CLIM: '#4a3aa7',
+  VEN:  '#eda100',
+  OUT:  '#888780',
+};
+const DASH_LABEL_CAT = {
+  AC:'❄️ Ar condicionado', BEB:'💧 Bebedouros',
+  CLIM:'🌀 Climatizadores', VEN:'💨 Ventiladores', OUT:'🔧 Outros',
+};
+
+// Helper: barra de progresso inline
+function _dashBarra(pct, cor) {
+  return `<div style="height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-top:4px;">
+    <div style="height:100%;width:${Math.min(100,Math.round(pct))}%;background:${cor};border-radius:4px;"></div>
+  </div>`;
+}
+
+// Helper: converte string "1,200 kg" → número (aceita vírgula ou ponto)
+function _parseKg(val) {
+  if (!val) return 0;
+  return parseFloat(String(val).replace(',', '.').replace(/[^\d.]/g, '')) || 0;
+}
 
 async function renderizarGraficosDashboard() {
-  // ── Tenta views SQL (Fase 4); fallback para queries diretas se views não existirem ──
+  // ── 1. Resumo geral (KPIs) ──────────────────────────────────────────────
   let resumo = null;
   const { data: resumoView, error: erroView } = await db.from('vw_dashboard_resumo').select('*').single();
-
   if (!erroView && resumoView) {
     resumo = resumoView;
   } else {
@@ -2488,16 +2521,8 @@ async function renderizarGraficosDashboard() {
         db.from('ordens_servico_geral').select('*', { count:'exact', head:true }).eq('status_os', 'Concluída'),
       ]);
       const val = (i) => resultados[i].status === 'fulfilled' ? (resultados[i].value?.count ?? 0) : 0;
-      resumo = {
-        total_ativos:  val(0),
-        total_pmocs:   val(1),
-        os_pendentes:  val(2) + val(4),
-        os_concluidas: val(3) + val(5),
-      };
-    } catch(e) {
-      console.warn('Dashboard fallback falhou:', e.message);
-      resumo = { total_ativos:0, total_pmocs:0, os_pendentes:0, os_concluidas:0 };
-    }
+      resumo = { total_ativos:val(0), total_pmocs:val(1), os_pendentes:val(2)+val(4), os_concluidas:val(3)+val(5) };
+    } catch(e) { console.warn('Dashboard resumo falhou:', e.message); resumo = {}; }
   }
 
   const r = resumo || {};
@@ -2506,116 +2531,269 @@ async function renderizarGraficosDashboard() {
   if ($('dash-txt-os-abertas'))  $('dash-txt-os-abertas').textContent  = r.os_pendentes  ?? '0';
   if ($('dash-txt-os-fechadas')) $('dash-txt-os-fechadas').textContent = r.os_concluidas ?? '0';
 
-  // Gráfico 1 — Volumetria OS (view com fallback)
-  let volOS = null;
-  const { data: volOSView, error: erroVol } = await db.from('vw_dashboard_volumetria_os').select('*');
-  if (!erroVol && volOSView) {
-    volOS = volOSView;
-  } else {
-    try {
-      const [r1, r2] = await Promise.allSettled([
-        db.from('ordens_servico').select('status_os'),
-        db.from('ordens_servico_geral').select('status_os'),
-      ]);
-      const osAC  = r1.status === 'fulfilled' ? (r1.value?.data || []) : [];
-      const osFac = r2.status === 'fulfilled' ? (r2.value?.data || []) : [];
-      const map = {};
-      [...osAC, ...osFac].forEach(o => { map[o.status_os] = (map[o.status_os]||0)+1; });
-      volOS = Object.entries(map).map(([status_os,total]) => ({ status_os, total }));
-    } catch(e) { console.warn('Fallback volOS falhou:', e.message); volOS = []; }
+  // ── 2. Dados de equipamentos para KPIs adicionais, gás e categorias ────
+  let eqAll = [];
+  try {
+    const { data: eqData } = await db.from('equipamentos').select('categoria,criticidade,validade,extras_tecnico');
+    eqAll = eqData || [];
+  } catch(e) { console.warn('Equipamentos dashboard falhou:', e.message); }
+
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+
+  // KPI: filtros a vencer (BEB com validade nos próximos 30 dias ou já vencida)
+  const em30 = new Date(hoje); em30.setDate(em30.getDate() + 30);
+  let filtrosVencer = 0, filtrosVencidos = 0;
+  eqAll.filter(e => e.categoria === 'BEB' && e.validade).forEach(e => {
+    const dt = new Date(e.validade + 'T00:00:00');
+    if (dt < hoje) filtrosVencidos++;
+    else if (dt <= em30) filtrosVencer++;
+  });
+  if ($('dash-txt-filtros-vencer')) $('dash-txt-filtros-vencer').textContent = filtrosVencer + filtrosVencidos;
+  if ($('dash-sub-filtros'))        $('dash-sub-filtros').textContent = filtrosVencidos > 0 ? `${filtrosVencidos} já vencido(s)` : 'Próximos 30 dias';
+  if (filtrosVencidos > 0 && $('dash-sub-filtros')) $('dash-sub-filtros').style.color = '#ef4444';
+
+  // KPI: PMOC vencidos
+  let pmocVencidos = 0;
+  try {
+    const { data: fichasVenc } = await db.from('fichas_pmoc')
+      .select('proxima_manutencao')
+      .not('proxima_manutencao','is',null)
+      .lt('proxima_manutencao', hoje.toISOString().split('T')[0]);
+    pmocVencidos = (fichasVenc || []).length;
+  } catch(e) { console.warn('PMOC vencidos falhou:', e.message); }
+  if ($('dash-txt-pmoc-vencidos')) $('dash-txt-pmoc-vencidos').textContent = pmocVencidos;
+  if ($('dash-sub-pmoc-vencidos')) {
+    $('dash-sub-pmoc-vencidos').textContent = pmocVencidos > 0 ? 'Ação imediata necessária' : 'Todos em dia';
+    $('dash-sub-pmoc-vencidos').style.color = pmocVencidos > 0 ? '#ef4444' : '#10b981';
   }
-  if ($('chartStatusOS') && volOS) {
+
+  // KPI: sub-texto de ativos e PMOC
+  const totalAtivos = Number(r.total_ativos || 0);
+  const totalPmocs  = Number(r.total_pmocs  || 0);
+  const cobPct = totalAtivos > 0 ? Math.round((totalPmocs / totalAtivos) * 100) : 0;
+  if ($('dash-sub-pmoc')) $('dash-sub-pmoc').textContent = `${cobPct}% de cobertura`;
+
+  // ── 3. Inventário de gás refrigerante ─────────────────────────────────
+  const gasMap = {}; // tipo → { qtdEq, totalKg }
+  let gasMaxKg = 0;
+  eqAll.filter(e => e.categoria === 'AC').forEach(e => {
+    const ex  = e.extras_tecnico || {};
+    const gas = ex.gas || '';
+    if (!gas) return;
+    const kg  = _parseKg(ex['gas-qtd'] || '');
+    if (!gasMap[gas]) gasMap[gas] = { qtdEq:0, totalKg:0 };
+    gasMap[gas].qtdEq++;
+    gasMap[gas].totalKg += kg;
+    if (gasMap[gas].totalKg > gasMaxKg) gasMaxKg = gasMap[gas].totalKg;
+  });
+  const gasOrdenado = Object.entries(gasMap).sort((a,b) => b[1].totalKg - a[1].totalKg);
+  const gasTotal    = gasOrdenado.reduce((s,[,v]) => s + v.totalKg, 0);
+
+  const gasLista = $('dash-gas-lista');
+  if (gasLista) {
+    if (!gasOrdenado.length) {
+      gasLista.innerHTML = '<p style="color:#a0aec0;font-size:13px;">Nenhum equipamento com gás cadastrado.</p>';
+    } else {
+      gasLista.innerHTML = gasOrdenado.map(([tipo, v]) => {
+        const cor  = DASH_CORES_GAS[tipo] || '#888780';
+        const pct  = gasMaxKg > 0 ? (v.totalKg / gasMaxKg) * 100 : 0;
+        const kgFmt = v.totalKg > 0 ? v.totalKg.toFixed(1) + ' kg' : '—';
+        return `<div>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="width:10px;height:10px;border-radius:2px;background:${cor};flex-shrink:0;display:inline-block;"></span>
+              <span style="color:#4a5568;">${escapeHTML(tipo)}</span>
+              <span style="font-size:11px;background:#e0f2fe;color:#0369a1;border-radius:999px;padding:1px 8px;">${v.qtdEq} equip.</span>
+            </div>
+            <strong style="color:#1a202c;">${kgFmt}</strong>
+          </div>
+          ${_dashBarra(pct, cor)}
+        </div>`;
+      }).join('');
+    }
+  }
+  if ($('dash-gas-total')) {
+    $('dash-gas-total').textContent = gasTotal > 0 ? gasTotal.toFixed(1) + ' kg' : '—';
+  }
+
+  // ── 4. Distribuição por categoria ──────────────────────────────────────
+  const catMap = {}; // cat → count
+  let classeA = 0;
+  eqAll.forEach(e => {
+    const c = e.categoria || 'OUT';
+    catMap[c] = (catMap[c] || 0) + 1;
+    if (e.criticidade === 'Alta') classeA++;
+  });
+  const catOrdenado = Object.entries(catMap).sort((a,b) => b[1]-a[1]);
+  const catMax = catOrdenado[0]?.[1] || 1;
+
+  const catLista = $('dash-cat-lista');
+  if (catLista) {
+    catLista.innerHTML = catOrdenado.map(([cat, cnt]) => {
+      const cor  = DASH_CORES_CAT[cat] || '#888780';
+      const lbl  = DASH_LABEL_CAT[cat] || cat;
+      const pct  = (cnt / catMax) * 100;
+      return `<div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px;">
+          <span style="color:#4a5568;">${lbl}</span>
+          <strong style="color:#1a202c;">${cnt}</strong>
+        </div>
+        ${_dashBarra(pct, cor)}
+      </div>`;
+    }).join('');
+  }
+  if ($('dash-txt-classe-a')) $('dash-txt-classe-a').textContent = classeA + ' ativos';
+
+  // ── 5. Gráfico donut — Status O.S. ─────────────────────────────────────
+  let volOS = [];
+  try {
+    const [r1, r2] = await Promise.allSettled([
+      db.from('ordens_servico').select('status_os'),
+      db.from('ordens_servico_geral').select('status_os'),
+    ]);
+    const osAC  = r1.status === 'fulfilled' ? (r1.value?.data || []) : [];
+    const osFac = r2.status === 'fulfilled' ? (r2.value?.data || []) : [];
+    const map = {};
+    [...osAC, ...osFac].forEach(o => { map[o.status_os] = (map[o.status_os]||0)+1; });
+    volOS = Object.entries(map).map(([status_os,total]) => ({ status_os, total }));
+  } catch(e) { console.warn('volOS falhou:', e.message); }
+
+  if ($('chartStatusOS')) {
     const cnt = { Aberta:0, 'Em Andamento':0, Concluida:0 };
     volOS.forEach(row => {
-      if (row.status_os === 'Aberta')            cnt.Aberta            += Number(row.total);
-      else if (row.status_os === 'Em Andamento') cnt['Em Andamento']   += Number(row.total);
-      else if (row.status_os === 'Concluída')    cnt.Concluida         += Number(row.total);
-    });
-    if (chartOS) chartOS.destroy();
-    chartOS = new Chart($('chartStatusOS'), {
-      type: 'doughnut',
-      data: { labels:['Aberta / Pendente','Em Andamento','Concluída'], datasets:[{ data:[cnt.Aberta,cnt['Em Andamento'],cnt.Concluida], backgroundColor:['#f59e0b','#3b82f6','#10b981'], borderColor:'#fff', borderWidth:3, hoverOffset:8 }] },
-      options: { ...CHART_DEFAULTS, cutout:'62%', plugins:{ legend:{ position:'bottom', labels:{ padding:16, font:{ size:13 }, usePointStyle:true } }, tooltip:{ callbacks:{ label: c => ` ${c.label}: ${c.parsed} O.S.` } } } },
-    });
-  }
-
-  // Gráfico 2 — Criticidade (view com fallback)
-  let critData = null;
-  const { data: critView, error: erroCrit } = await db.from('vw_dashboard_criticidade').select('*');
-  if (!erroCrit && critView) {
-    critData = critView;
-  } else {
-    try {
-      const { data: eqCrit } = await db.from('equipamentos').select('criticidade');
-      const map = {};
-      (eqCrit||[]).forEach(e => { map[e.criticidade||'Média'] = (map[e.criticidade||'Média']||0)+1; });
-      critData = Object.entries(map).map(([criticidade,total]) => ({ criticidade, total }));
-    } catch(e) { console.warn('Fallback critData falhou:', e.message); critData = []; }
-  }
-  if ($('chartCriticidade') && critData) {
-    const cnt = { Alta:0, Media:0, Baixa:0 };
-    critData.forEach(row => {
-      if (row.criticidade === 'Alta')       cnt.Alta  += Number(row.total);
-      else if (row.criticidade === 'Média') cnt.Media += Number(row.total);
-      else if (row.criticidade === 'Baixa') cnt.Baixa += Number(row.total);
-    });
-    if (chartCrit) chartCrit.destroy();
-    chartCrit = new Chart($('chartCriticidade'), {
-      type: 'bar',
-      data: { labels:['Alta (A)','Média (B)','Baixa (C)'], datasets:[{ data:[cnt.Alta,cnt.Media,cnt.Baixa], backgroundColor:['rgba(239,68,68,.85)','rgba(245,158,11,.85)','rgba(16,185,129,.85)'], borderColor:['#ef4444','#f59e0b','#10b981'], borderWidth:2, borderRadius:6, borderSkipped:false }] },
-      options: { ...CHART_DEFAULTS, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: c => ` ${c.parsed.y} ativo(s)` } } }, scales:{ y:{ beginAtZero:true, ticks:{ stepSize:1, font:{ size:12 } }, grid:{ color:'rgba(0,0,0,.05)' } }, x:{ ticks:{ font:{ size:12 } }, grid:{ display:false } } } },
-    });
-  }
-
-  // Gráfico 3 — Facilities (view com fallback)
-  let facData = null;
-  const { data: facView, error: erroFac } = await db.from('vw_dashboard_facilities').select('*');
-  if (!erroFac && facView) {
-    facData = facView;
-  } else {
-    try {
-      const { data: osFac } = await db.from('ordens_servico_geral').select('status_os');
-      const map = {};
-      (osFac||[]).forEach(o => { map[o.status_os] = (map[o.status_os]||0)+1; });
-      facData = Object.entries(map).map(([status_os,total]) => ({ status_os, total }));
-    } catch(e) { console.warn('Fallback facData falhou:', e.message); facData = []; }
-  }
-  if ($('chartStatusOSG') && facData) {
-    const cnt = { Aberta:0, 'Em Andamento':0, Concluida:0 };
-    facData.forEach(row => {
       if (row.status_os === 'Aberta')            cnt.Aberta          += Number(row.total);
       else if (row.status_os === 'Em Andamento') cnt['Em Andamento'] += Number(row.total);
       else if (row.status_os === 'Concluída')    cnt.Concluida       += Number(row.total);
     });
-    if (chartOSG) chartOSG.destroy();
-    chartOSG = new Chart($('chartStatusOSG'), {
+    if (chartOS) chartOS.destroy();
+    chartOS = new Chart($('chartStatusOS'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Aberta / Pendente','Em Andamento','Concluída'],
+        datasets: [{
+          data: [cnt.Aberta, cnt['Em Andamento'], cnt.Concluida],
+          backgroundColor: ['#eda100','#2a78d6','#1baf7a'],
+          borderColor: '#fff', borderWidth: 3, hoverOffset: 8,
+        }],
+      },
+      options: {
+        ...CHART_DEFAULTS, cutout:'62%',
+        plugins:{
+          legend:{ display:false },
+          tooltip:{ callbacks:{ label: c => ` ${c.label}: ${c.parsed} O.S.` } },
+        },
+      },
+    });
+    // Legenda customizada abaixo do donut
+    const canvasParent = $('chartStatusOS').parentElement;
+    let leg = canvasParent.querySelector('.dash-chart-legend');
+    if (!leg) { leg = document.createElement('div'); leg.className = 'dash-chart-legend'; canvasParent.appendChild(leg); }
+    leg.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px 16px;justify-content:center;margin-top:12px;font-size:12px;';
+    const labels = ['Aberta / Pendente','Em Andamento','Concluída'];
+    const cores  = ['#eda100','#2a78d6','#1baf7a'];
+    const vals   = [cnt.Aberta, cnt['Em Andamento'], cnt.Concluida];
+    leg.innerHTML = labels.map((l,i) =>
+      `<span style="display:flex;align-items:center;gap:5px;color:#4a5568;">
+        <span style="width:10px;height:10px;border-radius:2px;background:${cores[i]};display:inline-block;"></span>
+        ${l}: <strong style="color:#1a202c;">${vals[i]}</strong>
+      </span>`).join('');
+  }
+
+  // ── 6. Conformidade filtros — bebedouros ────────────────────────────────
+  const bebs = eqAll.filter(e => e.categoria === 'BEB');
+  const totalBeb  = bebs.length;
+  let bebFiltroOk = 0, bebLacreOk = 0, bebFiltroVenc = 0;
+  bebs.forEach(e => {
+    const ex = e.extras_tecnico || {};
+    if (e.validade) {
+      const dt = new Date(e.validade + 'T00:00:00');
+      if (dt >= hoje) bebFiltroOk++; else bebFiltroVenc++;
+    }
+    if ((ex['lacre-beb'] || '').toLowerCase() === 'sim') bebLacreOk++;
+  });
+
+  const bebEl = $('dash-beb-conformidade');
+  if (bebEl) {
+    if (totalBeb === 0) {
+      bebEl.innerHTML = '<p style="color:#a0aec0;font-size:13px;">Nenhum bebedouro cadastrado.</p>';
+    } else {
+      const _bRow = (icon, cor, label, ok, total) => {
+        const pct = total > 0 ? (ok / total) * 100 : 0;
+        return `<div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:30px;height:30px;border-radius:50%;background:#ebf4ff;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">${icon}</div>
+          <div style="flex:1;">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+              <span style="color:#4a5568;">${label}</span>
+              <strong style="color:${cor};">${ok}/${total}</strong>
+            </div>
+            ${_dashBarra(pct, cor)}
+          </div>
+        </div>`;
+      };
+      bebEl.innerHTML = [
+        _bRow('✅','#1baf7a','Filtro dentro do prazo', bebFiltroOk,  totalBeb),
+        _bRow('🔒','#2a78d6','Lacre sanitário ativo',  bebLacreOk,  totalBeb),
+        _bRow('⚠️','#ef4444','Filtro vencido',          bebFiltroVenc, totalBeb),
+      ].join('');
+    }
+  }
+
+  // ── 7. Gráfico barras empilhadas — Cobertura PMOC por categoria ─────────
+  let pmocPorCat = {};
+  try {
+    const { data: fichasCat } = await db.from('fichas_pmoc')
+      .select('equipamentos(categoria)');
+    (fichasCat||[]).forEach(f => {
+      const c = f.equipamentos?.categoria || 'OUT';
+      pmocPorCat[c] = (pmocPorCat[c] || 0) + 1;
+    });
+  } catch(e) { console.warn('PMOC por cat falhou:', e.message); }
+
+  if ($('chartPMOC')) {
+    const cats   = ['AC','BEB','CLIM','VEN'];
+    const comPmoc = cats.map(c => pmocPorCat[c] || 0);
+    const semPmoc = cats.map((c,i) => Math.max(0, (catMap[c] || 0) - comPmoc[i]));
+    if (chartCrit) chartCrit.destroy();
+    chartCrit = new Chart($('chartPMOC'), {
       type: 'bar',
-      data: { labels:['Aberta','Em Andamento','Concluída'], datasets:[{ data:[cnt.Aberta,cnt['Em Andamento'],cnt.Concluida], backgroundColor:['rgba(245,158,11,.85)','rgba(139,92,246,.85)','rgba(16,185,129,.85)'], borderColor:['#f59e0b','#8b5cf6','#10b981'], borderWidth:2, borderRadius:6, borderSkipped:false }] },
-      options: { ...CHART_DEFAULTS, indexAxis:'y', plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: c => ` ${c.parsed.x} O.S.` } } }, scales:{ x:{ beginAtZero:true, ticks:{ stepSize:1, font:{ size:12 } }, grid:{ color:'rgba(0,0,0,.05)' } }, y:{ ticks:{ font:{ size:13 } }, grid:{ display:false } } } },
+      data: {
+        labels: ['AC','BEB','CLIM','VEN'],
+        datasets: [
+          { label:'Com PMOC', data:comPmoc, backgroundColor:'#2a78d6', borderRadius:4, borderSkipped:false },
+          { label:'Sem PMOC', data:semPmoc, backgroundColor:'#e2e8f0', borderRadius:4, borderSkipped:false },
+        ],
+      },
+      options: {
+        ...CHART_DEFAULTS,
+        plugins:{
+          legend:{ display:false },
+          tooltip:{ callbacks:{ label: c => ` ${c.dataset.label}: ${c.parsed.y}` } },
+        },
+        scales:{
+          x:{ stacked:true, grid:{ display:false }, ticks:{ font:{ size:12 } } },
+          y:{ stacked:true, beginAtZero:true, grid:{ color:'rgba(0,0,0,.05)' }, ticks:{ stepSize:5, font:{ size:12 } } },
+        },
+      },
     });
   }
 
-  // Logs recentes (view com fallback)
-  let logs = null;
-  const { data: logsView, error: erroLogs } = await db.from('vw_dashboard_logs_recentes').select('*').limit(8);
-  if (!erroLogs && logsView) {
-    logs = logsView;
-  } else {
-    try {
-      const [r1, r2] = await Promise.allSettled([
-        db.from('ordens_servico').select('created_at,status_os,tipo_os,equipamentos(tag)').order('created_at',{ascending:false}).limit(5),
-        db.from('ordens_servico_geral').select('created_at,status_os,servico_requisitado,setor').order('created_at',{ascending:false}).limit(5),
-      ]);
-      const logsAC  = r1.status === 'fulfilled' ? (r1.value?.data || []) : [];
-      const logsFac = r2.status === 'fulfilled' ? (r2.value?.data || []) : [];
-      logs = [
-        ...logsAC.map(l =>({ data:l.created_at, status:l.status_os, desc:l.tipo_os||'—', ref:l.equipamentos?.tag||'—', origem:'❄️' })),
-        ...logsFac.map(l=>({ data:l.created_at, status:l.status_os, desc:l.servico_requisitado||'—', ref:l.setor||'—', origem:'🏢' })),
-      ].sort((a,b)=>new Date(b.data)-new Date(a.data)).slice(0,8);
-    } catch(e) { console.warn('Fallback logs falhou:', e.message); logs = []; }
-  }
+  // ── 8. Logs recentes ────────────────────────────────────────────────────
+  let logs = [];
+  try {
+    const [r1, r2] = await Promise.allSettled([
+      db.from('ordens_servico').select('created_at,status_os,tipo_os,equipamentos(tag)').order('created_at',{ascending:false}).limit(5),
+      db.from('ordens_servico_geral').select('created_at,status_os,servico_requisitado,setor').order('created_at',{ascending:false}).limit(5),
+    ]);
+    const logsAC  = r1.status === 'fulfilled' ? (r1.value?.data || []) : [];
+    const logsFac = r2.status === 'fulfilled' ? (r2.value?.data || []) : [];
+    logs = [
+      ...logsAC.map(l  => ({ data:l.created_at, status:l.status_os, desc:l.tipo_os||'—', ref:l.equipamentos?.tag||'—', origem:'❄️' })),
+      ...logsFac.map(l => ({ data:l.created_at, status:l.status_os, desc:l.servico_requisitado||'—', ref:l.setor||'—', origem:'🏢' })),
+    ].sort((a,b) => new Date(b.data)-new Date(a.data)).slice(0,8);
+  } catch(e) { console.warn('Logs dashboard falhou:', e.message); }
+
   const el = $('dash-atividades');
-  if (el && logs) {
+  if (el) {
     el.innerHTML = logs.length ? logs.map(l =>
       `<div style="padding:8px 0;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <span style="font-size:10px;color:#a0aec0;min-width:70px;">${fmtDate(l.data)}</span>
@@ -2623,7 +2801,8 @@ async function renderizarGraficosDashboard() {
         <strong style="font-size:13px;">${escapeHTML(l.ref)}</strong>
         <span style="color:#4a5568;font-size:12px;flex:1;">${escapeHTML(l.desc)}</span>
         ${statusBadge(l.status)}
-      </div>`).join('') : '<p style="color:#a0aec0;">Nenhum registro encontrado.</p>';
+      </div>`).join('')
+      : '<p style="color:#a0aec0;">Nenhum registro encontrado.</p>';
   }
 }
 
