@@ -2229,6 +2229,273 @@ function imprimirEtiquetaFiltroEmBranco() {
   win.document.close();
 }
 
+// ===================== ETIQUETA SHARED — CSS + HTML base reutilizável =====================
+// CSS idêntico ao da etiqueta de filtro, para manter consistência visual entre as 4 etiquetas.
+const _ETQ_CSS = `
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', Arial, sans-serif; background: #e2e8f0; padding: 24px; color: #1a202c; }
+  .toolbar { max-width: 960px; margin: 0 auto 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: #fff; padding: 14px 20px; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+  .toolbar h2 { font-size: 15px; font-weight: 700; flex: 1; }
+  .toolbar small { font-size: 11px; color: #718096; display: block; margin-top: 2px; }
+  .btn-imp { background: #1e3a5f; color: #fff; border: none; border-radius: 7px; padding: 9px 22px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn-imp:hover { background: #16304d; }
+  .btn-sec { background: #fff; color: #4a5568; border: 1px solid #e2e8f0; border-radius: 7px; padding: 8px 18px; font-size: 13px; cursor: pointer; }
+  .grade { max-width: 960px; margin: 0 auto; display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  .etq-card { background: #fff; border-radius: 16px; overflow: hidden; }
+  .etq-top { display: flex; align-items: center; gap: 20px; padding: 16px 22px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .etq-logo img { height: 38px; width: auto; display: block; }
+  .etq-titulo { font-size: 18px; font-weight: 800; line-height: 1.18; color: #fff; letter-spacing: 0.01em; }
+  .etq-meta { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; padding: 14px 22px 12px; flex-wrap: wrap; }
+  .etq-field-lbl { font-size: 9px; font-weight: 700; color: #718096; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px; }
+  .etq-codigo-blank { width: 180px; }
+  .etq-categoria { border-radius: 999px; padding: 7px 16px; font-size: 13px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+  .etq-divider { border-top: 2px solid #e8edf3; margin: 0 22px 14px; }
+  .etq-campos { padding: 0 22px; }
+  .etq-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .etq-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .etq-field { display: flex; flex-direction: column; }
+  .etq-linha { border-bottom: 1.5px dashed #a0aec0; height: 22px; margin-top: 2px; }
+  .etq-destaque-box { border-radius: 8px; padding: 8px 12px 10px; margin-top: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .etq-destaque-lbl { font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+  .etq-footer { display: flex; align-items: center; justify-content: space-between; padding: 12px 22px 14px; margin-top: 12px; border-top: 2px solid #e8edf3; flex-wrap: wrap; gap: 10px; }
+  .etq-footer-col { display: flex; flex-direction: column; }
+  .etq-check-row { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+  .etq-check-item { display: flex; align-items: center; gap: 6px; }
+  .etq-check-box { display: inline-block; width: 16px; height: 16px; border: 2px solid; border-radius: 3px; flex-shrink: 0; }
+  .etq-check-lbl { font-size: 10px; font-weight: 700; }
+  @media print {
+    body { background: #fff; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .toolbar { display: none !important; }
+    .grade { max-width: 100%; gap: 6mm; grid-template-columns: repeat(2, 1fr); padding: 0; }
+    .etq-card { break-inside: avoid; page-break-inside: avoid; border-radius: 6mm; }
+    @page { margin: 10mm; size: A4 portrait; }
+  }
+`;
+
+function _abrirJanelaEtiquetas(titulo, subtitulo, gradeHTML) {
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>${escapeHTML(titulo)} — Univag</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>${_ETQ_CSS}</style>
+</head>
+<body>
+  <div class="toolbar">
+    <div>
+      <h2>🔖 ${escapeHTML(titulo)}</h2>
+      <small>${escapeHTML(subtitulo)}</small>
+    </div>
+    <button class="btn-sec" onclick="window.close()">✕ Fechar</button>
+    <button class="btn-imp" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+  </div>
+  <div class="grade">${gradeHTML}</div>
+</body>
+</html>`;
+  const win = window.open('', '_blank', 'width=1000,height=760');
+  if (!win) { alert('Permita pop-ups neste site para abrir as etiquetas.'); return; }
+  win.document.write(html);
+  win.document.close();
+}
+
+// ===================== ETIQUETA LIMPEZA — BEBEDOURO =====================
+// Controle de higienização periódica (mensal/trimestral) — em branco para preenchimento manual.
+function imprimirEtiquetaLimpezaBebedouro() {
+  const COR   = '#0891b2'; // azul-ciano — diferencia de filtro (azul escuro)
+  const LINHA = `<div class="etq-linha"></div>`;
+
+  const etiqueta = `
+  <div class="etq-card" style="border:2.5px solid ${COR};">
+    <div class="etq-top" style="background:${COR};">
+      <div class="etq-logo"><img src="${LOGO_ETIQUETA}" alt="Univag"></div>
+      <div class="etq-titulo">MANUTENÇÃO<br>LIMPEZA / HIGIENIZAÇÃO</div>
+    </div>
+
+    <div class="etq-meta">
+      <div>
+        <div class="etq-field-lbl">Código do equipamento (TAG)</div>
+        <div class="etq-codigo-blank">${LINHA}</div>
+      </div>
+      <div class="etq-categoria" style="border:1.5px solid ${COR};color:${COR};">💧 Bebedouro</div>
+    </div>
+
+    <div class="etq-divider"></div>
+
+    <div class="etq-campos">
+      <div class="etq-row-2">
+        <div class="etq-field"><div class="etq-field-lbl">Tipo de limpeza</div>${LINHA}</div>
+        <div class="etq-field"><div class="etq-field-lbl">Produto utilizado</div>${LINHA}</div>
+      </div>
+      <div class="etq-row-2" style="margin-top:10px;">
+        <div class="etq-field"><div class="etq-field-lbl">Data da limpeza</div>${LINHA}</div>
+        <div class="etq-field"><div class="etq-field-lbl">Local (bloco / sala)</div>${LINHA}</div>
+      </div>
+      <div class="etq-destaque-box" style="background:#ecfeff;margin-top:10px;">
+        <div class="etq-destaque-lbl" style="color:#0e7490;">PRÓXIMA LIMPEZA PREVISTA</div>
+        <div style="border-bottom:2px dashed #0e7490;height:28px;margin-top:3px;"></div>
+      </div>
+    </div>
+
+    <div class="etq-footer">
+      <div class="etq-footer-col">
+        <div class="etq-field-lbl">Técnico responsável</div>
+        <div style="border-bottom:1.5px dashed #a0aec0;height:20px;width:160px;margin-top:2px;"></div>
+      </div>
+      <div class="etq-check-row">
+        <div class="etq-check-item">
+          <span class="etq-check-box" style="border-color:${COR};"></span>
+          <span class="etq-check-lbl" style="color:${COR};">Sanitizado</span>
+        </div>
+        <div class="etq-check-item">
+          <span class="etq-check-box" style="border-color:${COR};"></span>
+          <span class="etq-check-lbl" style="color:${COR};">Lacre aplicado</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  _abrirJanelaEtiquetas(
+    'Etiquetas de Limpeza — Bebedouro',
+    '4 etiquetas por folha A4 · Preenchimento manual após higienização',
+    etiqueta.repeat(4)
+  );
+}
+
+// ===================== ETIQUETA LIMPEZA — CLIMATIZADOR =====================
+// Controle de manutenção e limpeza periódica de climatizadores evaporativos.
+function imprimirEtiquetaLimpezaClimatizador() {
+  const COR   = '#0d9488'; // verde-teal
+  const LINHA = `<div class="etq-linha"></div>`;
+
+  const etiqueta = `
+  <div class="etq-card" style="border:2.5px solid ${COR};">
+    <div class="etq-top" style="background:${COR};">
+      <div class="etq-logo"><img src="${LOGO_ETIQUETA}" alt="Univag"></div>
+      <div class="etq-titulo">MANUTENÇÃO<br>LIMPEZA / CLIMATIZADOR</div>
+    </div>
+
+    <div class="etq-meta">
+      <div>
+        <div class="etq-field-lbl">Código do equipamento (TAG)</div>
+        <div class="etq-codigo-blank">${LINHA}</div>
+      </div>
+      <div class="etq-categoria" style="border:1.5px solid ${COR};color:${COR};">🌀 Climatizador</div>
+    </div>
+
+    <div class="etq-divider"></div>
+
+    <div class="etq-campos">
+      <div class="etq-row-2">
+        <div class="etq-field"><div class="etq-field-lbl">Tipo de serviço</div>${LINHA}</div>
+        <div class="etq-field"><div class="etq-field-lbl">Produto / biocida</div>${LINHA}</div>
+      </div>
+      <div class="etq-row-2" style="margin-top:10px;">
+        <div class="etq-field"><div class="etq-field-lbl">Data do serviço</div>${LINHA}</div>
+        <div class="etq-field"><div class="etq-field-lbl">Local (bloco / sala)</div>${LINHA}</div>
+      </div>
+      <div class="etq-destaque-box" style="background:#f0fdfa;margin-top:10px;">
+        <div class="etq-destaque-lbl" style="color:#0f766e;">PRÓXIMA MANUTENÇÃO PREVISTA</div>
+        <div style="border-bottom:2px dashed #0f766e;height:28px;margin-top:3px;"></div>
+      </div>
+    </div>
+
+    <div class="etq-footer">
+      <div class="etq-footer-col">
+        <div class="etq-field-lbl">Técnico responsável</div>
+        <div style="border-bottom:1.5px dashed #a0aec0;height:20px;width:150px;margin-top:2px;"></div>
+      </div>
+      <div class="etq-check-row">
+        <div class="etq-check-item">
+          <span class="etq-check-box" style="border-color:${COR};"></span>
+          <span class="etq-check-lbl" style="color:${COR};">Reservatório</span>
+        </div>
+        <div class="etq-check-item">
+          <span class="etq-check-box" style="border-color:${COR};"></span>
+          <span class="etq-check-lbl" style="color:${COR};">Painel</span>
+        </div>
+        <div class="etq-check-item">
+          <span class="etq-check-box" style="border-color:${COR};"></span>
+          <span class="etq-check-lbl" style="color:${COR};">Biocida</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  _abrirJanelaEtiquetas(
+    'Etiquetas de Limpeza — Climatizador',
+    '4 etiquetas por folha A4 · Preenchimento manual após manutenção',
+    etiqueta.repeat(4)
+  );
+}
+
+// ===================== ETIQUETA LIMPEZA — VENTILADOR / EXAUSTOR =====================
+// Controle de manutenção e limpeza periódica de ventiladores e exaustores.
+function imprimirEtiquetaLimpezaVentilador() {
+  const COR   = '#6d28d9'; // roxo
+  const LINHA = `<div class="etq-linha"></div>`;
+
+  const etiqueta = `
+  <div class="etq-card" style="border:2.5px solid ${COR};">
+    <div class="etq-top" style="background:${COR};">
+      <div class="etq-logo"><img src="${LOGO_ETIQUETA}" alt="Univag"></div>
+      <div class="etq-titulo">MANUTENÇÃO<br>LIMPEZA / VENTILAÇÃO</div>
+    </div>
+
+    <div class="etq-meta">
+      <div>
+        <div class="etq-field-lbl">Código do equipamento (TAG)</div>
+        <div class="etq-codigo-blank">${LINHA}</div>
+      </div>
+      <div class="etq-categoria" style="border:1.5px solid ${COR};color:${COR};">💨 Ventilador / Exaustor</div>
+    </div>
+
+    <div class="etq-divider"></div>
+
+    <div class="etq-campos">
+      <div class="etq-row-2">
+        <div class="etq-field"><div class="etq-field-lbl">Tipo de serviço</div>${LINHA}</div>
+        <div class="etq-field"><div class="etq-field-lbl">Tipo de equipamento</div>${LINHA}</div>
+      </div>
+      <div class="etq-row-2" style="margin-top:10px;">
+        <div class="etq-field"><div class="etq-field-lbl">Data do serviço</div>${LINHA}</div>
+        <div class="etq-field"><div class="etq-field-lbl">Local (bloco / sala)</div>${LINHA}</div>
+      </div>
+      <div class="etq-destaque-box" style="background:#f5f3ff;margin-top:10px;">
+        <div class="etq-destaque-lbl" style="color:#5b21b6;">PRÓXIMA MANUTENÇÃO PREVISTA</div>
+        <div style="border-bottom:2px dashed #5b21b6;height:28px;margin-top:3px;"></div>
+      </div>
+    </div>
+
+    <div class="etq-footer">
+      <div class="etq-footer-col">
+        <div class="etq-field-lbl">Técnico responsável</div>
+        <div style="border-bottom:1.5px dashed #a0aec0;height:20px;width:150px;margin-top:2px;"></div>
+      </div>
+      <div class="etq-check-row">
+        <div class="etq-check-item">
+          <span class="etq-check-box" style="border-color:${COR};"></span>
+          <span class="etq-check-lbl" style="color:${COR};">Pás / hélice</span>
+        </div>
+        <div class="etq-check-item">
+          <span class="etq-check-box" style="border-color:${COR};"></span>
+          <span class="etq-check-lbl" style="color:${COR};">Grelha</span>
+        </div>
+        <div class="etq-check-item">
+          <span class="etq-check-box" style="border-color:${COR};"></span>
+          <span class="etq-check-lbl" style="color:${COR};">Lubrificado</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  _abrirJanelaEtiquetas(
+    'Etiquetas de Limpeza — Ventilador / Exaustor',
+    '4 etiquetas por folha A4 · Preenchimento manual após manutenção',
+    etiqueta.repeat(4)
+  );
+}
+
 function _abrirJanelaEtiqueta(lista) {
   const catLabel = {
     AC:'❄️ Ar Condicionado', BEB:'💧 Bebedouro',
