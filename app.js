@@ -1980,251 +1980,193 @@ async function imprimirTodasEtiquetas() {
   _abrirJanelaEtiqueta(lista);
 }
 
-// ===================== ETIQUETA DE FILTRO (EM BRANCO) =====================
-// Gera folha A4 com 4 etiquetas em branco para preenchimento manual após troca de filtro.
-// Mesma identidade visual da etiqueta de ativo. Chamar via botão na tela de equipamentos.
-function imprimirEtiquetaFiltroEmBranco() {
-  // Linha tracejada reutilizável para campos de preenchimento manual
-  const linha = `<div style="border-bottom:1.5px dashed #a0aec0;height:22px;margin-top:2px;"></div>`;
+// ===================== ETIQUETA UNIFICADA — BEBEDOURO (FILTRO + LIMPEZA) =====================
+// Etiqueta única que cobre troca de filtro E limpeza/higienização do bebedouro.
+// O técnico marca com checkbox qual(is) serviço(s) foi executado e preenche os campos da seção
+// correspondente. Uma etiqueta substitui as duas anteriores — menos papel, controle completo.
+function imprimirEtiquetaFiltroEmBranco() { imprimirEtiquetaBebedouro(); }  // alias de compatibilidade
+function imprimirEtiquetaLimpezaBebedouro() { imprimirEtiquetaBebedouro(); } // alias de compatibilidade
+function imprimirEtiquetaBebedouro() {
+  const L = `<div style="border-bottom:1.5px dashed #a0aec0;height:21px;margin-top:2px;"></div>`;
 
   const etiqueta = `
-  <div class="etiqueta-filtro">
+  <div class="etq-beb">
 
-    <!-- CABEÇALHO — mesmo padrão azul escuro da etiqueta de ativo -->
-    <div class="etq-top">
-      <div class="etq-logo"><img src="${LOGO_ETIQUETA}" alt="Univag"></div>
-      <div class="etq-titulo">MANUTENÇÃO<br>TROCA DE FILTRO</div>
+    <!-- CABEÇALHO azul escuro com logo -->
+    <div class="etq-beb-head">
+      <div class="etq-beb-logo"><img src="${LOGO_ETIQUETA}" alt="Univag"></div>
+      <div class="etq-beb-headtxt">
+        <div class="etq-beb-pre">Manutenção Preventiva</div>
+        <div class="etq-beb-tit">Controle de Bebedouro</div>
+      </div>
     </div>
 
-    <!-- CÓDIGO / TAG -->
-    <div class="etq-meta">
-      <div>
-        <div class="etq-field-lbl">Código do equipamento (TAG)</div>
-        <div class="etq-codigo-blank">${linha}</div>
+    <!-- FAIXA DUPLA: tipo de serviço com checkbox -->
+    <div class="etq-beb-tipos">
+      <div class="etq-beb-tipo">
+        <span class="etq-beb-chkbox" style="border-color:#4169e1;"></span>
+        <span class="etq-beb-pill" style="background:#eef2ff;color:#3730a3;border-color:#c7d2fe;">🔧 Troca de filtro</span>
       </div>
-      <div class="etq-categoria">🔧 Filtro</div>
+      <div class="etq-beb-tipo" style="border-left:1.5px solid #e8edf3;">
+        <span class="etq-beb-chkbox" style="border-color:#4169e1;"></span>
+        <span class="etq-beb-pill" style="background:#eef2ff;color:#3730a3;border-color:#c7d2fe;">🧹 Limpeza / higienização</span>
+      </div>
     </div>
 
-    <div class="etq-divider"></div>
+    <!-- TAG + CATEGORIA -->
+    <div class="etq-beb-tagrow">
+      <div style="flex:1;">
+        <div class="etq-beb-lbl">Código do equipamento (TAG)</div>
+        ${L}
+      </div>
+      <div class="etq-beb-catpill">💧 Bebedouro</div>
+    </div>
 
-    <!-- CAMPOS DE PREENCHIMENTO -->
-    <div class="etq-campos">
+    <div class="etq-beb-div"></div>
 
-      <div class="etq-row-2">
-        <div class="etq-field">
-          <div class="etq-field-lbl">Tipo de filtro</div>
-          ${linha}
-        </div>
-        <div class="etq-field">
-          <div class="etq-field-lbl">Nº série / lote</div>
-          ${linha}
+    <div class="etq-beb-campos">
+
+      <!-- DATA + LOCAL -->
+      <div class="etq-beb-g2" style="margin-bottom:8px;">
+        <div><div class="etq-beb-lbl">Data do serviço</div>${L}</div>
+        <div><div class="etq-beb-lbl">Local (bloco / sala)</div>${L}</div>
+      </div>
+
+      <!-- SEÇÃO FILTRO -->
+      <div class="etq-beb-sec" style="background:#eef2ff;">
+        <div class="etq-beb-sec-tit" style="color:#3730a3;">🔧 Dados do filtro</div>
+        <div class="etq-beb-g2">
+          <div><div class="etq-beb-lbl">Tipo de filtro</div>${L}</div>
+          <div><div class="etq-beb-lbl">Nº série / lote</div>${L}</div>
         </div>
       </div>
 
-      <div class="etq-row-2" style="margin-top:10px;">
-        <div class="etq-field">
-          <div class="etq-field-lbl">Data de instalação</div>
-          ${linha}
-        </div>
-        <div class="etq-field">
-          <div class="etq-field-lbl">Local (bloco / sala)</div>
-          ${linha}
+      <!-- SEÇÃO LIMPEZA -->
+      <div class="etq-beb-sec" style="background:#eef2ff;margin-top:6px;">
+        <div class="etq-beb-sec-tit" style="color:#3730a3;">🧹 Dados da limpeza</div>
+        <div class="etq-beb-g2">
+          <div><div class="etq-beb-lbl">Tipo de limpeza</div>${L}</div>
+          <div><div class="etq-beb-lbl">Produto utilizado</div>${L}</div>
         </div>
       </div>
 
-      <!-- VALIDADE — destaque azul, campo maior -->
-      <div class="etq-validade-box" style="margin-top:10px;">
-        <div class="etq-validade-lbl">DATA DE TROCA PREVISTA (VALIDADE DO FILTRO)</div>
-        <div style="border-bottom:2px dashed #2b6cb0;height:28px;margin-top:3px;"></div>
+      <!-- PRÓXIMA MANUTENÇÃO -->
+      <div class="etq-beb-prox">
+        <div class="etq-beb-prox-lbl">Próxima manutenção prevista</div>
+        <div style="border-bottom:2px dashed #2b6cb0;height:26px;margin-top:3px;"></div>
       </div>
 
     </div>
 
     <!-- RODAPÉ -->
-    <div class="etq-footer">
-      <div class="etq-footer-col">
-        <div class="etq-field-lbl">Técnico responsável</div>
-        <div style="border-bottom:1.5px dashed #a0aec0;height:20px;width:160px;margin-top:2px;"></div>
+    <div class="etq-beb-footer">
+      <div>
+        <div class="etq-beb-lbl">Técnico responsável</div>
+        <div style="border-bottom:1.5px dashed #a0aec0;height:20px;width:150px;margin-top:2px;"></div>
       </div>
-      <div class="etq-lacre-check">
-        <span class="etq-check-box"></span>
-        <span class="etq-check-lbl">Lacre aplicado</span>
+      <div class="etq-beb-checks">
+        <div class="etq-beb-chkitem">
+          <span class="etq-beb-chkbox" style="border-color:#1e3a5f;"></span>
+          <span class="etq-beb-chklbl">Sanitizado</span>
+        </div>
+        <div class="etq-beb-chkitem">
+          <span class="etq-beb-chkbox" style="border-color:#1e3a5f;"></span>
+          <span class="etq-beb-chklbl">Lacre aplicado</span>
+        </div>
       </div>
     </div>
 
   </div>`;
 
-  // 4 etiquetas por folha
-  const grade = etiqueta.repeat(4);
-
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Etiquetas de Filtro — Univag</title>
+  <title>Etiquetas de Controle — Bebedouro · Univag</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Inter', Arial, sans-serif;
-      background: #e2e8f0;
-      padding: 24px;
-      color: #1a202c;
-    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Inter',Arial,sans-serif;background:#e2e8f0;padding:24px;color:#1a202c;}
 
-    /* ── Toolbar ── */
-    .toolbar {
-      max-width: 960px; margin: 0 auto 20px;
-      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-      background: #fff; padding: 14px 20px; border-radius: 10px;
-      box-shadow: 0 2px 12px rgba(0,0,0,.08);
-    }
-    .toolbar h2 { font-size: 15px; font-weight: 700; flex: 1; }
-    .toolbar small { font-size: 11px; color: #718096; display: block; margin-top: 2px; }
-    .btn-imp {
-      background: #1e3a5f; color: #fff; border: none;
-      border-radius: 7px; padding: 9px 22px; font-size: 13px; font-weight: 600; cursor: pointer;
-    }
-    .btn-imp:hover { background: #16304d; }
-    .btn-sec {
-      background: #fff; color: #4a5568; border: 1px solid #e2e8f0;
-      border-radius: 7px; padding: 8px 18px; font-size: 13px; cursor: pointer;
-    }
+    /* toolbar */
+    .toolbar{max-width:960px;margin:0 auto 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#fff;padding:14px 20px;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.08);}
+    .toolbar h2{font-size:15px;font-weight:700;flex:1;}
+    .toolbar small{font-size:11px;color:#718096;display:block;margin-top:2px;}
+    .btn-imp{background:#1e3a5f;color:#fff;border:none;border-radius:7px;padding:9px 22px;font-size:13px;font-weight:600;cursor:pointer;}
+    .btn-sec{background:#fff;color:#4a5568;border:1px solid #e2e8f0;border-radius:7px;padding:8px 18px;font-size:13px;cursor:pointer;}
 
-    /* ── Grade 2×2 ── */
-    .grade {
-      max-width: 960px; margin: 0 auto;
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 18px;
-    }
+    /* grade 2×2 */
+    .grade{max-width:960px;margin:0 auto;display:grid;grid-template-columns:repeat(2,1fr);gap:18px;}
 
-    /* ── Etiqueta ── */
-    .etiqueta-filtro {
-      background: #fff;
-      border: 2.5px solid #1e3a5f;
-      border-radius: 16px;
-      overflow: hidden;
-    }
+    /* ── ETIQUETA ── */
+    .etq-beb{background:#fff;border:2.5px solid #1e3a5f;border-radius:14px;overflow:hidden;}
 
-    .etq-top {
-      display: flex; align-items: center; gap: 20px;
-      background: #1e3a5f;
-      padding: 16px 22px;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    .etq-logo img { height: 38px; width: auto; display: block; }
-    .etq-titulo {
-      font-size: 18px; font-weight: 800; line-height: 1.18;
-      color: #fff; letter-spacing: 0.01em;
-    }
+    /* cabeçalho */
+    .etq-beb-head{background:#1e3a5f;padding:14px 20px;display:flex;align-items:center;gap:16px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    .etq-beb-logo img{height:36px;width:auto;display:block;}
+    .etq-beb-headtxt{flex:1;}
+    .etq-beb-pre{font-size:8px;font-weight:700;color:rgba(255,255,255,.65);letter-spacing:.1em;text-transform:uppercase;}
+    .etq-beb-tit{font-size:16px;font-weight:800;color:#fff;line-height:1.2;}
 
-    .etq-meta {
-      display: flex; align-items: flex-end; justify-content: space-between;
-      gap: 14px; padding: 14px 22px 12px; flex-wrap: wrap;
-    }
-    .etq-field-lbl {
-      font-size: 9px; font-weight: 700; color: #718096;
-      text-transform: uppercase; letter-spacing: 0.08em;
-      margin-bottom: 2px;
-    }
-    .etq-codigo-blank { width: 180px; }
-    .etq-categoria {
-      border: 1.5px solid #1e3a5f; border-radius: 999px;
-      padding: 7px 16px; font-size: 13px; font-weight: 700; color: #1e3a5f;
-      white-space: nowrap; flex-shrink: 0;
-    }
+    /* faixa de tipos */
+    .etq-beb-tipos{display:flex;border-bottom:1.5px solid #e8edf3;}
+    .etq-beb-tipo{flex:1;padding:8px 14px;display:flex;align-items:center;gap:7px;}
+    .etq-beb-chkbox{display:inline-block;width:15px;height:15px;border:2px solid #94a3b8;border-radius:3px;flex-shrink:0;}
+    .etq-beb-pill{font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:999px;border:1px solid;white-space:nowrap;}
 
-    .etq-divider { border-top: 2px solid #e8edf3; margin: 0 22px 14px; }
+    /* tag row */
+    .etq-beb-tagrow{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:11px 20px 8px;flex-wrap:wrap;}
+    .etq-beb-lbl{font-size:8px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;}
+    .etq-beb-catpill{border:1.5px solid #1e3a5f;border-radius:999px;padding:5px 13px;font-size:11px;font-weight:700;color:#1e3a5f;white-space:nowrap;flex-shrink:0;}
 
-    .etq-campos { padding: 0 22px; }
-    .etq-row-2 {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
-    }
-    .etq-field { display: flex; flex-direction: column; }
+    /* divisor */
+    .etq-beb-div{border-top:1.5px solid #e8edf3;margin:0 20px 10px;}
 
-    /* Caixa de validade com destaque */
-    .etq-validade-box {
-      background: #ebf4ff;
-      border-radius: 8px;
-      padding: 8px 12px 10px;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    .etq-validade-lbl {
-      font-size: 8.5px; font-weight: 700; color: #2b6cb0;
-      text-transform: uppercase; letter-spacing: 0.08em;
-    }
+    /* campos */
+    .etq-beb-campos{padding:0 20px;}
+    .etq-beb-g2{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
 
-    /* Rodapé */
-    .etq-footer {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 22px 14px;
-      margin-top: 12px;
-      border-top: 2px solid #e8edf3;
-      flex-wrap: wrap; gap: 10px;
-    }
-    .etq-footer-col { display: flex; flex-direction: column; }
+    /* seção colorida */
+    .etq-beb-sec{border-radius:7px;padding:7px 10px 9px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    .etq-beb-sec-tit{font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
 
-    /* Checkbox manual de lacre */
-    .etq-lacre-check {
-      display: flex; align-items: center; gap: 8px; flex-shrink: 0;
-    }
-    .etq-check-box {
-      display: inline-block;
-      width: 18px; height: 18px;
-      border: 2px solid #1e3a5f;
-      border-radius: 4px;
-      flex-shrink: 0;
-    }
-    .etq-check-lbl {
-      font-size: 11px; font-weight: 700; color: #1e3a5f;
-    }
+    /* próxima */
+    .etq-beb-prox{background:#f0f9ff;border-radius:7px;padding:7px 10px 9px;margin-top:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    .etq-beb-prox-lbl{font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#4169e1;}
 
-    /* ── IMPRESSÃO ── */
-    @media print {
-      body {
-        background: #fff; padding: 0;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-      .toolbar { display: none !important; }
-      .grade {
-        max-width: 100%;
-        gap: 6mm;
-        grid-template-columns: repeat(2, 1fr);
-        padding: 0;
-      }
-      .etiqueta-filtro {
-        break-inside: avoid;
-        page-break-inside: avoid;
-        border-radius: 6mm;
-      }
-      @page {
-        margin: 10mm;
-        size: A4 portrait;
-      }
+    /* rodapé */
+    .etq-beb-footer{border-top:1.5px solid #e8edf3;margin-top:8px;padding:10px 20px 13px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+    .etq-beb-checks{display:flex;flex-direction:column;gap:5px;}
+    .etq-beb-chkitem{display:flex;align-items:center;gap:5px;}
+    .etq-beb-chklbl{font-size:10px;font-weight:700;color:#1e3a5f;}
+
+    /* impressão */
+    @media print{
+      body{background:#fff;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      .toolbar{display:none!important;}
+      .grade{max-width:100%;gap:6mm;grid-template-columns:repeat(2,1fr);padding:0;}
+      .etq-beb{break-inside:avoid;page-break-inside:avoid;border-radius:6mm;}
+      @page{margin:10mm;size:A4 portrait;}
     }
   </style>
 </head>
 <body>
   <div class="toolbar">
     <div>
-      <h2>🔖 Etiquetas de Filtro (Em Branco)</h2>
-      <small>4 etiquetas por folha A4 · Preenchimento manual após troca de filtro</small>
+      <h2>💧 Etiquetas de Controle — Bebedouro (Filtro + Limpeza)</h2>
+      <small>4 etiquetas por folha A4 · Marque o(s) serviço(s) executado(s) e preencha os campos correspondentes</small>
     </div>
     <button class="btn-sec" onclick="window.close()">✕ Fechar</button>
     <button class="btn-imp" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
   </div>
   <div class="grade">
-    ${grade}
+    ${etiqueta.repeat(4)}
   </div>
 </body>
 </html>`;
 
   const win = window.open('', '_blank', 'width=1000,height=760');
-  if (!win) { alert('Permita pop-ups neste site para abrir as etiquetas de filtro.'); return; }
+  if (!win) { alert('Permita pop-ups neste site para abrir as etiquetas.'); return; }
   win.document.write(html);
   win.document.close();
 }
@@ -2299,73 +2241,10 @@ function _abrirJanelaEtiquetas(titulo, subtitulo, gradeHTML) {
   win.document.close();
 }
 
-// ===================== ETIQUETA LIMPEZA — BEBEDOURO =====================
-// Controle de higienização periódica (mensal/trimestral) — em branco para preenchimento manual.
-function imprimirEtiquetaLimpezaBebedouro() {
-  const COR   = '#0891b2'; // azul-ciano — diferencia de filtro (azul escuro)
-  const LINHA = `<div class="etq-linha"></div>`;
-
-  const etiqueta = `
-  <div class="etq-card" style="border:2.5px solid ${COR};">
-    <div class="etq-top" style="background:${COR};">
-      <div class="etq-logo"><img src="${LOGO_ETIQUETA}" alt="Univag"></div>
-      <div class="etq-titulo">MANUTENÇÃO<br>LIMPEZA / HIGIENIZAÇÃO</div>
-    </div>
-
-    <div class="etq-meta">
-      <div>
-        <div class="etq-field-lbl">Código do equipamento (TAG)</div>
-        <div class="etq-codigo-blank">${LINHA}</div>
-      </div>
-      <div class="etq-categoria" style="border:1.5px solid ${COR};color:${COR};">💧 Bebedouro</div>
-    </div>
-
-    <div class="etq-divider"></div>
-
-    <div class="etq-campos">
-      <div class="etq-row-2">
-        <div class="etq-field"><div class="etq-field-lbl">Tipo de limpeza</div>${LINHA}</div>
-        <div class="etq-field"><div class="etq-field-lbl">Produto utilizado</div>${LINHA}</div>
-      </div>
-      <div class="etq-row-2" style="margin-top:10px;">
-        <div class="etq-field"><div class="etq-field-lbl">Data da limpeza</div>${LINHA}</div>
-        <div class="etq-field"><div class="etq-field-lbl">Local (bloco / sala)</div>${LINHA}</div>
-      </div>
-      <div class="etq-destaque-box" style="background:#ecfeff;margin-top:10px;">
-        <div class="etq-destaque-lbl" style="color:#0e7490;">PRÓXIMA LIMPEZA PREVISTA</div>
-        <div style="border-bottom:2px dashed #0e7490;height:28px;margin-top:3px;"></div>
-      </div>
-    </div>
-
-    <div class="etq-footer">
-      <div class="etq-footer-col">
-        <div class="etq-field-lbl">Técnico responsável</div>
-        <div style="border-bottom:1.5px dashed #a0aec0;height:20px;width:160px;margin-top:2px;"></div>
-      </div>
-      <div class="etq-check-row">
-        <div class="etq-check-item">
-          <span class="etq-check-box" style="border-color:${COR};"></span>
-          <span class="etq-check-lbl" style="color:${COR};">Sanitizado</span>
-        </div>
-        <div class="etq-check-item">
-          <span class="etq-check-box" style="border-color:${COR};"></span>
-          <span class="etq-check-lbl" style="color:${COR};">Lacre aplicado</span>
-        </div>
-      </div>
-    </div>
-  </div>`;
-
-  _abrirJanelaEtiquetas(
-    'Etiquetas de Limpeza — Bebedouro',
-    '4 etiquetas por folha A4 · Preenchimento manual após higienização',
-    etiqueta.repeat(4)
-  );
-}
-
 // ===================== ETIQUETA LIMPEZA — CLIMATIZADOR =====================
 // Controle de manutenção e limpeza periódica de climatizadores evaporativos.
 function imprimirEtiquetaLimpezaClimatizador() {
-  const COR   = '#0d9488'; // verde-teal
+  const COR   = '#4169e1'; // azul royal
   const LINHA = `<div class="etq-linha"></div>`;
 
   const etiqueta = `
@@ -2395,8 +2274,8 @@ function imprimirEtiquetaLimpezaClimatizador() {
         <div class="etq-field"><div class="etq-field-lbl">Local (bloco / sala)</div>${LINHA}</div>
       </div>
       <div class="etq-destaque-box" style="background:#f0fdfa;margin-top:10px;">
-        <div class="etq-destaque-lbl" style="color:#0f766e;">PRÓXIMA MANUTENÇÃO PREVISTA</div>
-        <div style="border-bottom:2px dashed #0f766e;height:28px;margin-top:3px;"></div>
+        <div class="etq-destaque-lbl" style="color:#4169e1;">PRÓXIMA MANUTENÇÃO PREVISTA</div>
+        <div style="border-bottom:2px dashed #4169e1;height:28px;margin-top:3px;"></div>
       </div>
     </div>
 
@@ -2432,7 +2311,7 @@ function imprimirEtiquetaLimpezaClimatizador() {
 // ===================== ETIQUETA LIMPEZA — VENTILADOR / EXAUSTOR =====================
 // Controle de manutenção e limpeza periódica de ventiladores e exaustores.
 function imprimirEtiquetaLimpezaVentilador() {
-  const COR   = '#6d28d9'; // roxo
+  const COR   = '#4169e1'; // azul royal
   const LINHA = `<div class="etq-linha"></div>`;
 
   const etiqueta = `
