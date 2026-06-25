@@ -655,7 +655,27 @@ function emitirRelatorioGeralAtivos() {
   }).join('');
 
   const html = `
-  <style>@page{size:A4 landscape;margin:12mm;}</style>
+  <style>
+    @page { size: A4 landscape; margin: 12mm; }
+    .rel-ativos-section {
+      border: 1px solid #e2e8f0;
+      border-top: none;
+      padding: 12px 16px;
+      break-inside: auto !important;
+      page-break-inside: auto !important;
+    }
+    .rel-ativos-section .laudo-checklist-table {
+      break-inside: auto !important;
+      page-break-inside: auto !important;
+    }
+    .rel-ativos-section .laudo-checklist-table tr {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .rel-ativos-section .laudo-checklist-table thead {
+      display: table-header-group;
+    }
+  </style>
   <div class="laudo-wrapper">
     <div class="laudo-header">
       <div style="display:flex;align-items:center;gap:14px;"><img src="${LOGO_ETIQUETA}" alt="Logo" style="height:40px;width:auto;display:block;"><div><h1 style="font-size:16px;">Relatório Geral de Ativos</h1><p>Inventário de equipamentos cadastrados</p></div></div>
@@ -665,7 +685,7 @@ function emitirRelatorioGeralAtivos() {
         Emitido às ${new Date().toLocaleTimeString('pt-BR')}
       </div>
     </div>
-    <div class="laudo-section">
+    <div class="rel-ativos-section">
       <table class="laudo-checklist-table">
         <thead>
           <tr>
