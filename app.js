@@ -2273,7 +2273,7 @@ function imprimirEtiquetaLimpezaClimatizador() {
         <div class="etq-field"><div class="etq-field-lbl">Data do serviço</div>${LINHA}</div>
         <div class="etq-field"><div class="etq-field-lbl">Local (bloco / sala)</div>${LINHA}</div>
       </div>
-      <div class="etq-destaque-box" style="background:#f0fdfa;margin-top:10px;">
+      <div class="etq-destaque-box" style="background:#eef2ff;margin-top:10px;">
         <div class="etq-destaque-lbl" style="color:#4169e1;">PRÓXIMA MANUTENÇÃO PREVISTA</div>
         <div style="border-bottom:2px dashed #4169e1;height:28px;margin-top:3px;"></div>
       </div>
@@ -2340,9 +2340,9 @@ function imprimirEtiquetaLimpezaVentilador() {
         <div class="etq-field"><div class="etq-field-lbl">Data do serviço</div>${LINHA}</div>
         <div class="etq-field"><div class="etq-field-lbl">Local (bloco / sala)</div>${LINHA}</div>
       </div>
-      <div class="etq-destaque-box" style="background:#f5f3ff;margin-top:10px;">
-        <div class="etq-destaque-lbl" style="color:#5b21b6;">PRÓXIMA MANUTENÇÃO PREVISTA</div>
-        <div style="border-bottom:2px dashed #5b21b6;height:28px;margin-top:3px;"></div>
+      <div class="etq-destaque-box" style="background:#eef2ff;margin-top:10px;">
+        <div class="etq-destaque-lbl" style="color:#4169e1;">PRÓXIMA MANUTENÇÃO PREVISTA</div>
+        <div style="border-bottom:2px dashed #4169e1;height:28px;margin-top:3px;"></div>
       </div>
     </div>
 
