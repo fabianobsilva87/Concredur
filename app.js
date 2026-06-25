@@ -1287,7 +1287,7 @@ function _assinaturaImg(url, style) {
 const CHECKLIST_PMOC_DEFS = {
   AC: {
     mensal: [
-      ['bio_01', '[BIO-01] Bandeja de Condensados — Limpeza e Pastilha Sanitizante'],
+      ['bio_01', '[BIO-01] Bandeja de Condensados — Limpeza e Sanitizante'],
       ['bio_02', '[BIO-02] Rede de Drenagem — Desobstrução e Teste de Escoamento'],
       ['fil_01', '[FIL-01] Filtros de Ar (G4/F7/F9) — Higienização ou Substituição'],
       ['mec_01', '[MEC-01] Conjunto Ventilação — Ruídos, Coxins e Fixadores'],
