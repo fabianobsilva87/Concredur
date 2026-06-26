@@ -8,41 +8,35 @@
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <script src="config.js"></script>
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
-    /* ── Programação PMOC — estilos exclusivos ── */
     .prog-filtros {
-      display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+      display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;
       margin-bottom: 18px;
     }
     .prog-filtros select,
     .prog-filtros input[type="text"] {
       padding: 7px 10px; border: 1px solid var(--gray-300); border-radius: var(--radius);
       font-size: 13px; font-family: inherit; color: var(--gray-700); background: #fff;
-      min-width: 160px;
+      min-width: 150px;
     }
-    .prog-filtros label { font-size: 12px; font-weight: 600; color: var(--gray-500); }
+    .prog-filtros label { font-size: 12px; font-weight: 600; color: var(--gray-500); display:block; margin-bottom:3px; }
 
-    /* Tabela principal */
     .prog-table-wrap { overflow-x: auto; }
     .prog-table {
       width: 100%; border-collapse: collapse; font-size: 12.5px;
-      min-width: 960px;
+      min-width: 980px;
     }
     .prog-table thead th {
       background: #1e3a5f; color: #fff; padding: 9px 10px;
       text-align: center; font-weight: 600; white-space: nowrap;
       border: 1px solid rgba(255,255,255,.12); font-size: 11.5px;
     }
-    .prog-table thead th.th-eq {
-      text-align: left; min-width: 200px;
-    }
+    .prog-table thead th.th-eq { text-align: left; min-width: 210px; }
     .prog-table tbody tr { border-bottom: 1px solid var(--gray-200); }
     .prog-table tbody tr:hover { background: var(--gray-50); }
-    .prog-table td {
-      padding: 8px 10px; vertical-align: middle;
-      border: 1px solid var(--gray-200);
-    }
-    .prog-table td.td-eq-info { min-width: 200px; }
+    .prog-table td { padding: 8px 10px; vertical-align: middle; border: 1px solid var(--gray-200); }
+    .prog-table td.td-eq-info { min-width: 210px; }
     .prog-tag { font-weight: 700; font-size: 12px; color: #1e3a5f; }
     .prog-local { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
     .prog-categoria {
@@ -50,30 +44,28 @@
       color: #4169e1; padding: 2px 6px; border-radius: 10px;
       display: inline-block; margin-top: 2px;
     }
-
-    /* Célula de cada periodicidade */
-    .prog-cell {
-      min-width: 170px; text-align: center; position: relative;
+    /* Fonte de dados da célula */
+    .prog-fonte {
+      font-size: 9px; color: var(--gray-400); margin-top: 1px; font-style: italic;
     }
+    .prog-fonte.from-pmoc { color: #059669; font-style: normal; font-weight: 600; }
+
+    .prog-cell { min-width: 175px; text-align: center; position: relative; }
     .prog-cell-inner { display: flex; flex-direction: column; gap: 4px; align-items: center; }
 
-    /* Status badges */
     .prog-badge {
       display: inline-flex; align-items: center; gap: 4px;
-      padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
-      white-space: nowrap;
+      padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; white-space: nowrap;
     }
-    .prog-badge.ok      { background: var(--success-light); color: #065f46; }
-    .prog-badge.warn    { background: var(--warning-light); color: #92400e; }
-    .prog-badge.late    { background: var(--danger-light);  color: #991b1b; }
-    .prog-badge.none    { background: var(--gray-100);      color: var(--gray-500); }
+    .prog-badge.ok   { background: var(--success-light); color: #065f46; }
+    .prog-badge.warn { background: var(--warning-light); color: #92400e; }
+    .prog-badge.late { background: var(--danger-light);  color: #991b1b; }
+    .prog-badge.none { background: var(--gray-100);      color: var(--gray-500); }
 
-    /* Datas */
     .prog-dt-label { font-size: 10px; color: var(--gray-400); margin-top: 1px; }
     .prog-dt-value { font-size: 12px; font-weight: 600; color: var(--gray-700); }
     .prog-dt-prox  { font-size: 11px; }
 
-    /* Botão registrar */
     .btn-registrar {
       margin-top: 5px; padding: 4px 10px; font-size: 11px; font-weight: 600;
       background: #4169e1; color: #fff; border: none; border-radius: var(--radius);
@@ -83,22 +75,19 @@
     .btn-registrar.plain { background: var(--gray-200); color: var(--gray-600); }
     .btn-registrar.plain:hover { background: var(--gray-300); }
 
-    /* Dias úteis restantes */
-    .du-label {
-      font-size: 10px; font-weight: 700; letter-spacing: .03em;
-    }
+    .du-label { font-size: 10px; font-weight: 700; letter-spacing: .03em; }
     .du-label.ok   { color: #059669; }
     .du-label.warn { color: #d97706; }
     .du-label.late { color: #dc2626; }
 
-    /* Modal de registro */
+    /* Modal */
     .prog-modal-overlay {
       display: none; position: fixed; inset: 0; z-index: 1000;
       background: rgba(0,0,0,.45); align-items: center; justify-content: center;
     }
     .prog-modal-overlay.open { display: flex; }
     .prog-modal {
-      background: #fff; border-radius: 10px; width: 100%; max-width: 440px;
+      background: #fff; border-radius: 10px; width: 100%; max-width: 460px;
       box-shadow: 0 16px 48px rgba(0,0,0,.22); overflow: hidden;
     }
     .prog-modal-header {
@@ -106,18 +95,14 @@
       display: flex; align-items: center; justify-content: space-between;
     }
     .prog-modal-header h3 { font-size: 14px; font-weight: 700; }
-    .prog-modal-close {
-      background: none; border: none; color: rgba(255,255,255,.7);
-      font-size: 18px; cursor: pointer; line-height: 1;
-    }
+    .prog-modal-close { background: none; border: none; color: rgba(255,255,255,.7); font-size: 18px; cursor: pointer; line-height: 1; }
     .prog-modal-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
     .prog-modal-field label { font-size: 12px; font-weight: 600; color: var(--gray-600); display: block; margin-bottom: 4px; }
     .prog-modal-field input,
     .prog-modal-field select,
     .prog-modal-field textarea {
       width: 100%; padding: 8px 10px; border: 1px solid var(--gray-300);
-      border-radius: var(--radius); font-size: 13px; font-family: inherit;
-      color: var(--gray-800);
+      border-radius: var(--radius); font-size: 13px; font-family: inherit; color: var(--gray-800);
     }
     .prog-modal-field textarea { resize: vertical; min-height: 56px; }
     .prog-modal-info {
@@ -125,57 +110,40 @@
       padding: 10px 12px; font-size: 12px; color: #3730a3;
     }
     .prog-modal-info strong { display: block; font-size: 13px; color: #1e3a5f; margin-bottom: 2px; }
+    .prog-modal-fonte-info {
+      background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius);
+      padding: 8px 12px; font-size: 11px; color: #166534;
+    }
     .prog-modal-footer { padding: 12px 20px; border-top: 1px solid var(--gray-200); display: flex; gap: 8px; justify-content: flex-end; }
-    .btn-modal-save {
-      padding: 8px 20px; background: #4169e1; color: #fff; border: none;
-      border-radius: var(--radius); font-size: 13px; font-weight: 700;
-      cursor: pointer; font-family: inherit;
-    }
+    .btn-modal-save { padding: 8px 20px; background: #4169e1; color: #fff; border: none; border-radius: var(--radius); font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
     .btn-modal-save:hover { background: #1e3a5f; }
-    .btn-modal-cancel {
-      padding: 8px 16px; background: var(--gray-100); color: var(--gray-600);
-      border: 1px solid var(--gray-300); border-radius: var(--radius);
-      font-size: 13px; cursor: pointer; font-family: inherit;
-    }
+    .btn-modal-cancel { padding: 8px 16px; background: var(--gray-100); color: var(--gray-600); border: 1px solid var(--gray-300); border-radius: var(--radius); font-size: 13px; cursor: pointer; font-family: inherit; }
 
-    /* Legend / legenda */
-    .prog-legend {
-      display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
-      margin-bottom: 14px; font-size: 11.5px;
-    }
+    /* Legenda */
+    .prog-legend { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; font-size: 11.5px; }
     .prog-legend-item { display: flex; align-items: center; gap: 5px; }
 
-    /* KPI cards topo */
-    .prog-kpis {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 12px; margin-bottom: 18px;
-    }
-    .prog-kpi-card {
-      background: #fff; border: 1px solid var(--gray-200); border-radius: 8px;
-      padding: 14px 16px; box-shadow: var(--shadow-sm); text-align: center;
-    }
+    /* KPIs */
+    .prog-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .prog-kpi-card { background: #fff; border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px 16px; box-shadow: var(--shadow-sm); text-align: center; }
     .prog-kpi-card .kpi-val { font-size: 28px; font-weight: 700; color: #1e3a5f; }
     .prog-kpi-card .kpi-lbl { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
     .prog-kpi-card.vencido .kpi-val { color: var(--danger); }
     .prog-kpi-card.alerta  .kpi-val { color: var(--warning); }
     .prog-kpi-card.ok      .kpi-val { color: var(--success); }
 
-    /* Toolbar botões */
-    .btn-toolbar {
-      padding: 7px 14px; border-radius: var(--radius); font-size: 13px;
-      font-weight: 600; cursor: pointer; font-family: inherit; border: none;
-      display: inline-flex; align-items: center; gap: 6px;
-    }
-    .btn-toolbar.primary { background: #4169e1; color: #fff; }
-    .btn-toolbar.primary:hover { background: #1e3a5f; }
+    /* Toolbar */
+    .btn-toolbar { padding: 7px 14px; border-radius: var(--radius); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; border: none; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-toolbar.primary   { background: #4169e1; color: #fff; }
+    .btn-toolbar.primary:hover   { background: #1e3a5f; }
     .btn-toolbar.secondary { background: var(--gray-100); color: var(--gray-700); border: 1px solid var(--gray-300); }
     .btn-toolbar.secondary:hover { background: var(--gray-200); }
+    .btn-toolbar.success { background: #059669; color: #fff; }
+    .btn-toolbar.success:hover { background: #047857; }
 
-    /* Loading */
     .prog-loading { text-align: center; padding: 48px 0; color: var(--gray-400); font-size: 14px; }
     .prog-empty   { text-align: center; padding: 40px 0; color: var(--gray-400); font-size: 13px; }
 
-    /* Toast */
     #prog-toast {
       position: fixed; bottom: 28px; right: 24px; z-index: 2000;
       background: #1e3a5f; color: #fff; padding: 10px 18px; border-radius: var(--radius);
@@ -184,11 +152,7 @@
     }
     #prog-toast.show { opacity: 1; }
 
-    @media print {
-      .sidebar, .topbar, .prog-filtros, .prog-legend, .prog-kpis,
-      .btn-registrar, .btn-toolbar, #prog-toast { display: none !important; }
-      .prog-table { font-size: 11px; }
-    }
+    /* ── Impressão via popup (mesma técnica do app.js) — não usa @media print ── */
   </style>
 </head>
 <body>
@@ -225,8 +189,9 @@
   <main class="main-content">
     <div class="topbar no-print">
       <h2>📅 Programação de Manutenções PMOC</h2>
-      <div style="margin-left:auto; display:flex; gap:8px;">
-        <button class="btn-toolbar secondary" onclick="window.print()">🖨️ Imprimir</button>
+      <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn-toolbar success" onclick="exportarXLS()">📊 Exportar XLS</button>
+        <button class="btn-toolbar secondary" onclick="imprimirProgramacao()">🖨️ Imprimir</button>
         <button class="btn-toolbar primary" onclick="carregarProgramacao()">🔄 Atualizar</button>
       </div>
     </div>
@@ -234,23 +199,24 @@
     <div class="section-content">
 
       <!-- KPIs -->
-      <div class="prog-kpis" id="prog-kpis">
+      <div class="prog-kpis">
         <div class="prog-kpi-card"><div class="kpi-val" id="kpi-total">—</div><div class="kpi-lbl">Equipamentos</div></div>
         <div class="prog-kpi-card vencido"><div class="kpi-val" id="kpi-vencidos">—</div><div class="kpi-lbl">Manutenções Vencidas</div></div>
-        <div class="prog-kpi-card alerta"><div class="kpi-val" id="kpi-alerta">—</div><div class="kpi-lbl">Vencendo em ≤ 5 dias úteis</div></div>
+        <div class="prog-kpi-card alerta"><div class="kpi-val" id="kpi-alerta">—</div><div class="kpi-lbl">Vencendo ≤ 5 DU</div></div>
         <div class="prog-kpi-card ok"><div class="kpi-val" id="kpi-ok">—</div><div class="kpi-lbl">Em Dia</div></div>
         <div class="prog-kpi-card"><div class="kpi-val" id="kpi-sem-reg">—</div><div class="kpi-lbl">Sem Registro</div></div>
+        <div class="prog-kpi-card"><div class="kpi-val" id="kpi-fichas">—</div><div class="kpi-lbl">Fichas PMOC (fonte)</div></div>
       </div>
 
       <div class="card">
         <!-- Filtros -->
         <div class="prog-filtros no-print">
           <div>
-            <label>Buscar TAG / Produto</label><br>
+            <label>Buscar TAG / Produto</label>
             <input type="text" id="f-busca" placeholder="Ex: AC-01, Split..." oninput="renderTabela()">
           </div>
           <div>
-            <label>Categoria</label><br>
+            <label>Categoria</label>
             <select id="f-cat" onchange="renderTabela()">
               <option value="">Todas</option>
               <option value="AC">Ar Condicionado (AC)</option>
@@ -261,15 +227,15 @@
             </select>
           </div>
           <div>
-            <label>Bloco / Edificação</label><br>
+            <label>Bloco / Edificação</label>
             <input type="text" id="f-bloco" placeholder="Ex: Bloco A" oninput="renderTabela()">
           </div>
           <div>
-            <label>Status</label><br>
+            <label>Status</label>
             <select id="f-status" onchange="renderTabela()">
               <option value="">Todos</option>
               <option value="late">Vencido</option>
-              <option value="warn">Alerta (≤ 5 du)</option>
+              <option value="warn">Alerta (≤ 5 DU)</option>
               <option value="ok">Em Dia</option>
               <option value="none">Sem Registro</option>
             </select>
@@ -283,12 +249,14 @@
           <span class="prog-legend-item"><span class="prog-badge warn">⚠ Alerta</span></span>
           <span class="prog-legend-item"><span class="prog-badge late">✗ Vencido</span></span>
           <span class="prog-legend-item"><span class="prog-badge none">— Sem Registro</span></span>
+          <span style="font-size:11px; color:#059669; margin-left:4px; font-weight:600;">📋 fonte: Ficha PMOC</span>
+          <span style="font-size:11px; color:var(--gray-400);">✏️ fonte: Registro manual</span>
           <span style="font-size:11px; color:var(--gray-400); margin-left:6px;">DU = Dias Úteis (seg–sex)</span>
         </div>
 
         <!-- Tabela -->
         <div class="prog-table-wrap">
-          <div id="prog-loading" class="prog-loading">⏳ Carregando equipamentos e programações...</div>
+          <div id="prog-loading" class="prog-loading">⏳ Carregando equipamentos e fichas PMOC...</div>
           <div id="prog-empty" class="prog-empty" style="display:none;">Nenhum equipamento encontrado com os filtros selecionados.</div>
           <table class="prog-table" id="prog-table" style="display:none;">
             <thead>
@@ -320,6 +288,7 @@
         <strong id="modal-eq-info">—</strong>
         <span id="modal-periodo-info">—</span>
       </div>
+      <div id="modal-fonte-info" class="prog-modal-fonte-info" style="display:none;"></div>
       <div class="prog-modal-field">
         <label>Data de Execução *</label>
         <input type="date" id="modal-data" />
@@ -346,42 +315,43 @@
 <div id="prog-toast"></div>
 
 <script>
-// ── Config Supabase (herda config.js) ──────────────────────────────────────
+// ── Supabase ──────────────────────────────────────────────────────────────
 const _SUPA_URL = (typeof SUPABASE_URL !== 'undefined') ? SUPABASE_URL : '';
 const _SUPA_KEY = (typeof SUPABASE_ANON_KEY !== 'undefined') ? SUPABASE_ANON_KEY : '';
 const db = supabase.createClient(_SUPA_URL, _SUPA_KEY);
 
-// ── Constantes de periodicidade em dias úteis ─────────────────────────────
-//    Mensal ≈ 22 DU | Trimestral ≈ 65 DU | Semestral ≈ 130 DU | Anual ≈ 261 DU
+// ── Periodicidades ────────────────────────────────────────────────────────
 const PERIODOS = [
-  { key: 'mensal',     label: 'Mensal',     duCiclo: 22,  duAlerta: 5 },
-  { key: 'trimestral', label: 'Trimestral', duCiclo: 65,  duAlerta: 8 },
+  { key: 'mensal',     label: 'Mensal',     duCiclo: 22,  duAlerta: 5  },
+  { key: 'trimestral', label: 'Trimestral', duCiclo: 65,  duAlerta: 8  },
   { key: 'semestral',  label: 'Semestral',  duCiclo: 130, duAlerta: 10 },
   { key: 'anual',      label: 'Anual',      duCiclo: 261, duAlerta: 15 },
 ];
 
-const CAT_LABEL = {
-  AC: 'AC', BEB: 'BEB', CLM: 'CLM', VEN: 'VEN', OUT: 'OUT'
+// Mapeia frequência textual (ficha PMOC) → chaves de PERIODOS
+const FREQ_PARA_KEY = {
+  'Mensal':     ['mensal'],
+  'Trimestral': ['mensal','trimestral'],
+  'Semestral':  ['mensal','trimestral','semestral'],
+  'Anual':      ['mensal','trimestral','semestral','anual'],
 };
 
-// ── Estado global ──────────────────────────────────────────────────────────
-let _equipamentos  = [];   // todos os equipamentos carregados
-let _programacoes  = {};   // { equipamento_id: { mensal: {data, tecnico}, ... } }
-let _modalContext  = null; // { eqId, eqTag, periodo }
+// ── Estado global ─────────────────────────────────────────────────────────
+let _equipamentos = [];
+let _programacoes = {};  // { eqId: { mensal:{data,tecnico,obs,fonte}, ... } }
+let _modalContext  = null;
 
-// ── Dias úteis: calcula próxima data adicionando N dias úteis a partir de uma data ──
+// ── Dias úteis ────────────────────────────────────────────────────────────
 function addDiasUteis(dateStr, du) {
   const d = new Date(dateStr + 'T00:00:00');
   let count = 0;
   while (count < du) {
     d.setDate(d.getDate() + 1);
-    const dow = d.getDay(); // 0=dom, 6=sab
-    if (dow !== 0 && dow !== 6) count++;
+    if (d.getDay() !== 0 && d.getDay() !== 6) count++;
   }
   return d.toISOString().split('T')[0];
 }
 
-// ── Conta dias úteis entre duas datas (pode ser negativo se dataFim < dataInicio) ──
 function difDiasUteis(dataInicio, dataFim) {
   const a = new Date(dataInicio + 'T00:00:00');
   const b = new Date(dataFim    + 'T00:00:00');
@@ -391,15 +361,12 @@ function difDiasUteis(dataInicio, dataFim) {
   let du = 0;
   while (cur < end) {
     cur.setDate(cur.getDate() + 1);
-    const dow = cur.getDay();
-    if (dow !== 0 && dow !== 6) du++;
+    if (cur.getDay() !== 0 && cur.getDay() !== 6) du++;
   }
   return du * sinal;
 }
 
-function hojeStr() {
-  return new Date().toISOString().split('T')[0];
-}
+function hojeStr() { return new Date().toISOString().split('T')[0]; }
 
 function fmtBR(iso) {
   if (!iso) return '—';
@@ -407,35 +374,33 @@ function fmtBR(iso) {
   return `${d}/${m}/${y}`;
 }
 
-// ── Calcula status de uma célula ──────────────────────────────────────────
+function esc(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+// ── Status de célula ──────────────────────────────────────────────────────
 function calcStatus(ultimaData, duCiclo, duAlerta) {
   if (!ultimaData) return { status: 'none', proxima: null, duRestantes: null };
   const proxima = addDiasUteis(ultimaData, duCiclo);
-  const hoje    = hojeStr();
-  const du      = difDiasUteis(hoje, proxima); // positivo = ainda resta, negativo = vencido
-  let status;
-  if (du < 0)          status = 'late';
-  else if (du <= duAlerta) status = 'warn';
-  else                  status = 'ok';
+  const du      = difDiasUteis(hojeStr(), proxima);
+  let status = du < 0 ? 'late' : du <= duAlerta ? 'warn' : 'ok';
   return { status, proxima, duRestantes: du };
 }
 
-// ── Renderiza badge ───────────────────────────────────────────────────────
 function renderBadge(status) {
-  const map = {
-    ok:   ['✓ Em Dia',       'ok'],
-    warn: ['⚠ Alerta',      'warn'],
-    late: ['✗ Vencido',     'late'],
-    none: ['— Sem Registro', 'none'],
-  };
+  const map = { ok:['✓ Em Dia','ok'], warn:['⚠ Alerta','warn'], late:['✗ Vencido','late'], none:['— Sem Registro','none'] };
   const [txt, cls] = map[status] || map.none;
   return `<span class="prog-badge ${cls}">${txt}</span>`;
 }
 
-// ── Célula de periodicidade ───────────────────────────────────────────────
+// ── Célula ────────────────────────────────────────────────────────────────
 function renderCell(eq, periodo) {
-  const prog = (_programacoes[eq.id] || {})[periodo.key];
+  const prog   = (_programacoes[eq.id] || {})[periodo.key];
   const ultima = prog ? prog.data : null;
+  const fonte  = prog ? prog.fonte : null; // 'pmoc' | 'manual' | null
   const { status, proxima, duRestantes } = calcStatus(ultima, periodo.duCiclo, periodo.duAlerta);
 
   let duHtml = '';
@@ -443,15 +408,14 @@ function renderCell(eq, periodo) {
   if (status === 'warn') duHtml = `<span class="du-label warn">${duRestantes} DU restantes</span>`;
   if (status === 'late') duHtml = `<span class="du-label late">${Math.abs(duRestantes)} DU em atraso</span>`;
 
-  const ultimaHtml = ultima
-    ? `<div class="prog-dt-label">Última: <span class="prog-dt-value">${fmtBR(ultima)}</span></div>`
-    : '';
-  const proximaHtml = proxima
-    ? `<div class="prog-dt-prox" style="color:var(--gray-500);font-size:11px;">Próx.: <strong>${fmtBR(proxima)}</strong></div>`
-    : '';
+  const ultimaHtml  = ultima  ? `<div class="prog-dt-label">Última: <span class="prog-dt-value">${fmtBR(ultima)}</span></div>` : '';
+  const proximaHtml = proxima ? `<div class="prog-dt-prox" style="color:var(--gray-500);font-size:11px;">Próx.: <strong>${fmtBR(proxima)}</strong></div>` : '';
+  const fonteHtml   = fonte === 'pmoc'   ? `<span class="prog-fonte from-pmoc">📋 Ficha PMOC</span>`
+                    : fonte === 'manual' ? `<span class="prog-fonte">✏️ Registro manual</span>`
+                    : '';
 
-  const eqTagSafe = eq.tag.replace(/'/g, "\\'");
-  const eqIdSafe  = eq.id;
+  const eqId  = eq.id;
+  const eqTag = eq.tag.replace(/'/g,"\\'");
 
   return `
     <td class="prog-cell">
@@ -460,19 +424,20 @@ function renderCell(eq, periodo) {
         ${ultimaHtml}
         ${proximaHtml}
         ${duHtml}
+        ${fonteHtml}
         <button class="btn-registrar ${ultima ? 'plain' : ''}"
-          onclick="abrirModal('${eqIdSafe}','${eqTagSafe}','${periodo.key}','${periodo.label}')">
+          onclick="abrirModal('${eqId}','${eqTag}','${periodo.key}','${periodo.label}')">
           ${ultima ? '✏️ Atualizar' : '➕ Registrar'}
         </button>
       </div>
     </td>`;
 }
 
-// ── Filtra e renderiza tabela ─────────────────────────────────────────────
+// ── Renderiza tabela ──────────────────────────────────────────────────────
 function renderTabela() {
-  const busca  = ($('f-busca')?.value  || '').toLowerCase();
-  const cat    = $('f-cat')?.value    || '';
-  const bloco  = ($('f-bloco')?.value  || '').toLowerCase();
+  const busca   = ($('f-busca')?.value  || '').toLowerCase();
+  const cat     = $('f-cat')?.value    || '';
+  const bloco   = ($('f-bloco')?.value  || '').toLowerCase();
   const fStatus = $('f-status')?.value || '';
 
   let lista = _equipamentos.filter(eq => {
@@ -480,7 +445,6 @@ function renderTabela() {
     if (cat   && eq.categoria !== cat) return false;
     if (bloco && !(eq.bloco||'').toLowerCase().includes(bloco)) return false;
     if (fStatus) {
-      // se filtrar por status, verifica se QUALQUER periodicidade do eq tem esse status
       const temStatus = PERIODOS.some(p => {
         const prog = (_programacoes[eq.id] || {})[p.key];
         const { status } = calcStatus(prog?.data, p.duCiclo, p.duAlerta);
@@ -507,12 +471,12 @@ function renderTabela() {
 
   tbody.innerHTML = lista.map(eq => {
     const local = [eq.bloco, eq.setor, eq.sala].filter(Boolean).join(' › ');
-    const catLabel = CAT_LABEL[eq.categoria] || eq.categoria || '—';
+    const catLabel = eq.categoria || '—';
     return `
       <tr>
         <td class="td-eq-info">
           <div class="prog-tag">${esc(eq.tag)}</div>
-          <div class="prog-local">${esc(eq.produto || '')}${eq.produto && local ? ' — ' : ''}${esc(local)}</div>
+          <div class="prog-local">${esc(eq.produto||'')}${eq.produto && local ? ' — ':' '}${esc(local)}</div>
           <span class="prog-categoria">${esc(catLabel)}</span>
         </td>
         ${PERIODOS.map(p => renderCell(eq, p)).join('')}
@@ -524,15 +488,14 @@ function renderTabela() {
 
 // ── KPIs ──────────────────────────────────────────────────────────────────
 function atualizarKPIs(lista) {
-  let vencidos = 0, alerta = 0, ok = 0, semReg = 0, totalCelulas = 0;
+  let vencidos = 0, alerta = 0, ok = 0, semReg = 0;
   lista.forEach(eq => {
     PERIODOS.forEach(p => {
       const prog = (_programacoes[eq.id] || {})[p.key];
       const { status } = calcStatus(prog?.data, p.duCiclo, p.duAlerta);
-      totalCelulas++;
       if (status === 'late') vencidos++;
       else if (status === 'warn') alerta++;
-      else if (status === 'ok') ok++;
+      else if (status === 'ok')  ok++;
       else semReg++;
     });
   });
@@ -549,12 +512,21 @@ function abrirModal(eqId, eqTag, periodoKey, periodoLabel) {
   const prog    = (_programacoes[eqId] || {})[periodoKey];
   const periodo = PERIODOS.find(p => p.key === periodoKey);
 
-  $('modal-titulo').textContent    = `Registrar Manutenção — ${periodoLabel}`;
-  $('modal-eq-info').textContent   = eqTag;
+  $('modal-titulo').textContent       = `Registrar Manutenção — ${periodoLabel}`;
+  $('modal-eq-info').textContent      = eqTag;
   $('modal-periodo-info').textContent = `Periodicidade: ${periodoLabel} (ciclo de ${periodo.duCiclo} dias úteis)`;
-  $('modal-data').value            = prog?.data    || hojeStr();
-  $('modal-tecnico').value         = prog?.tecnico || '';
-  $('modal-obs').value             = prog?.obs     || '';
+  $('modal-data').value               = prog?.data    || hojeStr();
+  $('modal-tecnico').value            = prog?.tecnico || '';
+  $('modal-obs').value                = prog?.obs     || '';
+
+  // Mostrar aviso se dado veio de ficha PMOC
+  const fonteEl = $('modal-fonte-info');
+  if (prog?.fonte === 'pmoc') {
+    fonteEl.innerHTML = `📋 Data preenchida automaticamente a partir da Ficha PMOC mais recente (${fmtBR(prog.data)}). Altere para registrar uma data manual.`;
+    fonteEl.style.display = '';
+  } else {
+    fonteEl.style.display = 'none';
+  }
 
   atualizarModalProxima();
   $('modal-data').addEventListener('change', atualizarModalProxima);
@@ -566,8 +538,7 @@ function atualizarModalProxima() {
   const periodo = PERIODOS.find(p => p.key === _modalContext.periodoKey);
   const data    = $('modal-data').value;
   if (!data || !periodo) { $('modal-proxima-info').style.display = 'none'; return; }
-  const proxima = addDiasUteis(data, periodo.duCiclo);
-  $('modal-proxima-dt').textContent = fmtBR(proxima);
+  $('modal-proxima-dt').textContent = fmtBR(addDiasUteis(data, periodo.duCiclo));
   $('modal-proxima-info').style.display = '';
 }
 
@@ -585,36 +556,29 @@ async function salvarRegistro() {
 
   if (!data) { toast('⚠️ Informe a data de execução.', true); return; }
 
-  // Upsert na tabela programacao_pmoc
-  const payload = {
-    equipamento_id: eqId,
-    periodo:        periodoKey,
-    ultima_data:    data,
-    tecnico:        tecnico || null,
-    observacao:     obs     || null,
-    atualizado_em:  new Date().toISOString(),
-  };
-
   const { error } = await db
     .from('programacao_pmoc')
-    .upsert(payload, { onConflict: 'equipamento_id,periodo' });
+    .upsert({
+      equipamento_id: eqId,
+      periodo:        periodoKey,
+      ultima_data:    data,
+      tecnico:        tecnico || null,
+      observacao:     obs     || null,
+      atualizado_em:  new Date().toISOString(),
+    }, { onConflict: 'equipamento_id,periodo' });
 
-  if (error) {
-    console.error(error);
-    toast('❌ Erro ao salvar: ' + error.message, true);
-    return;
-  }
+  if (error) { toast('❌ Erro: ' + error.message, true); return; }
 
-  // Atualiza estado local sem recarregar tudo
   if (!_programacoes[eqId]) _programacoes[eqId] = {};
-  _programacoes[eqId][periodoKey] = { data, tecnico, obs };
+  // Ao salvar manualmente, fonte passa a ser 'manual'
+  _programacoes[eqId][periodoKey] = { data, tecnico, obs, fonte: 'manual' };
 
   fecharModal();
   renderTabela();
   toast('✅ Registro salvo com sucesso!');
 }
 
-// ── Carrega equipamentos e programações ───────────────────────────────────
+// ── Carrega equipamentos + fichas PMOC + programações manuais ─────────────
 async function carregarProgramacao() {
   $('prog-loading').style.display = '';
   $('prog-table').style.display   = 'none';
@@ -630,42 +594,267 @@ async function carregarProgramacao() {
     $('prog-loading').textContent = '❌ Erro ao carregar equipamentos: ' + errEq.message;
     return;
   }
-
   _equipamentos = eqs || [];
 
-  // 2. Programações salvas
   const eqIds = _equipamentos.map(e => e.id);
   _programacoes = {};
 
-  if (eqIds.length) {
-    const { data: progs } = await db
-      .from('programacao_pmoc')
-      .select('equipamento_id, periodo, ultima_data, tecnico, observacao')
-      .in('equipamento_id', eqIds);
-
-    (progs || []).forEach(r => {
-      if (!_programacoes[r.equipamento_id]) _programacoes[r.equipamento_id] = {};
-      _programacoes[r.equipamento_id][r.periodo] = {
-        data:    r.ultima_data,
-        tecnico: r.tecnico,
-        obs:     r.observacao,
-      };
-    });
+  if (!eqIds.length) {
+    $('prog-loading').style.display = 'none';
+    renderTabela();
+    return;
   }
+
+  // 2. Fichas PMOC — pega a mais recente por equipamento+frequência
+  //    Junta meta_pmoc (JSONB) para ler data_inspecao e frequencia
+  const { data: fichas } = await db
+    .from('fichas_pmoc')
+    .select('id, equipamento_id, tecnico_nome, created_at, meta_pmoc, observacoes')
+    .in('equipamento_id', eqIds)
+    .order('created_at', { ascending: false });
+
+  // Para cada equipamento, mapear a ficha mais recente por frequência
+  // e preencher as periodicidades correspondentes
+  const fichasPorEq = {}; // { eqId: { mensal: fichaObj, ... } }
+  (fichas || []).forEach(f => {
+    // Lê frequência via meta_pmoc (JSONB) ou fallback regex (legado)
+    let freq = 'Mensal';
+    let dataInsp = f.created_at ? f.created_at.split('T')[0] : null;
+
+    if (f.meta_pmoc && Object.keys(f.meta_pmoc).length > 0) {
+      freq     = f.meta_pmoc.frequencia   || 'Mensal';
+      dataInsp = f.meta_pmoc.data_inspecao || dataInsp;
+    } else {
+      const obs = f.observacoes || '';
+      const mFreq = obs.match(/\[Frequencia:\s*([^\]]+)\]/);
+      const mData = obs.match(/\[DataInspecao:\s*([^\]]+)\]/);
+      if (mFreq) freq     = mFreq[1];
+      if (mData) dataInsp = mData[1];
+    }
+
+    const keysAfetar = FREQ_PARA_KEY[freq] || ['mensal'];
+    if (!fichasPorEq[f.equipamento_id]) fichasPorEq[f.equipamento_id] = {};
+
+    keysAfetar.forEach(k => {
+      // Só preenche se ainda não tiver (a query já veio ordenada desc, então a 1ª é a mais recente)
+      if (!fichasPorEq[f.equipamento_id][k]) {
+        fichasPorEq[f.equipamento_id][k] = {
+          data:    dataInsp,
+          tecnico: f.tecnico_nome || '',
+          obs:     '',
+          fonte:   'pmoc',
+        };
+      }
+    });
+  });
+
+  // Aplica fichas como base inicial
+  Object.entries(fichasPorEq).forEach(([eqId, periodos]) => {
+    _programacoes[eqId] = { ...periodos };
+  });
+
+  // 3. Registros manuais da tabela programacao_pmoc — sobrescrevem fichas PMOC
+  const { data: progs } = await db
+    .from('programacao_pmoc')
+    .select('equipamento_id, periodo, ultima_data, tecnico, observacao')
+    .in('equipamento_id', eqIds);
+
+  (progs || []).forEach(r => {
+    if (!_programacoes[r.equipamento_id]) _programacoes[r.equipamento_id] = {};
+    _programacoes[r.equipamento_id][r.periodo] = {
+      data:    r.ultima_data,
+      tecnico: r.tecnico   || '',
+      obs:     r.observacao || '',
+      fonte:   'manual',
+    };
+  });
+
+  // KPI fichas
+  $('kpi-fichas').textContent = (fichas || []).length;
 
   $('prog-loading').style.display = 'none';
   renderTabela();
 }
 
-// ── Utilitários ───────────────────────────────────────────────────────────
-const $ = id => document.getElementById(id);
+// ── Exportar XLS ──────────────────────────────────────────────────────────
+function exportarXLS() {
+  const busca   = ($('f-busca')?.value  || '').toLowerCase();
+  const cat     = $('f-cat')?.value    || '';
+  const bloco   = ($('f-bloco')?.value  || '').toLowerCase();
+  const fStatus = $('f-status')?.value || '';
 
-function esc(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+  const lista = _equipamentos.filter(eq => {
+    if (busca && !eq.tag.toLowerCase().includes(busca) && !(eq.produto||'').toLowerCase().includes(busca)) return false;
+    if (cat   && eq.categoria !== cat) return false;
+    if (bloco && !(eq.bloco||'').toLowerCase().includes(bloco)) return false;
+    if (fStatus) {
+      const temStatus = PERIODOS.some(p => {
+        const prog = (_programacoes[eq.id] || {})[p.key];
+        const { status } = calcStatus(prog?.data, p.duCiclo, p.duAlerta);
+        return status === fStatus;
+      });
+      if (!temStatus) return false;
+    }
+    return true;
+  });
+
+  if (!lista.length) { toast('⚠️ Nenhum equipamento para exportar.', true); return; }
+
+  const LABELS_STATUS = { ok: 'Em Dia', warn: 'Alerta', late: 'Vencido', none: 'Sem Registro' };
+
+  // Aba 1: Programação
+  const linhas = [];
+  lista.forEach(eq => {
+    const local = [eq.bloco, eq.setor, eq.sala].filter(Boolean).join(' › ');
+    const linha = {
+      'TAG':              eq.tag       || '',
+      'Produto / Modelo': eq.produto   || '',
+      'Categoria':        eq.categoria || '',
+      'Bloco':            eq.bloco     || '',
+      'Setor':            eq.setor     || '',
+      'Sala':             eq.sala      || '',
+    };
+    PERIODOS.forEach(p => {
+      const prog = (_programacoes[eq.id] || {})[p.key];
+      const { status, proxima } = calcStatus(prog?.data, p.duCiclo, p.duAlerta);
+      linha[`${p.label} — Última`]    = prog?.data ? fmtBR(prog.data) : '—';
+      linha[`${p.label} — Próxima`]   = proxima    ? fmtBR(proxima)   : '—';
+      linha[`${p.label} — Status`]    = LABELS_STATUS[status] || '—';
+      linha[`${p.label} — Fonte`]     = prog?.fonte === 'pmoc' ? 'Ficha PMOC' : prog?.fonte === 'manual' ? 'Manual' : '—';
+      linha[`${p.label} — Técnico`]   = prog?.tecnico || '—';
+    });
+    linhas.push(linha);
+  });
+
+  const ws1 = XLSX.utils.json_to_sheet(linhas);
+  ws1['!cols'] = [
+    {wch:14},{wch:24},{wch:10},{wch:20},{wch:18},{wch:16},
+    // 4 períodos × 5 colunas
+    ...Array(20).fill({wch:18}),
+  ];
+
+  // Aba 2: Resumo de status
+  const contadores = { ok:0, warn:0, late:0, none:0 };
+  lista.forEach(eq => {
+    PERIODOS.forEach(p => {
+      const prog = (_programacoes[eq.id] || {})[p.key];
+      const { status } = calcStatus(prog?.data, p.duCiclo, p.duAlerta);
+      contadores[status]++;
+    });
+  });
+  const resumo = [
+    ['Status', 'Quantidade', '% do Total'],
+    ['Em Dia',       contadores.ok,   0],
+    ['Alerta',       contadores.warn, 0],
+    ['Vencido',      contadores.late, 0],
+    ['Sem Registro', contadores.none, 0],
+    ['TOTAL', 0],
+    [],
+    ['Exportado em', new Date().toLocaleString('pt-BR')],
+    ['Equipamentos', lista.length],
+  ];
+  const ws2 = XLSX.utils.aoa_to_sheet(resumo);
+  const total = contadores.ok + contadores.warn + contadores.late + contadores.none;
+  ws2['C2'] = { t:'n', f:`B2/B6`, z:'0.0%' };
+  ws2['C3'] = { t:'n', f:`B3/B6`, z:'0.0%' };
+  ws2['C4'] = { t:'n', f:`B4/B6`, z:'0.0%' };
+  ws2['C5'] = { t:'n', f:`B5/B6`, z:'0.0%' };
+  ws2['B6'] = { t:'n', f:`SUM(B2:B5)` };
+  ws2['!cols'] = [{wch:18},{wch:14},{wch:14}];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws1, 'Programação PMOC');
+  XLSX.utils.book_append_sheet(wb, ws2, 'Resumo');
+  const hoje = hojeStr();
+  XLSX.writeFile(wb, `Univag_ProgramacaoPMOC_${hoje}.xlsx`);
+  toast('📊 XLS exportado com sucesso!');
 }
+
+// ── Impressão via popup (mesma técnica do app.js) — não usa window.print() direto ──
+function imprimirProgramacao() {
+  const busca   = ($('f-busca')?.value  || '').toLowerCase();
+  const cat     = $('f-cat')?.value    || '';
+  const bloco   = ($('f-bloco')?.value  || '').toLowerCase();
+
+  const lista = _equipamentos.filter(eq => {
+    if (busca && !eq.tag.toLowerCase().includes(busca) && !(eq.produto||'').toLowerCase().includes(busca)) return false;
+    if (cat   && eq.categoria !== cat) return false;
+    if (bloco && !(eq.bloco||'').toLowerCase().includes(bloco)) return false;
+    return true;
+  });
+
+  if (!lista.length) { toast('⚠️ Nenhum equipamento para imprimir.', true); return; }
+
+  const LABELS_STATUS = { ok:'Em Dia', warn:'Alerta', late:'Vencido', none:'Sem Registro' };
+  const CORES = { ok:'#d1fae5;color:#065f46', warn:'#fef3c7;color:#92400e', late:'#fee2e2;color:#991b1b', none:'#f1f5f9;color:#718096' };
+
+  const dataHoje = new Date().toLocaleDateString('pt-BR');
+
+  const linhas = lista.map(eq => {
+    const local = [eq.bloco, eq.setor, eq.sala].filter(Boolean).join(' › ');
+    const cells = PERIODOS.map(p => {
+      const prog = (_programacoes[eq.id] || {})[p.key];
+      const { status, proxima } = calcStatus(prog?.data, p.duCiclo, p.duAlerta);
+      const cor = CORES[status];
+      const fonteStr = prog?.fonte === 'pmoc' ? '<br><small style="color:#059669">📋 Ficha PMOC</small>' : prog?.fonte === 'manual' ? '<br><small style="color:#718096">✏️ Manual</small>' : '';
+      return `<td style="text-align:center;padding:6px 8px;font-size:11px;background:${cor};">
+        <strong>${LABELS_STATUS[status]}</strong>
+        ${prog?.data ? `<br><small>Últ: ${fmtBR(prog.data)}</small>` : ''}
+        ${proxima ? `<br><small>Próx: ${fmtBR(proxima)}</small>` : ''}
+        ${fonteStr}
+      </td>`;
+    }).join('');
+    return `<tr>
+      <td style="padding:6px 10px;font-size:12px;font-weight:700;color:#1e3a5f;border:1px solid #e2e8f0;">${eq.tag}<br><span style="font-weight:400;font-size:11px;color:#718096;">${eq.produto||''} ${local ? '— '+local : ''}</span></td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  const html = `
+    <div style="font-family:'Inter',Arial,sans-serif;padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1e3a5f;padding-bottom:10px;margin-bottom:16px;">
+        <div>
+          <h2 style="margin:0;font-size:16px;color:#1e3a5f;">Programação de Manutenções PMOC</h2>
+          <p style="margin:0;font-size:11px;color:#718096;">Univag Centro Universitário — Gerado em ${dataHoje}</p>
+        </div>
+        <div style="font-size:11px;color:#718096;text-align:right;">
+          Equipamentos: <strong>${lista.length}</strong><br>
+          📋 = Ficha PMOC &nbsp; ✏️ = Registro Manual
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr>
+            <th style="background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left;border:1px solid rgba(255,255,255,.2);">Equipamento</th>
+            <th style="background:#1e3a5f;color:#fff;padding:8px;text-align:center;border:1px solid rgba(255,255,255,.2);">🔧 Mensal<br><small style="font-weight:400;opacity:.8;">22 DU</small></th>
+            <th style="background:#1e3a5f;color:#fff;padding:8px;text-align:center;border:1px solid rgba(255,255,255,.2);">📅 Trimestral<br><small style="font-weight:400;opacity:.8;">65 DU</small></th>
+            <th style="background:#1e3a5f;color:#fff;padding:8px;text-align:center;border:1px solid rgba(255,255,255,.2);">📆 Semestral<br><small style="font-weight:400;opacity:.8;">130 DU</small></th>
+            <th style="background:#1e3a5f;color:#fff;padding:8px;text-align:center;border:1px solid rgba(255,255,255,.2);">📋 Anual<br><small style="font-weight:400;opacity:.8;">261 DU</small></th>
+          </tr>
+        </thead>
+        <tbody>${linhas}</tbody>
+      </table>
+      <p style="font-size:10px;color:#a0aec0;margin-top:14px;">DU = Dias Úteis (segunda a sexta-feira). Documento gerado automaticamente pelo sistema Concredur.</p>
+    </div>`;
+
+  const win = window.open('', '_blank', 'width=1000,height=750');
+  if (!win) { alert('Permita pop-ups para imprimir.'); return; }
+  win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+    <title>Programação PMOC — Univag</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    @page{margin:12mm;size:A4 landscape}
+    body{font-family:'Inter',Arial,sans-serif;background:#fff;color:#1a202c;}
+    table td,table th{border:1px solid #e2e8f0;}
+    </style></head>
+    <body>${html}
+    <script>window.addEventListener('load',function(){setTimeout(function(){window.print();window.addEventListener('afterprint',function(){window.close();});},500);});<\/script>
+    </body></html>`);
+  win.document.close();
+}
+
+// ── Utilitários DOM ───────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
 
 let _toastTimer = null;
 function toast(msg, err = false) {
@@ -674,7 +863,7 @@ function toast(msg, err = false) {
   el.style.background = err ? '#dc2626' : '#1e3a5f';
   el.classList.add('show');
   if (_toastTimer) clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
 }
 
 // ── Auth + init ───────────────────────────────────────────────────────────
@@ -682,15 +871,10 @@ function toast(msg, err = false) {
   const { data: { session } } = await db.auth.getSession();
   if (!session) { location.href = 'index.html'; return; }
   $('user-display-email').textContent = session.user.email;
-
   $('btn-logout').addEventListener('click', async () => {
-    await db.auth.signOut();
-    location.href = 'index.html';
+    await db.auth.signOut(); location.href = 'index.html';
   });
-
-  // Data padrão do modal = hoje
   $('modal-data').value = hojeStr();
-
   await carregarProgramacao();
 })();
 </script>
