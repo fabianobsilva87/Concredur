@@ -22,7 +22,13 @@ const LOGO_ETIQUETA = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAAA9CAY
 // ===================== ESTADO GLOBAL =====================
 let globalEquipamentos     = [];
 let paginaAtualEquipamento = 0;
-const itensPorPagina       = 8;
+let itensPorPagina         = 10;
+
+function alterarItensPorPagina(val) {
+  itensPorPagina         = parseInt(val, 10);
+  paginaAtualEquipamento = 0;
+  filtrarEquipamentos(0);
+}
 let chartOS = null, chartCrit = null, chartOSG = null;
 let modoRecuperacao = false;
 
