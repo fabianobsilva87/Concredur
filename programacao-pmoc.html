@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Concredur — Programação PMOC</title>
+  <title>Concredur — Programação de Manutenções PMOC</title>
   <link rel="stylesheet" href="style.css">
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <script src="config.js"></script>
@@ -172,7 +172,7 @@
       <div class="nav-item" onclick="location.href='equipamentos.html'"><span>➕</span> Novo Ativo</div>
       <div class="nav-item" onclick="location.href='gerir-equipamentos.html'"><span>⚙️</span> Gerenciamento de Ativos</div>
       <div class="nav-item" onclick="location.href='pmoc.html'"><span>📋</span> Formulário PMOC</div>
-      <div class="nav-item active" onclick="location.href='programacao-pmoc.html'"><span>📅</span> Programação PMOC</div>
+      <div class="nav-item active" onclick="location.href='programacao-pmoc.html'"><span>📅</span> Programação de Manutenções PMOC</div>
       <div class="nav-label">Manutenção</div>
       <div class="nav-item" onclick="location.href='os.html'"><span>🛠️</span> Ordens de Serviço</div>
       <div class="nav-label">Administração</div>
@@ -763,7 +763,7 @@ function exportarXLS() {
   ws2['!cols'] = [{wch:18},{wch:14},{wch:14}];
 
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws1, 'Programação PMOC');
+  XLSX.utils.book_append_sheet(wb, ws1, 'Programação de Manutenções PMOC');
   XLSX.utils.book_append_sheet(wb, ws2, 'Resumo');
   const hoje = hojeStr();
   XLSX.writeFile(wb, `Univag_ProgramacaoPMOC_${hoje}.xlsx`);
@@ -840,7 +840,7 @@ function imprimirProgramacao() {
   const win = window.open('', '_blank', 'width=1000,height=750');
   if (!win) { alert('Permita pop-ups para imprimir.'); return; }
   win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
-    <title>Programação PMOC — Univag</title>
+    <title>Programação de Manutenções PMOC — Univag</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     @page{margin:12mm;size:A4 landscape}
