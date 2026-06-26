@@ -2244,7 +2244,7 @@ function _abrirJanelaEtiquetas(titulo, subtitulo, gradeHTML) {
 // ===================== ETIQUETA LIMPEZA — CLIMATIZADOR =====================
 // Controle de manutenção e limpeza periódica de climatizadores evaporativos.
 function imprimirEtiquetaLimpezaClimatizador() {
-  const COR   = '#4169e1'; // azul royal
+  const COR   = '#1e3a5f'; // azul marinho
   const LINHA = `<div class="etq-linha"></div>`;
 
   const etiqueta = `
@@ -2273,9 +2273,9 @@ function imprimirEtiquetaLimpezaClimatizador() {
         <div class="etq-field"><div class="etq-field-lbl">Data do serviço</div>${LINHA}</div>
         <div class="etq-field"><div class="etq-field-lbl">Local (bloco / sala)</div>${LINHA}</div>
       </div>
-      <div class="etq-destaque-box" style="background:#eef2ff;margin-top:10px;">
-        <div class="etq-destaque-lbl" style="color:#4169e1;">PRÓXIMA MANUTENÇÃO PREVISTA</div>
-        <div style="border-bottom:2px dashed #4169e1;height:28px;margin-top:3px;"></div>
+      <div class="etq-destaque-box" style="background:#e8edf5;margin-top:10px;">
+        <div class="etq-destaque-lbl" style="color:#1e3a5f;">PRÓXIMA MANUTENÇÃO PREVISTA</div>
+        <div style="border-bottom:2px dashed #1e3a5f;height:28px;margin-top:3px;"></div>
       </div>
     </div>
 
@@ -2311,7 +2311,7 @@ function imprimirEtiquetaLimpezaClimatizador() {
 // ===================== ETIQUETA LIMPEZA — VENTILADOR / EXAUSTOR =====================
 // Controle de manutenção e limpeza periódica de ventiladores e exaustores.
 function imprimirEtiquetaLimpezaVentilador() {
-  const COR   = '#4169e1'; // azul royal
+  const COR   = '#1e3a5f'; // azul marinho
   const LINHA = `<div class="etq-linha"></div>`;
 
   const etiqueta = `
@@ -2340,9 +2340,9 @@ function imprimirEtiquetaLimpezaVentilador() {
         <div class="etq-field"><div class="etq-field-lbl">Data do serviço</div>${LINHA}</div>
         <div class="etq-field"><div class="etq-field-lbl">Local (bloco / sala)</div>${LINHA}</div>
       </div>
-      <div class="etq-destaque-box" style="background:#eef2ff;margin-top:10px;">
-        <div class="etq-destaque-lbl" style="color:#4169e1;">PRÓXIMA MANUTENÇÃO PREVISTA</div>
-        <div style="border-bottom:2px dashed #4169e1;height:28px;margin-top:3px;"></div>
+      <div class="etq-destaque-box" style="background:#e8edf5;margin-top:10px;">
+        <div class="etq-destaque-lbl" style="color:#1e3a5f;">PRÓXIMA MANUTENÇÃO PREVISTA</div>
+        <div style="border-bottom:2px dashed #1e3a5f;height:28px;margin-top:3px;"></div>
       </div>
     </div>
 
