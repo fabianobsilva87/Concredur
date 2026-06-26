@@ -22,13 +22,7 @@ const LOGO_ETIQUETA = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAAA9CAY
 // ===================== ESTADO GLOBAL =====================
 let globalEquipamentos     = [];
 let paginaAtualEquipamento = 0;
-let itensPorPagina         = 10;
-
-function alterarItensPorPagina(val) {
-  itensPorPagina         = parseInt(val, 10);
-  paginaAtualEquipamento = 0;
-  filtrarEquipamentos(0);
-}
+const itensPorPagina       = 8;
 let chartOS = null, chartCrit = null, chartOSG = null;
 let modoRecuperacao = false;
 
@@ -661,27 +655,7 @@ function emitirRelatorioGeralAtivos() {
   }).join('');
 
   const html = `
-  <style>
-    @page { size: A4 landscape; margin: 12mm; }
-    .rel-ativos-section {
-      border: 1px solid #e2e8f0;
-      border-top: none;
-      padding: 12px 16px;
-      break-inside: auto !important;
-      page-break-inside: auto !important;
-    }
-    .rel-ativos-section .laudo-checklist-table {
-      break-inside: auto !important;
-      page-break-inside: auto !important;
-    }
-    .rel-ativos-section .laudo-checklist-table tr {
-      break-inside: avoid;
-      page-break-inside: avoid;
-    }
-    .rel-ativos-section .laudo-checklist-table thead {
-      display: table-header-group;
-    }
-  </style>
+  <style>@page{size:A4 landscape;margin:12mm;}</style>
   <div class="laudo-wrapper">
     <div class="laudo-header">
       <div style="display:flex;align-items:center;gap:14px;"><img src="${LOGO_ETIQUETA}" alt="Logo" style="height:40px;width:auto;display:block;"><div><h1 style="font-size:16px;">Relatório Geral de Ativos</h1><p>Inventário de equipamentos cadastrados</p></div></div>
@@ -691,7 +665,7 @@ function emitirRelatorioGeralAtivos() {
         Emitido às ${new Date().toLocaleTimeString('pt-BR')}
       </div>
     </div>
-    <div class="rel-ativos-section">
+    <div class="laudo-section">
       <table class="laudo-checklist-table">
         <thead>
           <tr>
@@ -837,7 +811,7 @@ async function gerarTokensFaltantes() {
 }
 
 async function atualizarSelectEquipamentos() {
-  const { data } = await db.from('equipamentos').select('id, tag, produto, categoria');
+  const { data } = await db.from('equipamentos').select('id, tag, produto, categoria').order('tag', { ascending: true });
   ['pmoc-equipamento','os-equipamento'].map($).filter(Boolean).forEach(sel => {
     sel.innerHTML = '<option value="">-- Selecione o Ativo --</option>';
     (data || []).forEach(e => {
@@ -1293,7 +1267,7 @@ function _assinaturaImg(url, style) {
 const CHECKLIST_PMOC_DEFS = {
   AC: {
     mensal: [
-      ['bio_01', '[BIO-01] Bandeja de Condensados — Limpeza e Sanitizante'],
+      ['bio_01', '[BIO-01] Bandeja de Condensados — Limpeza e Pastilha Sanitizante'],
       ['bio_02', '[BIO-02] Rede de Drenagem — Desobstrução e Teste de Escoamento'],
       ['fil_01', '[FIL-01] Filtros de Ar (G4/F7/F9) — Higienização ou Substituição'],
       ['mec_01', '[MEC-01] Conjunto Ventilação — Ruídos, Coxins e Fixadores'],
@@ -1986,401 +1960,6 @@ async function imprimirTodasEtiquetas() {
   _abrirJanelaEtiqueta(lista);
 }
 
-// ===================== ETIQUETA UNIFICADA — BEBEDOURO (FILTRO + LIMPEZA) =====================
-// Etiqueta única que cobre troca de filtro E limpeza/higienização do bebedouro.
-// O técnico marca com checkbox qual(is) serviço(s) foi executado e preenche os campos da seção
-// correspondente. Uma etiqueta substitui as duas anteriores — menos papel, controle completo.
-function imprimirEtiquetaFiltroEmBranco() { imprimirEtiquetaBebedouro(); }  // alias de compatibilidade
-function imprimirEtiquetaLimpezaBebedouro() { imprimirEtiquetaBebedouro(); } // alias de compatibilidade
-function imprimirEtiquetaBebedouro() {
-  const L = `<div style="border-bottom:1.5px dashed #a0aec0;height:21px;margin-top:2px;"></div>`;
-
-  const etiqueta = `
-  <div class="etq-beb">
-
-    <!-- CABEÇALHO azul escuro com logo -->
-    <div class="etq-beb-head">
-      <div class="etq-beb-logo"><img src="${LOGO_ETIQUETA}" alt="Univag"></div>
-      <div class="etq-beb-headtxt">
-        <div class="etq-beb-pre">Manutenção Preventiva</div>
-        <div class="etq-beb-tit">Controle de Bebedouro</div>
-      </div>
-    </div>
-
-    <!-- FAIXA DUPLA: tipo de serviço com checkbox -->
-    <div class="etq-beb-tipos">
-      <div class="etq-beb-tipo">
-        <span class="etq-beb-chkbox" style="border-color:#4169e1;"></span>
-        <span class="etq-beb-pill" style="background:#eef2ff;color:#3730a3;border-color:#c7d2fe;">🔧 Troca de filtro</span>
-      </div>
-      <div class="etq-beb-tipo" style="border-left:1.5px solid #e8edf3;">
-        <span class="etq-beb-chkbox" style="border-color:#4169e1;"></span>
-        <span class="etq-beb-pill" style="background:#eef2ff;color:#3730a3;border-color:#c7d2fe;">🧹 Limpeza / higienização</span>
-      </div>
-    </div>
-
-    <!-- TAG + CATEGORIA -->
-    <div class="etq-beb-tagrow">
-      <div style="flex:1;">
-        <div class="etq-beb-lbl">Código do equipamento (TAG)</div>
-        ${L}
-      </div>
-      <div class="etq-beb-catpill">💧 Bebedouro</div>
-    </div>
-
-    <div class="etq-beb-div"></div>
-
-    <div class="etq-beb-campos">
-
-      <!-- DATA + LOCAL -->
-      <div class="etq-beb-g2" style="margin-bottom:8px;">
-        <div><div class="etq-beb-lbl">Data do serviço</div>${L}</div>
-        <div><div class="etq-beb-lbl">Local (bloco / sala)</div>${L}</div>
-      </div>
-
-      <!-- SEÇÃO FILTRO -->
-      <div class="etq-beb-sec" style="background:#eef2ff;">
-        <div class="etq-beb-sec-tit" style="color:#3730a3;">🔧 Dados do filtro</div>
-        <div class="etq-beb-g2">
-          <div><div class="etq-beb-lbl">Tipo de filtro</div>${L}</div>
-          <div><div class="etq-beb-lbl">Nº série / lote</div>${L}</div>
-        </div>
-      </div>
-
-      <!-- SEÇÃO LIMPEZA -->
-      <div class="etq-beb-sec" style="background:#eef2ff;margin-top:6px;">
-        <div class="etq-beb-sec-tit" style="color:#3730a3;">🧹 Dados da limpeza</div>
-        <div class="etq-beb-g2">
-          <div><div class="etq-beb-lbl">Tipo de limpeza</div>${L}</div>
-          <div><div class="etq-beb-lbl">Produto utilizado</div>${L}</div>
-        </div>
-      </div>
-
-      <!-- PRÓXIMA MANUTENÇÃO -->
-      <div class="etq-beb-prox">
-        <div class="etq-beb-prox-lbl">Próxima manutenção prevista</div>
-        <div style="border-bottom:2px dashed #2b6cb0;height:26px;margin-top:3px;"></div>
-      </div>
-
-    </div>
-
-    <!-- RODAPÉ -->
-    <div class="etq-beb-footer">
-      <div>
-        <div class="etq-beb-lbl">Técnico responsável</div>
-        <div style="border-bottom:1.5px dashed #a0aec0;height:20px;width:150px;margin-top:2px;"></div>
-      </div>
-      <div class="etq-beb-checks">
-        <div class="etq-beb-chkitem">
-          <span class="etq-beb-chkbox" style="border-color:#1e3a5f;"></span>
-          <span class="etq-beb-chklbl">Sanitizado</span>
-        </div>
-        <div class="etq-beb-chkitem">
-          <span class="etq-beb-chkbox" style="border-color:#1e3a5f;"></span>
-          <span class="etq-beb-chklbl">Lacre aplicado</span>
-        </div>
-      </div>
-    </div>
-
-  </div>`;
-
-  const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <title>Etiquetas de Controle — Bebedouro · Univag</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:'Inter',Arial,sans-serif;background:#e2e8f0;padding:24px;color:#1a202c;}
-
-    /* toolbar */
-    .toolbar{max-width:960px;margin:0 auto 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#fff;padding:14px 20px;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.08);}
-    .toolbar h2{font-size:15px;font-weight:700;flex:1;}
-    .toolbar small{font-size:11px;color:#718096;display:block;margin-top:2px;}
-    .btn-imp{background:#1e3a5f;color:#fff;border:none;border-radius:7px;padding:9px 22px;font-size:13px;font-weight:600;cursor:pointer;}
-    .btn-sec{background:#fff;color:#4a5568;border:1px solid #e2e8f0;border-radius:7px;padding:8px 18px;font-size:13px;cursor:pointer;}
-
-    /* grade 2×2 */
-    .grade{max-width:960px;margin:0 auto;display:grid;grid-template-columns:repeat(2,1fr);gap:18px;}
-
-    /* ── ETIQUETA ── */
-    .etq-beb{background:#fff;border:2.5px solid #1e3a5f;border-radius:14px;overflow:hidden;}
-
-    /* cabeçalho */
-    .etq-beb-head{background:#1e3a5f;padding:14px 20px;display:flex;align-items:center;gap:16px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-    .etq-beb-logo img{height:36px;width:auto;display:block;}
-    .etq-beb-headtxt{flex:1;}
-    .etq-beb-pre{font-size:8px;font-weight:700;color:rgba(255,255,255,.65);letter-spacing:.1em;text-transform:uppercase;}
-    .etq-beb-tit{font-size:16px;font-weight:800;color:#fff;line-height:1.2;}
-
-    /* faixa de tipos */
-    .etq-beb-tipos{display:flex;border-bottom:1.5px solid #e8edf3;}
-    .etq-beb-tipo{flex:1;padding:8px 14px;display:flex;align-items:center;gap:7px;}
-    .etq-beb-chkbox{display:inline-block;width:15px;height:15px;border:2px solid #94a3b8;border-radius:3px;flex-shrink:0;}
-    .etq-beb-pill{font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:999px;border:1px solid;white-space:nowrap;}
-
-    /* tag row */
-    .etq-beb-tagrow{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:11px 20px 8px;flex-wrap:wrap;}
-    .etq-beb-lbl{font-size:8px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;}
-    .etq-beb-catpill{border:1.5px solid #1e3a5f;border-radius:999px;padding:5px 13px;font-size:11px;font-weight:700;color:#1e3a5f;white-space:nowrap;flex-shrink:0;}
-
-    /* divisor */
-    .etq-beb-div{border-top:1.5px solid #e8edf3;margin:0 20px 10px;}
-
-    /* campos */
-    .etq-beb-campos{padding:0 20px;}
-    .etq-beb-g2{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
-
-    /* seção colorida */
-    .etq-beb-sec{border-radius:7px;padding:7px 10px 9px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-    .etq-beb-sec-tit{font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
-
-    /* próxima */
-    .etq-beb-prox{background:#f0f9ff;border-radius:7px;padding:7px 10px 9px;margin-top:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-    .etq-beb-prox-lbl{font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#4169e1;}
-
-    /* rodapé */
-    .etq-beb-footer{border-top:1.5px solid #e8edf3;margin-top:8px;padding:10px 20px 13px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
-    .etq-beb-checks{display:flex;flex-direction:column;gap:5px;}
-    .etq-beb-chkitem{display:flex;align-items:center;gap:5px;}
-    .etq-beb-chklbl{font-size:10px;font-weight:700;color:#1e3a5f;}
-
-    /* impressão */
-    @media print{
-      body{background:#fff;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-      .toolbar{display:none!important;}
-      .grade{max-width:100%;gap:6mm;grid-template-columns:repeat(2,1fr);padding:0;}
-      .etq-beb{break-inside:avoid;page-break-inside:avoid;border-radius:6mm;}
-      @page{margin:10mm;size:A4 portrait;}
-    }
-  </style>
-</head>
-<body>
-  <div class="toolbar">
-    <div>
-      <h2>💧 Etiquetas de Controle — Bebedouro (Filtro + Limpeza)</h2>
-      <small>4 etiquetas por folha A4 · Marque o(s) serviço(s) executado(s) e preencha os campos correspondentes</small>
-    </div>
-    <button class="btn-sec" onclick="window.close()">✕ Fechar</button>
-    <button class="btn-imp" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
-  </div>
-  <div class="grade">
-    ${etiqueta.repeat(4)}
-  </div>
-</body>
-</html>`;
-
-  const win = window.open('', '_blank', 'width=1000,height=760');
-  if (!win) { alert('Permita pop-ups neste site para abrir as etiquetas.'); return; }
-  win.document.write(html);
-  win.document.close();
-}
-
-// ===================== ETIQUETA SHARED — CSS + HTML base reutilizável =====================
-// CSS idêntico ao da etiqueta de filtro, para manter consistência visual entre as 4 etiquetas.
-const _ETQ_CSS = `
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Inter', Arial, sans-serif; background: #e2e8f0; padding: 24px; color: #1a202c; }
-  .toolbar { max-width: 960px; margin: 0 auto 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: #fff; padding: 14px 20px; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
-  .toolbar h2 { font-size: 15px; font-weight: 700; flex: 1; }
-  .toolbar small { font-size: 11px; color: #718096; display: block; margin-top: 2px; }
-  .btn-imp { background: #1e3a5f; color: #fff; border: none; border-radius: 7px; padding: 9px 22px; font-size: 13px; font-weight: 600; cursor: pointer; }
-  .btn-imp:hover { background: #16304d; }
-  .btn-sec { background: #fff; color: #4a5568; border: 1px solid #e2e8f0; border-radius: 7px; padding: 8px 18px; font-size: 13px; cursor: pointer; }
-  .grade { max-width: 960px; margin: 0 auto; display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
-  .etq-card { background: #fff; border-radius: 16px; overflow: hidden; }
-  .etq-top { display: flex; align-items: center; gap: 20px; padding: 16px 22px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .etq-logo img { height: 38px; width: auto; display: block; }
-  .etq-titulo { font-size: 18px; font-weight: 800; line-height: 1.18; color: #fff; letter-spacing: 0.01em; }
-  .etq-meta { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; padding: 14px 22px 12px; flex-wrap: wrap; }
-  .etq-field-lbl { font-size: 9px; font-weight: 700; color: #718096; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px; }
-  .etq-codigo-blank { width: 180px; }
-  .etq-categoria { border-radius: 999px; padding: 7px 16px; font-size: 13px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
-  .etq-divider { border-top: 2px solid #e8edf3; margin: 0 22px 14px; }
-  .etq-campos { padding: 0 22px; }
-  .etq-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .etq-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-  .etq-field { display: flex; flex-direction: column; }
-  .etq-linha { border-bottom: 1.5px dashed #a0aec0; height: 22px; margin-top: 2px; }
-  .etq-destaque-box { border-radius: 8px; padding: 8px 12px 10px; margin-top: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .etq-destaque-lbl { font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
-  .etq-footer { display: flex; align-items: center; justify-content: space-between; padding: 12px 22px 14px; margin-top: 12px; border-top: 2px solid #e8edf3; flex-wrap: wrap; gap: 10px; }
-  .etq-footer-col { display: flex; flex-direction: column; }
-  .etq-check-row { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
-  .etq-check-item { display: flex; align-items: center; gap: 6px; }
-  .etq-check-box { display: inline-block; width: 16px; height: 16px; border: 2px solid; border-radius: 3px; flex-shrink: 0; }
-  .etq-check-lbl { font-size: 10px; font-weight: 700; }
-  @media print {
-    body { background: #fff; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .toolbar { display: none !important; }
-    .grade { max-width: 100%; gap: 6mm; grid-template-columns: repeat(2, 1fr); padding: 0; }
-    .etq-card { break-inside: avoid; page-break-inside: avoid; border-radius: 6mm; }
-    @page { margin: 10mm; size: A4 portrait; }
-  }
-`;
-
-function _abrirJanelaEtiquetas(titulo, subtitulo, gradeHTML) {
-  const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <title>${escapeHTML(titulo)} — Univag</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <style>${_ETQ_CSS}</style>
-</head>
-<body>
-  <div class="toolbar">
-    <div>
-      <h2>🔖 ${escapeHTML(titulo)}</h2>
-      <small>${escapeHTML(subtitulo)}</small>
-    </div>
-    <button class="btn-sec" onclick="window.close()">✕ Fechar</button>
-    <button class="btn-imp" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
-  </div>
-  <div class="grade">${gradeHTML}</div>
-</body>
-</html>`;
-  const win = window.open('', '_blank', 'width=1000,height=760');
-  if (!win) { alert('Permita pop-ups neste site para abrir as etiquetas.'); return; }
-  win.document.write(html);
-  win.document.close();
-}
-
-// ===================== ETIQUETA LIMPEZA — CLIMATIZADOR =====================
-// Controle de manutenção e limpeza periódica de climatizadores evaporativos.
-function imprimirEtiquetaLimpezaClimatizador() {
-  const COR   = '#1e3a5f'; // azul marinho
-  const LINHA = `<div class="etq-linha"></div>`;
-
-  const etiqueta = `
-  <div class="etq-card" style="border:2.5px solid ${COR};">
-    <div class="etq-top" style="background:${COR};">
-      <div class="etq-logo"><img src="${LOGO_ETIQUETA}" alt="Univag"></div>
-      <div class="etq-titulo">MANUTENÇÃO<br>LIMPEZA / CLIMATIZADOR</div>
-    </div>
-
-    <div class="etq-meta">
-      <div>
-        <div class="etq-field-lbl">Código do equipamento (TAG)</div>
-        <div class="etq-codigo-blank">${LINHA}</div>
-      </div>
-      <div class="etq-categoria" style="border:1.5px solid ${COR};color:${COR};">🌀 Climatizador</div>
-    </div>
-
-    <div class="etq-divider"></div>
-
-    <div class="etq-campos">
-      <div class="etq-row-2">
-        <div class="etq-field"><div class="etq-field-lbl">Tipo de serviço</div>${LINHA}</div>
-        <div class="etq-field"><div class="etq-field-lbl">Produto / biocida</div>${LINHA}</div>
-      </div>
-      <div class="etq-row-2" style="margin-top:10px;">
-        <div class="etq-field"><div class="etq-field-lbl">Data do serviço</div>${LINHA}</div>
-        <div class="etq-field"><div class="etq-field-lbl">Local (bloco / sala)</div>${LINHA}</div>
-      </div>
-      <div class="etq-destaque-box" style="background:#e8edf5;margin-top:10px;">
-        <div class="etq-destaque-lbl" style="color:#1e3a5f;">PRÓXIMA MANUTENÇÃO PREVISTA</div>
-        <div style="border-bottom:2px dashed #1e3a5f;height:28px;margin-top:3px;"></div>
-      </div>
-    </div>
-
-    <div class="etq-footer">
-      <div class="etq-footer-col">
-        <div class="etq-field-lbl">Técnico responsável</div>
-        <div style="border-bottom:1.5px dashed #a0aec0;height:20px;width:150px;margin-top:2px;"></div>
-      </div>
-      <div class="etq-check-row">
-        <div class="etq-check-item">
-          <span class="etq-check-box" style="border-color:${COR};"></span>
-          <span class="etq-check-lbl" style="color:${COR};">Reservatório</span>
-        </div>
-        <div class="etq-check-item">
-          <span class="etq-check-box" style="border-color:${COR};"></span>
-          <span class="etq-check-lbl" style="color:${COR};">Painel</span>
-        </div>
-        <div class="etq-check-item">
-          <span class="etq-check-box" style="border-color:${COR};"></span>
-          <span class="etq-check-lbl" style="color:${COR};">Biocida</span>
-        </div>
-      </div>
-    </div>
-  </div>`;
-
-  _abrirJanelaEtiquetas(
-    'Etiquetas de Limpeza — Climatizador',
-    '4 etiquetas por folha A4 · Preenchimento manual após manutenção',
-    etiqueta.repeat(4)
-  );
-}
-
-// ===================== ETIQUETA LIMPEZA — VENTILADOR / EXAUSTOR =====================
-// Controle de manutenção e limpeza periódica de ventiladores e exaustores.
-function imprimirEtiquetaLimpezaVentilador() {
-  const COR   = '#1e3a5f'; // azul marinho
-  const LINHA = `<div class="etq-linha"></div>`;
-
-  const etiqueta = `
-  <div class="etq-card" style="border:2.5px solid ${COR};">
-    <div class="etq-top" style="background:${COR};">
-      <div class="etq-logo"><img src="${LOGO_ETIQUETA}" alt="Univag"></div>
-      <div class="etq-titulo">MANUTENÇÃO<br>LIMPEZA / VENTILAÇÃO</div>
-    </div>
-
-    <div class="etq-meta">
-      <div>
-        <div class="etq-field-lbl">Código do equipamento (TAG)</div>
-        <div class="etq-codigo-blank">${LINHA}</div>
-      </div>
-      <div class="etq-categoria" style="border:1.5px solid ${COR};color:${COR};">💨 Ventilador / Exaustor</div>
-    </div>
-
-    <div class="etq-divider"></div>
-
-    <div class="etq-campos">
-      <div class="etq-row-2">
-        <div class="etq-field"><div class="etq-field-lbl">Tipo de serviço</div>${LINHA}</div>
-        <div class="etq-field"><div class="etq-field-lbl">Tipo de equipamento</div>${LINHA}</div>
-      </div>
-      <div class="etq-row-2" style="margin-top:10px;">
-        <div class="etq-field"><div class="etq-field-lbl">Data do serviço</div>${LINHA}</div>
-        <div class="etq-field"><div class="etq-field-lbl">Local (bloco / sala)</div>${LINHA}</div>
-      </div>
-      <div class="etq-destaque-box" style="background:#e8edf5;margin-top:10px;">
-        <div class="etq-destaque-lbl" style="color:#1e3a5f;">PRÓXIMA MANUTENÇÃO PREVISTA</div>
-        <div style="border-bottom:2px dashed #1e3a5f;height:28px;margin-top:3px;"></div>
-      </div>
-    </div>
-
-    <div class="etq-footer">
-      <div class="etq-footer-col">
-        <div class="etq-field-lbl">Técnico responsável</div>
-        <div style="border-bottom:1.5px dashed #a0aec0;height:20px;width:150px;margin-top:2px;"></div>
-      </div>
-      <div class="etq-check-row">
-        <div class="etq-check-item">
-          <span class="etq-check-box" style="border-color:${COR};"></span>
-          <span class="etq-check-lbl" style="color:${COR};">Pás / hélice</span>
-        </div>
-        <div class="etq-check-item">
-          <span class="etq-check-box" style="border-color:${COR};"></span>
-          <span class="etq-check-lbl" style="color:${COR};">Grelha</span>
-        </div>
-        <div class="etq-check-item">
-          <span class="etq-check-box" style="border-color:${COR};"></span>
-          <span class="etq-check-lbl" style="color:${COR};">Lubrificado</span>
-        </div>
-      </div>
-    </div>
-  </div>`;
-
-  _abrirJanelaEtiquetas(
-    'Etiquetas de Limpeza — Ventilador / Exaustor',
-    '4 etiquetas por folha A4 · Preenchimento manual após manutenção',
-    etiqueta.repeat(4)
-  );
-}
-
 function _abrirJanelaEtiqueta(lista) {
   const catLabel = {
     AC:'❄️ Ar Condicionado', BEB:'💧 Bebedouro',
@@ -2551,7 +2130,7 @@ function imprimir(areaId, html) {
   if (!win) { alert('Permita pop-ups para imprimir os laudos.'); return; }
   win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Univag — Impressão</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}@page{margin:14mm;size:A4 portrait}html,body{font-family:'Inter',Arial,sans-serif;font-size:12px;color:#1a202c;background:#fff}.laudo-wrapper{width:100%}.laudo-header{background:#1a56db;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0}.laudo-header h1{font-size:18px;font-weight:700}.laudo-header p{font-size:11px;margin-top:4px;opacity:.85}.laudo-header-meta{text-align:right;font-size:11px}.laudo-section{border:1px solid #e2e8f0;border-top:none;padding:12px 16px;break-inside:avoid;page-break-inside:avoid}.laudo-section:last-child{border-radius:0 0 6px 6px}.laudo-section-title{font-size:10px;font-weight:700;color:#1a56db;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0;break-after:avoid;page-break-after:avoid}.laudo-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}.laudo-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 16px}.laudo-field{margin-bottom:4px}.laudo-field label{font-size:9px;color:#718096;text-transform:uppercase;letter-spacing:.06em;display:block}.laudo-field span{font-size:12px;font-weight:600;color:#1a202c}.laudo-checklist-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table th{background:#1a56db;color:#fff;padding:5px 8px;text-align:left;font-size:10px}.laudo-checklist-table td{padding:4px 8px;border-bottom:1px solid #e2e8f0}.laudo-checklist-table tr{break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table tr:nth-child(even) td{background:#f8fafc}.ok{color:#059669;font-weight:700}.nok{color:#dc2626;font-weight:700}.na{color:#a0aec0}.laudo-assinatura-box{text-align:center;min-width:180px;break-inside:avoid;page-break-inside:avoid}.laudo-assinatura-linha{border-top:1px solid #1a202c;margin-top:8px;padding-top:4px;font-size:10px;color:#4a5568}img{max-width:100%;height:auto;display:block}.tag-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#e2e8f0;color:#2d3748}.tag-badge.success{background:#d1fae5;color:#065f46}.tag-badge.warning{background:#fef3c7;color:#92400e}.tag-badge.danger{background:#fee2e2;color:#991b1b}.tag-badge.andamento{background:#dbeafe;color:#1e40af}.laudo-field-em-branco{font-size:9px;color:#a0aec0;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px dotted #cbd5e0;padding-bottom:20px;}.laudo-pagebreak{break-after:page;page-break-after:always;}.laudo-checkbox-status{white-space:nowrap;font-size:11px;color:#4a5568;}.laudo-section-checklist{break-inside:auto !important;page-break-inside:auto !important;}.laudo-section-checklist .laudo-checklist-table{break-inside:auto !important;page-break-inside:auto !important;}.laudo-section-checklist .laudo-checklist-table tbody tr{break-inside:avoid;page-break-inside:avoid;}</style></head>
+  <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}@page{margin:14mm;size:A4 portrait}html,body{font-family:'Inter',Arial,sans-serif;font-size:12px;color:#1a202c;background:#fff}.laudo-wrapper{width:100%}.laudo-header{background:#1a56db;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0}.laudo-header h1{font-size:18px;font-weight:700}.laudo-header p{font-size:11px;margin-top:4px;opacity:.85}.laudo-header-meta{text-align:right;font-size:11px}.laudo-section{border:1px solid #e2e8f0;border-top:none;padding:12px 16px;break-inside:avoid;page-break-inside:avoid}.laudo-section:last-child{border-radius:0 0 6px 6px}.laudo-section-title{font-size:10px;font-weight:700;color:#1a56db;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0;break-after:avoid;page-break-after:avoid}.laudo-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}.laudo-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 16px}.laudo-field{margin-bottom:4px}.laudo-field label{font-size:9px;color:#718096;text-transform:uppercase;letter-spacing:.06em;display:block}.laudo-field span{font-size:12px;font-weight:600;color:#1a202c}.laudo-checklist-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table th{background:#1a56db;color:#fff;padding:5px 8px;text-align:left;font-size:10px}.laudo-checklist-table td{padding:4px 8px;border-bottom:1px solid #e2e8f0}.laudo-checklist-table tr{break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table tr:nth-child(even) td{background:#f8fafc}.ok{color:#059669;font-weight:700}.nok{color:#dc2626;font-weight:700}.na{color:#a0aec0}.laudo-assinatura-box{text-align:center;min-width:180px;break-inside:avoid;page-break-inside:avoid}.laudo-assinatura-linha{border-top:1px solid #1a202c;margin-top:8px;padding-top:4px;font-size:10px;color:#4a5568}img{max-width:100%;height:auto;display:block}.tag-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#e2e8f0;color:#2d3748}.tag-badge.success{background:#d1fae5;color:#065f46}.tag-badge.warning{background:#fef3c7;color:#92400e}.tag-badge.danger{background:#fee2e2;color:#991b1b}.tag-badge.andamento{background:#dbeafe;color:#1e40af}.laudo-field-em-branco{font-size:9px;color:#a0aec0;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px dotted #cbd5e0;padding-bottom:20px;}.laudo-pagebreak{break-after:page;page-break-after:always;}.laudo-checkbox-status{white-space:nowrap;font-size:11px;color:#4a5568;}.laudo-section-checklist{break-inside:auto !important;page-break-inside:auto !important;}</style></head>
   <body>${html}<script>window.addEventListener('load',function(){setTimeout(function(){window.print();window.addEventListener('afterprint',function(){window.close();});},400);});<\/script></body></html>`);
   win.document.close();
 }
@@ -2640,46 +2219,13 @@ if ($('btn-login')) {
 }
 
 // ===================== DASHBOARD =====================
-const CHART_DEFAULTS = { responsive:true, maintainAspectRatio:false, devicePixelRatio:2 };
-
-// Paleta Tidepool fixa para categorias (nunca ciclada por índice)
-const DASH_CORES_GAS = {
-  'R-410A':  '#2a78d6',
-  'R-32':    '#1baf7a',
-  'R-22':    '#eda100',
-  'R-134A':  '#4a3aa7',
-  'R-404A':  '#e87ba4',
-  'Outros':  '#888780',
-};
-const DASH_CORES_CAT = {
-  AC:   '#2a78d6',
-  BEB:  '#1baf7a',
-  CLIM: '#4a3aa7',
-  VEN:  '#eda100',
-  OUT:  '#888780',
-};
-const DASH_LABEL_CAT = {
-  AC:'❄️ Ar condicionado', BEB:'💧 Bebedouros',
-  CLIM:'🌀 Climatizadores', VEN:'💨 Ventiladores', OUT:'🔧 Outros',
-};
-
-// Helper: barra de progresso inline
-function _dashBarra(pct, cor) {
-  return `<div style="height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-top:4px;">
-    <div style="height:100%;width:${Math.min(100,Math.round(pct))}%;background:${cor};border-radius:4px;"></div>
-  </div>`;
-}
-
-// Helper: converte string "1,200 kg" → número (aceita vírgula ou ponto)
-function _parseKg(val) {
-  if (!val) return 0;
-  return parseFloat(String(val).replace(',', '.').replace(/[^\d.]/g, '')) || 0;
-}
+const CHART_DEFAULTS = { responsive:true, maintainAspectRatio:true, devicePixelRatio:2 };
 
 async function renderizarGraficosDashboard() {
-  // ── 1. Resumo geral (KPIs) ──────────────────────────────────────────────
+  // ── Tenta views SQL (Fase 4); fallback para queries diretas se views não existirem ──
   let resumo = null;
   const { data: resumoView, error: erroView } = await db.from('vw_dashboard_resumo').select('*').single();
+
   if (!erroView && resumoView) {
     resumo = resumoView;
   } else {
@@ -2693,8 +2239,16 @@ async function renderizarGraficosDashboard() {
         db.from('ordens_servico_geral').select('*', { count:'exact', head:true }).eq('status_os', 'Concluída'),
       ]);
       const val = (i) => resultados[i].status === 'fulfilled' ? (resultados[i].value?.count ?? 0) : 0;
-      resumo = { total_ativos:val(0), total_pmocs:val(1), os_pendentes:val(2)+val(4), os_concluidas:val(3)+val(5) };
-    } catch(e) { console.warn('Dashboard resumo falhou:', e.message); resumo = {}; }
+      resumo = {
+        total_ativos:  val(0),
+        total_pmocs:   val(1),
+        os_pendentes:  val(2) + val(4),
+        os_concluidas: val(3) + val(5),
+      };
+    } catch(e) {
+      console.warn('Dashboard fallback falhou:', e.message);
+      resumo = { total_ativos:0, total_pmocs:0, os_pendentes:0, os_concluidas:0 };
+    }
   }
 
   const r = resumo || {};
@@ -2703,269 +2257,116 @@ async function renderizarGraficosDashboard() {
   if ($('dash-txt-os-abertas'))  $('dash-txt-os-abertas').textContent  = r.os_pendentes  ?? '0';
   if ($('dash-txt-os-fechadas')) $('dash-txt-os-fechadas').textContent = r.os_concluidas ?? '0';
 
-  // ── 2. Dados de equipamentos para KPIs adicionais, gás e categorias ────
-  let eqAll = [];
-  try {
-    const { data: eqData } = await db.from('equipamentos').select('categoria,criticidade,validade,extras_tecnico');
-    eqAll = eqData || [];
-  } catch(e) { console.warn('Equipamentos dashboard falhou:', e.message); }
-
-  const hoje = new Date(); hoje.setHours(0,0,0,0);
-
-  // KPI: filtros a vencer (BEB com validade nos próximos 30 dias ou já vencida)
-  const em30 = new Date(hoje); em30.setDate(em30.getDate() + 30);
-  let filtrosVencer = 0, filtrosVencidos = 0;
-  eqAll.filter(e => e.categoria === 'BEB' && e.validade).forEach(e => {
-    const dt = new Date(e.validade + 'T00:00:00');
-    if (dt < hoje) filtrosVencidos++;
-    else if (dt <= em30) filtrosVencer++;
-  });
-  if ($('dash-txt-filtros-vencer')) $('dash-txt-filtros-vencer').textContent = filtrosVencer + filtrosVencidos;
-  if ($('dash-sub-filtros'))        $('dash-sub-filtros').textContent = filtrosVencidos > 0 ? `${filtrosVencidos} já vencido(s)` : 'Próximos 30 dias';
-  if (filtrosVencidos > 0 && $('dash-sub-filtros')) $('dash-sub-filtros').style.color = '#ef4444';
-
-  // KPI: PMOC vencidos
-  let pmocVencidos = 0;
-  try {
-    const { data: fichasVenc } = await db.from('fichas_pmoc')
-      .select('proxima_manutencao')
-      .not('proxima_manutencao','is',null)
-      .lt('proxima_manutencao', hoje.toISOString().split('T')[0]);
-    pmocVencidos = (fichasVenc || []).length;
-  } catch(e) { console.warn('PMOC vencidos falhou:', e.message); }
-  if ($('dash-txt-pmoc-vencidos')) $('dash-txt-pmoc-vencidos').textContent = pmocVencidos;
-  if ($('dash-sub-pmoc-vencidos')) {
-    $('dash-sub-pmoc-vencidos').textContent = pmocVencidos > 0 ? 'Ação imediata necessária' : 'Todos em dia';
-    $('dash-sub-pmoc-vencidos').style.color = pmocVencidos > 0 ? '#ef4444' : '#10b981';
+  // Gráfico 1 — Volumetria OS (view com fallback)
+  let volOS = null;
+  const { data: volOSView, error: erroVol } = await db.from('vw_dashboard_volumetria_os').select('*');
+  if (!erroVol && volOSView) {
+    volOS = volOSView;
+  } else {
+    try {
+      const [r1, r2] = await Promise.allSettled([
+        db.from('ordens_servico').select('status_os'),
+        db.from('ordens_servico_geral').select('status_os'),
+      ]);
+      const osAC  = r1.status === 'fulfilled' ? (r1.value?.data || []) : [];
+      const osFac = r2.status === 'fulfilled' ? (r2.value?.data || []) : [];
+      const map = {};
+      [...osAC, ...osFac].forEach(o => { map[o.status_os] = (map[o.status_os]||0)+1; });
+      volOS = Object.entries(map).map(([status_os,total]) => ({ status_os, total }));
+    } catch(e) { console.warn('Fallback volOS falhou:', e.message); volOS = []; }
   }
-
-  // KPI: sub-texto de ativos e PMOC
-  const totalAtivos = Number(r.total_ativos || 0);
-  const totalPmocs  = Number(r.total_pmocs  || 0);
-  const cobPct = totalAtivos > 0 ? Math.round((totalPmocs / totalAtivos) * 100) : 0;
-  if ($('dash-sub-pmoc')) $('dash-sub-pmoc').textContent = `${cobPct}% de cobertura`;
-
-  // ── 3. Inventário de gás refrigerante ─────────────────────────────────
-  const gasMap = {}; // tipo → { qtdEq, totalKg }
-  let gasMaxKg = 0;
-  eqAll.filter(e => e.categoria === 'AC').forEach(e => {
-    const ex  = e.extras_tecnico || {};
-    const gas = ex.gas || '';
-    if (!gas) return;
-    const kg  = _parseKg(ex['gas-qtd'] || '');
-    if (!gasMap[gas]) gasMap[gas] = { qtdEq:0, totalKg:0 };
-    gasMap[gas].qtdEq++;
-    gasMap[gas].totalKg += kg;
-    if (gasMap[gas].totalKg > gasMaxKg) gasMaxKg = gasMap[gas].totalKg;
-  });
-  const gasOrdenado = Object.entries(gasMap).sort((a,b) => b[1].totalKg - a[1].totalKg);
-  const gasTotal    = gasOrdenado.reduce((s,[,v]) => s + v.totalKg, 0);
-
-  const gasLista = $('dash-gas-lista');
-  if (gasLista) {
-    if (!gasOrdenado.length) {
-      gasLista.innerHTML = '<p style="color:#a0aec0;font-size:13px;">Nenhum equipamento com gás cadastrado.</p>';
-    } else {
-      gasLista.innerHTML = gasOrdenado.map(([tipo, v]) => {
-        const cor  = DASH_CORES_GAS[tipo] || '#888780';
-        const pct  = gasMaxKg > 0 ? (v.totalKg / gasMaxKg) * 100 : 0;
-        const kgFmt = v.totalKg > 0 ? v.totalKg.toFixed(1) + ' kg' : '—';
-        return `<div>
-          <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="width:10px;height:10px;border-radius:2px;background:${cor};flex-shrink:0;display:inline-block;"></span>
-              <span style="color:#4a5568;">${escapeHTML(tipo)}</span>
-              <span style="font-size:11px;background:#e0f2fe;color:#0369a1;border-radius:999px;padding:1px 8px;">${v.qtdEq} equip.</span>
-            </div>
-            <strong style="color:#1a202c;">${kgFmt}</strong>
-          </div>
-          ${_dashBarra(pct, cor)}
-        </div>`;
-      }).join('');
-    }
-  }
-  if ($('dash-gas-total')) {
-    $('dash-gas-total').textContent = gasTotal > 0 ? gasTotal.toFixed(1) + ' kg' : '—';
-  }
-
-  // ── 4. Distribuição por categoria ──────────────────────────────────────
-  const catMap = {}; // cat → count
-  let classeA = 0;
-  eqAll.forEach(e => {
-    const c = e.categoria || 'OUT';
-    catMap[c] = (catMap[c] || 0) + 1;
-    if (e.criticidade === 'Alta') classeA++;
-  });
-  const catOrdenado = Object.entries(catMap).sort((a,b) => b[1]-a[1]);
-  const catMax = catOrdenado[0]?.[1] || 1;
-
-  const catLista = $('dash-cat-lista');
-  if (catLista) {
-    catLista.innerHTML = catOrdenado.map(([cat, cnt]) => {
-      const cor  = DASH_CORES_CAT[cat] || '#888780';
-      const lbl  = DASH_LABEL_CAT[cat] || cat;
-      const pct  = (cnt / catMax) * 100;
-      return `<div>
-        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px;">
-          <span style="color:#4a5568;">${lbl}</span>
-          <strong style="color:#1a202c;">${cnt}</strong>
-        </div>
-        ${_dashBarra(pct, cor)}
-      </div>`;
-    }).join('');
-  }
-  if ($('dash-txt-classe-a')) $('dash-txt-classe-a').textContent = classeA + ' ativos';
-
-  // ── 5. Gráfico donut — Status O.S. ─────────────────────────────────────
-  let volOS = [];
-  try {
-    const [r1, r2] = await Promise.allSettled([
-      db.from('ordens_servico').select('status_os'),
-      db.from('ordens_servico_geral').select('status_os'),
-    ]);
-    const osAC  = r1.status === 'fulfilled' ? (r1.value?.data || []) : [];
-    const osFac = r2.status === 'fulfilled' ? (r2.value?.data || []) : [];
-    const map = {};
-    [...osAC, ...osFac].forEach(o => { map[o.status_os] = (map[o.status_os]||0)+1; });
-    volOS = Object.entries(map).map(([status_os,total]) => ({ status_os, total }));
-  } catch(e) { console.warn('volOS falhou:', e.message); }
-
-  if ($('chartStatusOS')) {
+  if ($('chartStatusOS') && volOS) {
     const cnt = { Aberta:0, 'Em Andamento':0, Concluida:0 };
     volOS.forEach(row => {
-      if (row.status_os === 'Aberta')            cnt.Aberta          += Number(row.total);
-      else if (row.status_os === 'Em Andamento') cnt['Em Andamento'] += Number(row.total);
-      else if (row.status_os === 'Concluída')    cnt.Concluida       += Number(row.total);
+      if (row.status_os === 'Aberta')            cnt.Aberta            += Number(row.total);
+      else if (row.status_os === 'Em Andamento') cnt['Em Andamento']   += Number(row.total);
+      else if (row.status_os === 'Concluída')    cnt.Concluida         += Number(row.total);
     });
     if (chartOS) chartOS.destroy();
     chartOS = new Chart($('chartStatusOS'), {
       type: 'doughnut',
-      data: {
-        labels: ['Aberta / Pendente','Em Andamento','Concluída'],
-        datasets: [{
-          data: [cnt.Aberta, cnt['Em Andamento'], cnt.Concluida],
-          backgroundColor: ['#eda100','#2a78d6','#1baf7a'],
-          borderColor: '#fff', borderWidth: 3, hoverOffset: 8,
-        }],
-      },
-      options: {
-        ...CHART_DEFAULTS, cutout:'62%',
-        plugins:{
-          legend:{ display:false },
-          tooltip:{ callbacks:{ label: c => ` ${c.label}: ${c.parsed} O.S.` } },
-        },
-      },
+      data: { labels:['Aberta / Pendente','Em Andamento','Concluída'], datasets:[{ data:[cnt.Aberta,cnt['Em Andamento'],cnt.Concluida], backgroundColor:['#f59e0b','#3b82f6','#10b981'], borderColor:'#fff', borderWidth:3, hoverOffset:8 }] },
+      options: { ...CHART_DEFAULTS, cutout:'62%', plugins:{ legend:{ position:'bottom', labels:{ padding:16, font:{ size:13 }, usePointStyle:true } }, tooltip:{ callbacks:{ label: c => ` ${c.label}: ${c.parsed} O.S.` } } } },
     });
-    // Legenda customizada abaixo do donut
-    const canvasParent = $('chartStatusOS').parentElement;
-    let leg = canvasParent.querySelector('.dash-chart-legend');
-    if (!leg) { leg = document.createElement('div'); leg.className = 'dash-chart-legend'; canvasParent.appendChild(leg); }
-    leg.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px 16px;justify-content:center;margin-top:12px;font-size:12px;';
-    const labels = ['Aberta / Pendente','Em Andamento','Concluída'];
-    const cores  = ['#eda100','#2a78d6','#1baf7a'];
-    const vals   = [cnt.Aberta, cnt['Em Andamento'], cnt.Concluida];
-    leg.innerHTML = labels.map((l,i) =>
-      `<span style="display:flex;align-items:center;gap:5px;color:#4a5568;">
-        <span style="width:10px;height:10px;border-radius:2px;background:${cores[i]};display:inline-block;"></span>
-        ${l}: <strong style="color:#1a202c;">${vals[i]}</strong>
-      </span>`).join('');
   }
 
-  // ── 6. Conformidade filtros — bebedouros ────────────────────────────────
-  const bebs = eqAll.filter(e => e.categoria === 'BEB');
-  const totalBeb  = bebs.length;
-  let bebFiltroOk = 0, bebLacreOk = 0, bebFiltroVenc = 0;
-  bebs.forEach(e => {
-    const ex = e.extras_tecnico || {};
-    if (e.validade) {
-      const dt = new Date(e.validade + 'T00:00:00');
-      if (dt >= hoje) bebFiltroOk++; else bebFiltroVenc++;
-    }
-    if ((ex['lacre-beb'] || '').toLowerCase() === 'sim') bebLacreOk++;
-  });
-
-  const bebEl = $('dash-beb-conformidade');
-  if (bebEl) {
-    if (totalBeb === 0) {
-      bebEl.innerHTML = '<p style="color:#a0aec0;font-size:13px;">Nenhum bebedouro cadastrado.</p>';
-    } else {
-      const _bRow = (icon, cor, label, ok, total) => {
-        const pct = total > 0 ? (ok / total) * 100 : 0;
-        return `<div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:30px;height:30px;border-radius:50%;background:#ebf4ff;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">${icon}</div>
-          <div style="flex:1;">
-            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
-              <span style="color:#4a5568;">${label}</span>
-              <strong style="color:${cor};">${ok}/${total}</strong>
-            </div>
-            ${_dashBarra(pct, cor)}
-          </div>
-        </div>`;
-      };
-      bebEl.innerHTML = [
-        _bRow('✅','#1baf7a','Filtro dentro do prazo', bebFiltroOk,  totalBeb),
-        _bRow('🔒','#2a78d6','Lacre sanitário ativo',  bebLacreOk,  totalBeb),
-        _bRow('⚠️','#ef4444','Filtro vencido',          bebFiltroVenc, totalBeb),
-      ].join('');
-    }
+  // Gráfico 2 — Criticidade (view com fallback)
+  let critData = null;
+  const { data: critView, error: erroCrit } = await db.from('vw_dashboard_criticidade').select('*');
+  if (!erroCrit && critView) {
+    critData = critView;
+  } else {
+    try {
+      const { data: eqCrit } = await db.from('equipamentos').select('criticidade');
+      const map = {};
+      (eqCrit||[]).forEach(e => { map[e.criticidade||'Média'] = (map[e.criticidade||'Média']||0)+1; });
+      critData = Object.entries(map).map(([criticidade,total]) => ({ criticidade, total }));
+    } catch(e) { console.warn('Fallback critData falhou:', e.message); critData = []; }
   }
-
-  // ── 7. Gráfico barras empilhadas — Cobertura PMOC por categoria ─────────
-  let pmocPorCat = {};
-  try {
-    const { data: fichasCat } = await db.from('fichas_pmoc')
-      .select('equipamentos(categoria)');
-    (fichasCat||[]).forEach(f => {
-      const c = f.equipamentos?.categoria || 'OUT';
-      pmocPorCat[c] = (pmocPorCat[c] || 0) + 1;
+  if ($('chartCriticidade') && critData) {
+    const cnt = { Alta:0, Media:0, Baixa:0 };
+    critData.forEach(row => {
+      if (row.criticidade === 'Alta')       cnt.Alta  += Number(row.total);
+      else if (row.criticidade === 'Média') cnt.Media += Number(row.total);
+      else if (row.criticidade === 'Baixa') cnt.Baixa += Number(row.total);
     });
-  } catch(e) { console.warn('PMOC por cat falhou:', e.message); }
-
-  if ($('chartPMOC')) {
-    const cats   = ['AC','BEB','CLIM','VEN'];
-    const comPmoc = cats.map(c => pmocPorCat[c] || 0);
-    const semPmoc = cats.map((c,i) => Math.max(0, (catMap[c] || 0) - comPmoc[i]));
     if (chartCrit) chartCrit.destroy();
-    chartCrit = new Chart($('chartPMOC'), {
+    chartCrit = new Chart($('chartCriticidade'), {
       type: 'bar',
-      data: {
-        labels: ['AC','BEB','CLIM','VEN'],
-        datasets: [
-          { label:'Com PMOC', data:comPmoc, backgroundColor:'#2a78d6', borderRadius:4, borderSkipped:false },
-          { label:'Sem PMOC', data:semPmoc, backgroundColor:'#e2e8f0', borderRadius:4, borderSkipped:false },
-        ],
-      },
-      options: {
-        ...CHART_DEFAULTS,
-        plugins:{
-          legend:{ display:false },
-          tooltip:{ callbacks:{ label: c => ` ${c.dataset.label}: ${c.parsed.y}` } },
-        },
-        scales:{
-          x:{ stacked:true, grid:{ display:false }, ticks:{ font:{ size:12 } } },
-          y:{ stacked:true, beginAtZero:true, grid:{ color:'rgba(0,0,0,.05)' }, ticks:{ stepSize:5, font:{ size:12 } } },
-        },
-      },
+      data: { labels:['Alta (A)','Média (B)','Baixa (C)'], datasets:[{ data:[cnt.Alta,cnt.Media,cnt.Baixa], backgroundColor:['rgba(239,68,68,.85)','rgba(245,158,11,.85)','rgba(16,185,129,.85)'], borderColor:['#ef4444','#f59e0b','#10b981'], borderWidth:2, borderRadius:6, borderSkipped:false }] },
+      options: { ...CHART_DEFAULTS, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: c => ` ${c.parsed.y} ativo(s)` } } }, scales:{ y:{ beginAtZero:true, ticks:{ stepSize:1, font:{ size:12 } }, grid:{ color:'rgba(0,0,0,.05)' } }, x:{ ticks:{ font:{ size:12 } }, grid:{ display:false } } } },
     });
   }
 
-  // ── 8. Logs recentes ────────────────────────────────────────────────────
-  let logs = [];
-  try {
-    const [r1, r2] = await Promise.allSettled([
-      db.from('ordens_servico').select('created_at,status_os,tipo_os,equipamentos(tag)').order('created_at',{ascending:false}).limit(5),
-      db.from('ordens_servico_geral').select('created_at,status_os,servico_requisitado,setor').order('created_at',{ascending:false}).limit(5),
-    ]);
-    const logsAC  = r1.status === 'fulfilled' ? (r1.value?.data || []) : [];
-    const logsFac = r2.status === 'fulfilled' ? (r2.value?.data || []) : [];
-    logs = [
-      ...logsAC.map(l  => ({ data:l.created_at, status:l.status_os, desc:l.tipo_os||'—', ref:l.equipamentos?.tag||'—', origem:'❄️' })),
-      ...logsFac.map(l => ({ data:l.created_at, status:l.status_os, desc:l.servico_requisitado||'—', ref:l.setor||'—', origem:'🏢' })),
-    ].sort((a,b) => new Date(b.data)-new Date(a.data)).slice(0,8);
-  } catch(e) { console.warn('Logs dashboard falhou:', e.message); }
+  // Gráfico 3 — Facilities (view com fallback)
+  let facData = null;
+  const { data: facView, error: erroFac } = await db.from('vw_dashboard_facilities').select('*');
+  if (!erroFac && facView) {
+    facData = facView;
+  } else {
+    try {
+      const { data: osFac } = await db.from('ordens_servico_geral').select('status_os');
+      const map = {};
+      (osFac||[]).forEach(o => { map[o.status_os] = (map[o.status_os]||0)+1; });
+      facData = Object.entries(map).map(([status_os,total]) => ({ status_os, total }));
+    } catch(e) { console.warn('Fallback facData falhou:', e.message); facData = []; }
+  }
+  if ($('chartStatusOSG') && facData) {
+    const cnt = { Aberta:0, 'Em Andamento':0, Concluida:0 };
+    facData.forEach(row => {
+      if (row.status_os === 'Aberta')            cnt.Aberta          += Number(row.total);
+      else if (row.status_os === 'Em Andamento') cnt['Em Andamento'] += Number(row.total);
+      else if (row.status_os === 'Concluída')    cnt.Concluida       += Number(row.total);
+    });
+    if (chartOSG) chartOSG.destroy();
+    chartOSG = new Chart($('chartStatusOSG'), {
+      type: 'bar',
+      data: { labels:['Aberta','Em Andamento','Concluída'], datasets:[{ data:[cnt.Aberta,cnt['Em Andamento'],cnt.Concluida], backgroundColor:['rgba(245,158,11,.85)','rgba(139,92,246,.85)','rgba(16,185,129,.85)'], borderColor:['#f59e0b','#8b5cf6','#10b981'], borderWidth:2, borderRadius:6, borderSkipped:false }] },
+      options: { ...CHART_DEFAULTS, indexAxis:'y', plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: c => ` ${c.parsed.x} O.S.` } } }, scales:{ x:{ beginAtZero:true, ticks:{ stepSize:1, font:{ size:12 } }, grid:{ color:'rgba(0,0,0,.05)' } }, y:{ ticks:{ font:{ size:13 } }, grid:{ display:false } } } },
+    });
+  }
 
+  // Logs recentes (view com fallback)
+  let logs = null;
+  const { data: logsView, error: erroLogs } = await db.from('vw_dashboard_logs_recentes').select('*').limit(8);
+  if (!erroLogs && logsView) {
+    logs = logsView;
+  } else {
+    try {
+      const [r1, r2] = await Promise.allSettled([
+        db.from('ordens_servico').select('created_at,status_os,tipo_os,equipamentos(tag)').order('created_at',{ascending:false}).limit(5),
+        db.from('ordens_servico_geral').select('created_at,status_os,servico_requisitado,setor').order('created_at',{ascending:false}).limit(5),
+      ]);
+      const logsAC  = r1.status === 'fulfilled' ? (r1.value?.data || []) : [];
+      const logsFac = r2.status === 'fulfilled' ? (r2.value?.data || []) : [];
+      logs = [
+        ...logsAC.map(l =>({ data:l.created_at, status:l.status_os, desc:l.tipo_os||'—', ref:l.equipamentos?.tag||'—', origem:'❄️' })),
+        ...logsFac.map(l=>({ data:l.created_at, status:l.status_os, desc:l.servico_requisitado||'—', ref:l.setor||'—', origem:'🏢' })),
+      ].sort((a,b)=>new Date(b.data)-new Date(a.data)).slice(0,8);
+    } catch(e) { console.warn('Fallback logs falhou:', e.message); logs = []; }
+  }
   const el = $('dash-atividades');
-  if (el) {
+  if (el && logs) {
     el.innerHTML = logs.length ? logs.map(l =>
       `<div style="padding:8px 0;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <span style="font-size:10px;color:#a0aec0;min-width:70px;">${fmtDate(l.data)}</span>
@@ -2973,8 +2374,7 @@ async function renderizarGraficosDashboard() {
         <strong style="font-size:13px;">${escapeHTML(l.ref)}</strong>
         <span style="color:#4a5568;font-size:12px;flex:1;">${escapeHTML(l.desc)}</span>
         ${statusBadge(l.status)}
-      </div>`).join('')
-      : '<p style="color:#a0aec0;">Nenhum registro encontrado.</p>';
+      </div>`).join('') : '<p style="color:#a0aec0;">Nenhum registro encontrado.</p>';
   }
 }
 
