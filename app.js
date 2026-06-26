@@ -2378,6 +2378,222 @@ async function renderizarGraficosDashboard() {
   }
 }
 
+// ===================== DASHBOARD — KPIs EXTRAS (Filtros a Vencer / PMOC Vencidos) =====================
+async function carregarKPIsExtras() {
+  const elFiltros = $('dash-txt-filtros-vencer');
+  const elPmoc    = $('dash-txt-pmoc-vencidos');
+  if (!elFiltros && !elPmoc) return;
+
+  const hj    = new Date(); hj.setHours(0,0,0,0);
+  const em30  = new Date(hj); em30.setDate(em30.getDate() + 30);
+  const hjStr = hj.toISOString().split('T')[0];
+  const e30Str = em30.toISOString().split('T')[0];
+
+  const [{ data: bebs }, { data: pmocs }] = await Promise.all([
+    db.from('equipamentos').select('validade').eq('categoria','BEB').not('validade','is',null).lte('validade', e30Str),
+    db.from('fichas_pmoc').select('proxima_manutencao').not('proxima_manutencao','is',null).lt('proxima_manutencao', hjStr),
+  ]);
+
+  if (elFiltros) elFiltros.textContent = (bebs||[]).length;
+  if (elPmoc)    elPmoc.textContent    = (pmocs||[]).length;
+}
+
+// ===================== DASHBOARD — INVENTÁRIO DE GÁS REFRIGERANTE =====================
+async function carregarInventarioGas() {
+  const el    = $('dash-inv-gas');
+  const elTot = $('dash-gas-total');
+  if (!el) return;
+
+  const { data: eqs } = await db.from('equipamentos').select('extras_tecnico').eq('categoria','AC');
+  const mapa = {};
+  let totalKg = 0;
+
+  (eqs||[]).forEach(e => {
+    const extras = (typeof e.extras_tecnico === 'string')
+      ? (() => { try { return JSON.parse(e.extras_tecnico); } catch(x) { return {}; } })()
+      : (e.extras_tecnico || {});
+    const tipo = extras['gas'] || null;
+    const qtd  = parseFloat((extras['gas-qtd'] || '0').toString().replace(',','.')) || 0;
+    if (tipo) {
+      mapa[tipo] = (mapa[tipo] || { qtd: 0, count: 0 });
+      mapa[tipo].qtd   += qtd;
+      mapa[tipo].count += 1;
+    }
+    totalKg += qtd;
+  });
+
+  const cores = ['#1e3a5f','#4169e1','#0ea5e9','#7c3aed','#059669','#f59e0b'];
+  const tipos = Object.entries(mapa).sort((a,b) => b[1].qtd - a[1].qtd);
+
+  if (!tipos.length) {
+    el.innerHTML = '<span style="color:#a0aec0;">Nenhum equipamento com gás cadastrado.</span>';
+    if (elTot) elTot.textContent = '— kg';
+    return;
+  }
+
+  el.innerHTML = tipos.map(([tipo, v], i) => {
+    const cor = cores[i % cores.length];
+    const pct = totalKg > 0 ? Math.round((v.qtd / totalKg) * 100) : 0;
+    return `
+      <div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span style="font-size:12px;font-weight:600;color:#2d3748;">${tipo}</span>
+          <span style="font-size:12px;color:#718096;">${v.qtd.toFixed(2)} kg · ${v.count} equip.</span>
+        </div>
+        <div style="background:#e2e8f0;border-radius:4px;height:8px;overflow:hidden;">
+          <div style="width:${pct}%;background:${cor};height:100%;border-radius:4px;transition:width .4s;"></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  if (elTot) elTot.textContent = totalKg > 0 ? `${totalKg.toFixed(2)} kg` : '— kg';
+}
+
+// ===================== DASHBOARD — DISTRIBUIÇÃO POR CATEGORIA =====================
+async function carregarDistribuicaoCategoria() {
+  const el       = $('dash-dist-cat');
+  const elCrit   = $('dash-cat-criticos');
+  if (!el) return;
+
+  const { data: eqs } = await db.from('equipamentos').select('categoria,criticidade');
+  const mapa  = {};
+  let criticos = 0;
+
+  (eqs||[]).forEach(e => {
+    const cat = e.categoria || 'OUT';
+    mapa[cat] = (mapa[cat] || 0) + 1;
+    if (e.criticidade === 'Alta') criticos++;
+  });
+
+  const LABEL = { AC:'❄️ Ar Condicionado', BEB:'💧 Bebedouro', CLIM:'🌀 Climatizador', VEN:'💨 Ventilador/Exaustor', OUT:'🔧 Outros' };
+  const total = (eqs||[]).length;
+  const ordem = ['AC','BEB','CLIM','VEN','OUT'];
+  const cores  = { AC:'#4169e1', BEB:'#0ea5e9', CLIM:'#7c3aed', VEN:'#059669', OUT:'#a0aec0' };
+
+  if (!total) {
+    el.innerHTML = '<span style="color:#a0aec0;">Nenhum ativo cadastrado.</span>';
+    return;
+  }
+
+  el.innerHTML = ordem.filter(c => mapa[c]).map(cat => {
+    const n   = mapa[cat] || 0;
+    const pct = Math.round((n / total) * 100);
+    const cor = cores[cat] || '#a0aec0';
+    return `
+      <div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span style="font-size:12px;font-weight:600;color:#2d3748;">${LABEL[cat] || cat}</span>
+          <span style="font-size:12px;color:#718096;">${n} · ${pct}%</span>
+        </div>
+        <div style="background:#e2e8f0;border-radius:4px;height:8px;overflow:hidden;">
+          <div style="width:${pct}%;background:${cor};height:100%;border-radius:4px;"></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  if (elCrit) elCrit.textContent = `${criticos} ativo${criticos !== 1 ? 's' : ''}`;
+}
+
+// ===================== DASHBOARD — CONFORMIDADE DE FILTROS (Bebedouros) =====================
+async function carregarConformidadeFiltros() {
+  const el = $('dash-conf-filtros');
+  if (!el) return;
+
+  const hj = new Date(); hj.setHours(0,0,0,0);
+  const { data: bebs } = await db.from('equipamentos').select('tag,validade,bloco').eq('categoria','BEB');
+
+  if (!bebs || !bebs.length) {
+    el.innerHTML = '<span style="color:#a0aec0;">Nenhum bebedouro cadastrado.</span>';
+    return;
+  }
+
+  let ok = 0, vencer = 0, vencido = 0, semData = 0;
+  bebs.forEach(b => {
+    if (!b.validade) { semData++; return; }
+    const dt   = new Date(b.validade + 'T00:00:00');
+    const diff = Math.ceil((dt - hj) / (1000*60*60*24));
+    if (diff < 0)      vencido++;
+    else if (diff <= 30) vencer++;
+    else                 ok++;
+  });
+
+  const total = bebs.length;
+  const pctOk = Math.round((ok / total) * 100);
+
+  el.innerHTML = `
+    <div style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:13px;font-weight:700;color:#059669;">✅ No prazo</span>
+        <span style="font-size:13px;font-weight:700;color:#059669;">${ok}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:13px;font-weight:600;color:#f59e0b;">⚠️ Vence em 30 dias</span>
+        <span style="font-size:13px;font-weight:700;color:#f59e0b;">${vencer}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:13px;font-weight:600;color:#ef4444;">🚨 Vencido</span>
+        <span style="font-size:13px;font-weight:700;color:#ef4444;">${vencido}</span>
+      </div>
+      ${semData ? `<div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:12px;color:#a0aec0;">Sem data cadastrada</span><span style="font-size:12px;color:#a0aec0;">${semData}</span></div>` : ''}
+    </div>
+    <div style="background:#e2e8f0;border-radius:6px;height:10px;overflow:hidden;margin-top:8px;">
+      <div style="width:${pctOk}%;background:#10b981;height:100%;border-radius:6px;transition:width .4s;"></div>
+    </div>
+    <p style="font-size:11px;color:#718096;margin:6px 0 0;text-align:right;">${pctOk}% em conformidade (${total} bebedouros)</p>`;
+}
+
+// ===================== DASHBOARD — COBERTURA PMOC POR CATEGORIA =====================
+async function carregarCoberturaPMOC() {
+  const el = $('dash-cob-pmoc');
+  if (!el) return;
+
+  const [{ data: eqs }, { data: fichas }] = await Promise.all([
+    db.from('equipamentos').select('id,categoria'),
+    db.from('fichas_pmoc').select('equipamento_id'),
+  ]);
+
+  if (!eqs || !eqs.length) {
+    el.innerHTML = '<span style="color:#a0aec0;">Nenhum ativo cadastrado.</span>';
+    return;
+  }
+
+  const comFicha = new Set((fichas||[]).map(f => String(f.equipamento_id)));
+  const LABEL = { AC:'❄️ AC', BEB:'💧 BEB', CLIM:'🌀 CLM', VEN:'💨 VEN', OUT:'🔧 OUT' };
+  const cores  = { AC:'#4169e1', BEB:'#0ea5e9', CLIM:'#7c3aed', VEN:'#059669', OUT:'#a0aec0' };
+  const mapa   = {};
+
+  eqs.forEach(e => {
+    const cat = e.categoria || 'OUT';
+    if (!mapa[cat]) mapa[cat] = { total: 0, com: 0 };
+    mapa[cat].total++;
+    if (comFicha.has(String(e.id))) mapa[cat].com++;
+  });
+
+  const totalGeral = eqs.length;
+  const comGeral   = eqs.filter(e => comFicha.has(String(e.id))).length;
+  const pctGeral   = Math.round((comGeral / totalGeral) * 100);
+
+  el.innerHTML = `
+    <div style="text-align:center;margin-bottom:14px;">
+      <span style="font-size:28px;font-weight:800;color:#1e3a5f;">${pctGeral}%</span>
+      <p style="font-size:11px;color:#718096;margin:2px 0 0;">cobertura geral (${comGeral}/${totalGeral})</p>
+    </div>
+    ${Object.entries(mapa).sort((a,b) => b[1].total - a[1].total).map(([cat, v]) => {
+      const pct = Math.round((v.com / v.total) * 100);
+      const cor = cores[cat] || '#a0aec0';
+      return `
+        <div style="margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:11px;font-weight:600;color:#4a5568;">${LABEL[cat]||cat}</span>
+            <span style="font-size:11px;color:#718096;">${v.com}/${v.total} · ${pct}%</span>
+          </div>
+          <div style="background:#e2e8f0;border-radius:4px;height:6px;overflow:hidden;">
+            <div style="width:${pct}%;background:${cor};height:100%;border-radius:4px;"></div>
+          </div>
+        </div>`;
+    }).join('')}`;
+}
+
 async function carregarAgendaManutencoes() {
   const tbody = $('tbody-agenda-pmoc'); if (!tbody) return;
   const { data } = await db.from('fichas_pmoc')
