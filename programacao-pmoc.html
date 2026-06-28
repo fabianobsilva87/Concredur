@@ -198,6 +198,10 @@
     .btn-modal-save { padding: 8px 20px; background: #4169e1; color: #fff; border: none; border-radius: var(--radius); font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
     .btn-modal-save:hover { background: #1e3a5f; }
     .btn-modal-cancel { padding: 8px 16px; background: var(--gray-100); color: var(--gray-600); border: 1px solid var(--gray-300); border-radius: var(--radius); font-size: 13px; cursor: pointer; font-family: inherit; }
+    .btn-modal-delete { padding: 8px 16px; background: #fff; color: #dc2626; border: 1px solid #fca5a5; border-radius: var(--radius); font-size: 13px; cursor: pointer; font-family: inherit; margin-right: auto; }
+    .btn-modal-delete:hover { background: #fee2e2; border-color: #dc2626; }
+    .btn-modal-delete.confirmar { background: #dc2626; color: #fff; border-color: #dc2626; }
+    .btn-modal-delete.confirmar:hover { background: #b91c1c; }
 
     /* Legenda */
     .prog-legend { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; font-size: 11.5px; }
@@ -459,6 +463,7 @@
       </div>
     </div>
     <div class="prog-modal-footer">
+      <button class="btn-modal-delete" id="btn-modal-delete" style="display:none;" onclick="excluirRegistro()">🗑️ Excluir registro</button>
       <button class="btn-modal-cancel" onclick="fecharModal()">Cancelar</button>
       <button class="btn-modal-save" onclick="salvarRegistro()">💾 Salvar</button>
     </div>
@@ -681,6 +686,18 @@ function abrirModal(eqId, eqTag, periodoKey, periodoLabel) {
     fonteEl.style.display = 'none';
   }
 
+  // Botão excluir: visível apenas se houver registro manual na tabela programacao_pmoc
+  const btnDel = $('btn-modal-delete');
+  if (prog && prog.fonte === 'manual') {
+    btnDel.style.display = '';
+    btnDel.textContent = '🗑️ Excluir registro';
+    btnDel.classList.remove('confirmar');
+    _deleteConfirmando = false;
+  } else {
+    btnDel.style.display = 'none';
+    _deleteConfirmando = false;
+  }
+
   atualizarModalProxima();
   $('modal-data').addEventListener('change', atualizarModalProxima);
   $('modal-overlay').classList.add('open');
@@ -698,6 +715,43 @@ function atualizarModalProxima() {
 function fecharModal() {
   $('modal-overlay').classList.remove('open');
   _modalContext = null;
+  _deleteConfirmando = false;
+}
+
+let _deleteConfirmando = false;
+
+async function excluirRegistro() {
+  if (!_modalContext) return;
+  const { eqId, periodoKey, eqTag, periodoLabel } = _modalContext;
+
+  // Primeiro clique: pede confirmação
+  if (!_deleteConfirmando) {
+    _deleteConfirmando = true;
+    const btn = $('btn-modal-delete');
+    btn.textContent = '⚠️ Confirmar exclusão?';
+    btn.classList.add('confirmar');
+    return;
+  }
+
+  // Segundo clique: executa exclusão
+  const { error } = await db
+    .from('programacao_pmoc')
+    .delete()
+    .eq('equipamento_id', eqId)
+    .eq('periodo', periodoKey);
+
+  if (error) { toast('❌ Erro ao excluir: ' + error.message, true); return; }
+
+  // Remove do estado local
+  if (_programacoes[eqId]) {
+    delete _programacoes[eqId][periodoKey];
+    // Se não sobrou nenhum período, remove o equipamento do mapa
+    if (!Object.keys(_programacoes[eqId]).length) delete _programacoes[eqId];
+  }
+
+  fecharModal();
+  renderTabela();
+  toast(`🗑️ Registro ${periodoLabel} de ${eqTag} excluído.`);
 }
 
 async function salvarRegistro() {
