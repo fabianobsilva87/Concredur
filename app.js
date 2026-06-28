@@ -22,7 +22,7 @@ const LOGO_ETIQUETA = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAAA9CAY
 // ===================== ESTADO GLOBAL =====================
 let globalEquipamentos     = [];
 let paginaAtualEquipamento = 0;
-const itensPorPagina       = 8;
+let itensPorPagina         = 20;
 let chartOS = null, chartCrit = null, chartOSG = null;
 let modoRecuperacao = false;
 
@@ -631,6 +631,7 @@ function filtrarEquipamentos(delta) {
   }).join('');
 }
 function mudarPaginaEquipamento(d) { filtrarEquipamentos(d); }
+function alterarItensPorPagina(v) { itensPorPagina = parseInt(v) || 20; filtrarEquipamentos(0); }
 
 // Exporta os ativos (respeitando os filtros aplicados na tela) para um arquivo .xlsx
 // Emite um relatório geral (impressão/PDF), em formato paisagem, com todos os ativos
@@ -1267,7 +1268,7 @@ function _assinaturaImg(url, style) {
 const CHECKLIST_PMOC_DEFS = {
   AC: {
     mensal: [
-      ['bio_01', '[BIO-01] Bandeja de Condensados — Limpeza e Sanitizante'],
+      ['bio_01', '[BIO-01] Bandeja de Condensados — Limpeza e Pastilha Sanitizante'],
       ['bio_02', '[BIO-02] Rede de Drenagem — Desobstrução e Teste de Escoamento'],
       ['fil_01', '[FIL-01] Filtros de Ar (G4/F7/F9) — Higienização ou Substituição'],
       ['mec_01', '[MEC-01] Conjunto Ventilação — Ruídos, Coxins e Fixadores'],
