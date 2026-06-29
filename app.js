@@ -1431,77 +1431,83 @@ function montarSecoesChecklistPMOC(categoria, frequenciaPalavra, checklist) {
 // Cada grupo de periodicidade só ativa as colunas dos meses em que é executado.
 // Colunas inativas ficam com fundo cinza (não se aplica naquele mês).
 // Resultado: uma única tabela compacta por equipamento, ideal para impressão A4 paisagem.
-// Monta o checklist como blocos repetidos por ocorrência no ano.
-// Mensal: 12 blocos (Jan…Dez) | Trimestral: 4 (Jan/Abr/Jul/Out) | Semestral: 2 (Jan/Jul) | Anual: 1 (Jan).
-// Cada bloco tem: cabeçalho com mês + lista de itens + Status (C/NC/NA) + Visto Técnico + Visto Fiscal.
+// Checklist compacto para impressão em branco — máxima compacidade, mínimo de folhas.
+// Estrutura por periodicidade: uma tabela com colunas = meses ativos daquela periodicidade.
+// Cada célula de mês: C/NC/NA + data + tec (ultra-compacto).
+// Rodapé de cada bloco: linha de visto do técnico e do fiscal por visita.
 function montarChecklistEmBrancoHTML(categoria) {
   const defs = CHECKLIST_PMOC_DEFS[categoria] || CHECKLIST_PMOC_DEFS.OUT;
 
-  // Quais meses (índice 0=Jan) cada periodicidade ocorre
-  const OCORRENCIAS = {
-    mensal:     [0,1,2,3,4,5,6,7,8,9,10,11],
-    trimestral: [0,3,6,9],
-    semestral:  [0,6],
-    anual:      [0],
+  const CFG = {
+    mensal:     { meses:[0,1,2,3,4,5,6,7,8,9,10,11], bg:'#1e3a5f', badge:'M', label:'Mensal — 12 visitas/ano'                       },
+    trimestral: { meses:[0,3,6,9],                    bg:'#5b21b6', badge:'T', label:'Trimestral — 4 visitas/ano (Jan·Abr·Jul·Out)'  },
+    semestral:  { meses:[0,6],                        bg:'#0e7490', badge:'S', label:'Semestral — 2 visitas/ano (Jan·Jul)'            },
+    anual:      { meses:[0],                          bg:'#065f46', badge:'A', label:'Anual — 1 visita/ano (Janeiro)'                 },
   };
 
-  const CORES = {
-    mensal:     { bg:'#1a56db', badge:'M' },
-    trimestral: { bg:'#6d28d9', badge:'T' },
-    semestral:  { bg:'#0e7490', badge:'S' },
-    anual:      { bg:'#065f46', badge:'A' },
-  };
-
-  // Uma tabela por bloco (ocorrência do mês dentro da periodicidade)
-  function _blocoOcorrencia(cor, tituloPeriodicidade, nomeMes, itens) {
-    const linhas = itens.map(([codigo, label]) => `
-      <tr>
-        <td style="font-size:9px;padding:4px 8px;line-height:1.3;border:1px solid #e2e8f0;">${escapeHTML(label)}</td>
-        <td style="width:110px;text-align:center;border:1px solid #e2e8f0;padding:3px 4px;white-space:nowrap;">
-          <span style="font-size:9px;">☐ C &nbsp;☐ NC &nbsp;☐ NA</span>
-        </td>
-        <td style="width:90px;border:1px solid #e2e8f0;padding:2px 6px;vertical-align:bottom;">
-          <div style="border-bottom:1px solid #cbd5e0;height:24px;"></div>
-        </td>
-        <td style="width:90px;border:1px solid #e2e8f0;padding:2px 6px;vertical-align:bottom;">
-          <div style="border-bottom:1px solid #cbd5e0;height:24px;"></div>
-        </td>
-      </tr>`).join('');
-
-    return `
-    <div style="break-inside:avoid;page-break-inside:avoid;margin-top:8px;">
-      <table style="width:100%;border-collapse:collapse;font-size:9px;">
-        <thead>
-          <tr>
-            <th colspan="4" style="background:${cor.bg};color:#fff;padding:4px 8px;text-align:left;font-size:9px;">
-              <span style="background:rgba(255,255,255,.25);font-weight:700;padding:1px 7px;border-radius:3px;margin-right:6px;">${cor.badge}</span>
-              ${tituloPeriodicidade} &nbsp;—&nbsp; <strong>${nomeMes}</strong>
-            </th>
-          </tr>
-          <tr style="background:#f8fafc;">
-            <th style="text-align:left;padding:3px 8px;font-size:8.5px;font-weight:700;color:#4a5568;border:1px solid #e2e8f0;">Item Verificado</th>
-            <th style="width:110px;text-align:center;padding:3px 4px;font-size:8.5px;font-weight:700;color:#4a5568;border:1px solid #e2e8f0;">Status</th>
-            <th style="width:90px;text-align:center;padding:3px 4px;font-size:8.5px;font-weight:700;color:#4a5568;border:1px solid #e2e8f0;">Visto Técnico</th>
-            <th style="width:90px;text-align:center;padding:3px 4px;font-size:8.5px;font-weight:700;color:#4a5568;border:1px solid #e2e8f0;">Visto Fiscal</th>
-          </tr>
-        </thead>
-        <tbody>${linhas}</tbody>
-      </table>
-    </div>`;
+  // Célula de mês: C/NC/NA em 3 checkboxes microscópicos + linha data + linha tec
+  function _celMes(nomeMes) {
+    return `<th style="width:52px;min-width:44px;text-align:center;padding:2px 1px;
+                       border-left:1px solid rgba(255,255,255,.2);font-size:8px;font-weight:600;
+                       color:#fff;white-space:nowrap;">${nomeMes}</th>`;
+  }
+  function _celDado() {
+    return `<td style="width:52px;border:1px solid #dde3ea;padding:1px 2px;vertical-align:top;text-align:center;">
+      <div style="font-size:7px;color:#374151;white-space:nowrap;line-height:1.5;">☐C ☐NC ☐NA</div>
+      <div style="font-size:6.5px;color:#9ca3af;border-top:1px dotted #d1d5db;margin-top:1px;padding-top:1px;text-align:left;">Data:___________</div>
+      <div style="font-size:6.5px;color:#9ca3af;border-top:1px dotted #d1d5db;margin-top:1px;padding-top:1px;text-align:left;">Tec.:____________</div>
+    </td>`;
+  }
+  // Rodapé: visto técnico + fiscal por coluna de mês
+  function _rodape(n) {
+    const cels = Array.from({length: n}, () =>
+      `<td style="border:1px solid #dde3ea;padding:1px 2px;vertical-align:top;text-align:center;width:52px;">
+        <div style="font-size:6.5px;color:#9ca3af;text-align:left;">V.Tec:___________</div>
+        <div style="font-size:6.5px;color:#9ca3af;border-top:1px dotted #d1d5db;margin-top:1px;padding-top:1px;text-align:left;">V.Fis:____________</div>
+      </td>`
+    ).join('');
+    return `<tr>
+      <td style="border:1px solid #dde3ea;padding:2px 6px;font-size:7px;font-weight:700;
+                 color:#374151;background:#f9fafb;white-space:nowrap;">Visto / Assinatura</td>
+      ${cels}
+    </tr>`;
   }
 
   return CHECKLIST_PERIODICIDADE_INFO
     .filter(p => (defs[p.key] || []).length)
     .map(p => {
-      const cor    = CORES[p.key];
-      const itens  = defs[p.key];
-      const meses  = OCORRENCIAS[p.key];
+      const cfg   = CFG[p.key];
+      const itens = defs[p.key];
+      const nMes  = cfg.meses.length;
 
-      const blocos = meses.map(m =>
-        _blocoOcorrencia(cor, p.titulo, MESES_ABREV[m], itens)
+      const thMeses = cfg.meses.map(m => _celMes(MESES_ABREV[m])).join('');
+      const linhas  = itens.map(([, label]) =>
+        `<tr>
+          <td style="font-size:8px;padding:2px 6px;border:1px solid #dde3ea;line-height:1.25;">${escapeHTML(label)}</td>
+          ${Array.from({length: nMes}, _celDado).join('')}
+        </tr>`
       ).join('');
 
-      return blocos;
+      return `<div style="margin-top:6px;break-inside:avoid;page-break-inside:avoid;">
+        <div style="background:${cfg.bg};color:#fff;padding:3px 7px;font-size:8px;font-weight:700;
+                    display:flex;align-items:center;gap:6px;">
+          <span style="background:rgba(255,255,255,.22);padding:0 5px;border-radius:2px;font-weight:800;">${cfg.badge}</span>
+          ${cfg.label}
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:8px;table-layout:fixed;">
+          <thead>
+            <tr style="background:${cfg.bg}dd;">
+              <th style="text-align:left;padding:2px 6px;font-size:8px;font-weight:700;color:#fff;
+                         border:1px solid rgba(255,255,255,.2);">Item Verificado</th>
+              ${thMeses}
+            </tr>
+          </thead>
+          <tbody>
+            ${linhas}
+            ${_rodape(nMes)}
+          </tbody>
+        </table>
+      </div>`;
     }).join('');
 }
 
@@ -1610,82 +1616,62 @@ function montarLaudoAnualAgrupadoHTML(eq, ultimoDaLista) {
   return `
   <div class="laudo-wrapper${classeQ}">
 
-    <!-- CABEÇALHO — fundo azul igual ao XLSX -->
-    <div style="background:#1e3a5f;color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0;margin-bottom:0;">
-      <div style="display:flex;align-items:center;gap:14px;">
-        <img src="${LOGO_ETIQUETA}" alt="Logo" style="height:36px;width:auto;display:block;filter:brightness(0) invert(1);">
+    <!-- CABEÇALHO compacto -->
+    <div style="background:#1e3a5f;color:#fff;padding:6px 12px;display:flex;justify-content:space-between;align-items:center;border-radius:4px 4px 0 0;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <img src="${LOGO_ETIQUETA}" alt="Logo" style="height:26px;width:auto;display:block;filter:brightness(0) invert(1);">
         <div>
-          <div style="font-size:13px;font-weight:700;">Plano de Manutenção, Operação e Controle (PMOC)</div>
-          <div style="font-size:10px;opacity:.85;margin-top:2px;">Laudo para Preenchimento Manual — ${anoAtual}</div>
+          <div style="font-size:11px;font-weight:700;line-height:1.2;">Plano de Manutenção, Operação e Controle (PMOC)</div>
+          <div style="font-size:8.5px;opacity:.8;margin-top:1px;">Laudo para Preenchimento em Campo — ${anoAtual} &nbsp;·&nbsp; TAG: <strong>${escapeHTML(eq.tag)}</strong></div>
         </div>
       </div>
-      <div style="text-align:right;font-size:9px;opacity:.9;line-height:2;">
-        <div>Frequência: &nbsp;☐ Mensal &nbsp;☐ Trimestral &nbsp;☐ Semestral &nbsp;☐ Anual</div>
-      </div>
-    </div>
-
-    <!-- IDENTIFICAÇÃO DO ATIVO -->
-    <div class="laudo-section" style="border-top:3px solid #1e3a5f;margin-top:0;">
-      <div class="laudo-section-title" style="color:#1e3a5f;">Identificação do Ativo</div>
-      <div class="laudo-grid-3">
-        <div class="laudo-field"><label>TAG</label><span style="font-size:13px;font-weight:700;">${escapeHTML(eq.tag)}</span></div>
-        <div class="laudo-field"><label>Equipamento / Produto</label><span>${escapeHTML(eq.produto || categoria)}</span></div>
-        <div class="laudo-field"><label>Marca</label><span>${escapeHTML(eq.marca)}</span></div>
-        <div class="laudo-field"><label>Potência</label><span>${escapeHTML(eq.potencia || '—')}</span></div>
-        <div class="laudo-field"><label>Nº Série</label><span>${escapeHTML(eq.nr_serie)}</span></div>
-        <div class="laudo-field"><label>Patrimônio</label><span>${escapeHTML(eq.patrimonio)}</span></div>
-        <div class="laudo-field"><label>Bloco / Edificação</label><span>${escapeHTML(eq.bloco)}</span></div>
-        <div class="laudo-field"><label>Setor</label><span>${escapeHTML(eq.setor)}</span></div>
-        <div class="laudo-field"><label>Sala / Local</label><span>${escapeHTML(eq.sala)}</span></div>
+      <div style="font-size:8px;opacity:.9;white-space:nowrap;">
+        ☐ Mensal &nbsp;☐ Trimestral &nbsp;☐ Semestral &nbsp;☐ Anual
       </div>
     </div>
 
-    <!-- DADOS DA INSPEÇÃO (campos em branco para preenchimento em campo) -->
-    <div class="laudo-section">
-      <div class="laudo-section-title" style="color:#1e3a5f;">Dados da Inspeção (Preencher em Campo)</div>
-      <div class="laudo-grid-3">
-        <div class="laudo-field">
-          <label style="font-size:9px;color:#718096;">TÉCNICO RESPONSÁVEL</label>
-          <div style="border-bottom:1px solid #cbd5e0;min-height:22px;margin-top:4px;"></div>
-        </div>
-        <div class="laudo-field">
-          <label style="font-size:9px;color:#718096;">DATA DA INSPEÇÃO</label>
-          <div style="border-bottom:1px solid #cbd5e0;min-height:22px;margin-top:4px;"></div>
-        </div>
-        <div class="laudo-field">
-          <label style="font-size:9px;color:#718096;">FISCAL / VALIDADOR</label>
-          <div style="border-bottom:1px solid #cbd5e0;min-height:22px;margin-top:4px;"></div>
-        </div>
+    <!-- IDENTIFICAÇÃO DO ATIVO — compacto em 2 linhas -->
+    <div style="border:1px solid #e2e8f0;border-top:3px solid #1e3a5f;padding:5px 10px;background:#fafbfc;">
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:3px 14px;">
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">TAG</div><div style="font-size:10px;font-weight:700;color:#1e3a5f;">${escapeHTML(eq.tag)}</div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Equipamento</div><div style="font-size:9.5px;font-weight:600;">${escapeHTML(eq.produto || categoria)}</div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Marca</div><div style="font-size:9.5px;font-weight:600;">${escapeHTML(eq.marca)}</div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Nº Série</div><div style="font-size:9.5px;font-weight:600;">${escapeHTML(eq.nr_serie)}</div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Patrimônio</div><div style="font-size:9.5px;font-weight:600;">${escapeHTML(eq.patrimonio)}</div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Potência</div><div style="font-size:9.5px;font-weight:600;">${escapeHTML(eq.potencia || '—')}</div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Bloco</div><div style="font-size:9.5px;font-weight:600;">${escapeHTML(eq.bloco)}</div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Setor</div><div style="font-size:9.5px;font-weight:600;">${escapeHTML(eq.setor)}</div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Sala/Local</div><div style="font-size:9.5px;font-weight:600;">${escapeHTML(eq.sala)}</div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Técnico</div><div style="font-size:9px;border-bottom:1px solid #cbd5e0;min-height:16px;"></div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Data da Inspeção</div><div style="font-size:9px;border-bottom:1px solid #cbd5e0;min-height:16px;"></div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Fiscal/Validador</div><div style="font-size:9px;border-bottom:1px solid #cbd5e0;min-height:16px;"></div></div>
       </div>
     </div>
 
-    <!-- CHECKLIST — 12 meses integrados por periodicidade -->
-    <div class="laudo-section laudo-section-checklist" style="padding-bottom:6px;">
-      <div class="laudo-section-title" style="color:#1e3a5f;">Checklist de Manutenção — Agrupado por Periodicidade</div>
-      <p style="font-size:9.5px;color:#718096;margin:0 0 4px;">Cada grupo exibe apenas os meses em que a manutenção é executada. Células cinzas = não se aplica naquele mês. Preencha C / NC / NA + Data + Tec.</p>
+    <!-- CHECKLIST compacto -->
+    <div style="border:1px solid #e2e8f0;border-top:none;padding:4px 10px 6px;">
+      <div style="font-size:7.5px;font-weight:700;color:#1e3a5f;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px;padding-bottom:2px;border-bottom:1px solid #e2e8f0;">Checklist de Manutenção · Marque C / NC / NA · Registre Data e Técnico</div>
       ${checklistHTML}
     </div>
 
-    <!-- OBSERVAÇÕES TÉCNICAS -->
-    <div class="laudo-section">
-      <div class="laudo-section-title" style="color:#1e3a5f;">Observações Técnicas</div>
-      <div style="border:1px solid #e2e8f0;border-radius:4px;min-height:54px;"></div>
-    </div>
-
-    <!-- ASSINATURAS -->
-    <div class="laudo-section">
-      <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;padding-top:6px;">
-        <div class="laudo-assinatura-box" style="flex:1;min-width:160px;text-align:center;">
-          <div style="height:52px;border-bottom:1px solid #2d3748;"></div>
-          <div class="laudo-assinatura-linha">Técnico Executor</div>
+    <!-- OBSERVAÇÕES + ASSINATURAS compactos em bloco único -->
+    <div style="border:1px solid #e2e8f0;border-top:none;padding:4px 10px;">
+      <div style="display:flex;gap:12px;align-items:flex-start;">
+        <div style="flex:2;">
+          <div style="font-size:7px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Observações Técnicas</div>
+          <div style="border:1px solid #e2e8f0;height:32px;border-radius:2px;"></div>
         </div>
-        <div class="laudo-assinatura-box" style="flex:1;min-width:160px;text-align:center;">
-          <div style="height:52px;border-bottom:1px solid #2d3748;"></div>
-          <div class="laudo-assinatura-linha">Fiscal / Validador do Serviço</div>
+        <div style="flex:1;text-align:center;">
+          <div style="height:30px;border-bottom:1px solid #2d3748;"></div>
+          <div style="font-size:7.5px;color:#4a5568;margin-top:2px;">Técnico Executor</div>
         </div>
-        <div class="laudo-assinatura-box" style="flex:1;min-width:200px;text-align:center;">
-          <div style="height:52px;border-bottom:1px solid #2d3748;"></div>
-          <div class="laudo-assinatura-linha">Responsável Técnico — CREA / ART nº __________</div>
+        <div style="flex:1;text-align:center;">
+          <div style="height:30px;border-bottom:1px solid #2d3748;"></div>
+          <div style="font-size:7.5px;color:#4a5568;margin-top:2px;">Fiscal / Validador</div>
+        </div>
+        <div style="flex:1.4;text-align:center;">
+          <div style="height:30px;border-bottom:1px solid #2d3748;"></div>
+          <div style="font-size:7.5px;color:#4a5568;margin-top:2px;">Resp. Técnico — CREA / ART nº ________</div>
         </div>
       </div>
     </div>
@@ -2322,7 +2308,15 @@ function imprimir(areaId, html) {
   if (!win) { alert('Permita pop-ups para imprimir os laudos.'); return; }
   win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Univag — Impressão</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}@page{margin:10mm 12mm;size:A4 landscape}html,body{font-family:'Inter',Arial,sans-serif;font-size:12px;color:#1a202c;background:#fff}.laudo-wrapper{width:100%}.laudo-header{background:#1a56db;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0}.laudo-header h1{font-size:18px;font-weight:700}.laudo-header p{font-size:11px;margin-top:4px;opacity:.85}.laudo-header-meta{text-align:right;font-size:11px}.laudo-section{border:1px solid #e2e8f0;border-top:none;padding:12px 16px;break-inside:avoid;page-break-inside:avoid}.laudo-section:last-child{border-radius:0 0 6px 6px}.laudo-section-title{font-size:10px;font-weight:700;color:#1a56db;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0;break-after:avoid;page-break-after:avoid}.laudo-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}.laudo-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 16px}.laudo-field{margin-bottom:4px}.laudo-field label{font-size:9px;color:#718096;text-transform:uppercase;letter-spacing:.06em;display:block}.laudo-field span{font-size:12px;font-weight:600;color:#1a202c}.laudo-checklist-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table th{background:#1a56db;color:#fff;padding:5px 8px;text-align:left;font-size:10px}.laudo-checklist-table td{padding:4px 8px;border-bottom:1px solid #e2e8f0}.laudo-checklist-table tr{break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table tr:nth-child(even) td{background:#f8fafc}.ok{color:#059669;font-weight:700}.nok{color:#dc2626;font-weight:700}.na{color:#a0aec0}.laudo-assinatura-box{text-align:center;min-width:180px;break-inside:avoid;page-break-inside:avoid}.laudo-assinatura-linha{border-top:1px solid #1a202c;margin-top:8px;padding-top:4px;font-size:10px;color:#4a5568}img{max-width:100%;height:auto;display:block}.tag-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#e2e8f0;color:#2d3748}.tag-badge.success{background:#d1fae5;color:#065f46}.tag-badge.warning{background:#fef3c7;color:#92400e}.tag-badge.danger{background:#fee2e2;color:#991b1b}.tag-badge.andamento{background:#dbeafe;color:#1e40af}.laudo-field-em-branco{font-size:9px;color:#a0aec0;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px dotted #cbd5e0;padding-bottom:20px;}.laudo-pagebreak{break-after:page;page-break-after:always;}.laudo-checkbox-status{white-space:nowrap;font-size:11px;color:#4a5568;}.laudo-section-checklist{break-inside:auto !important;page-break-inside:auto !important;}.exec-label{font-size:6.5px;color:#b0b8c4;display:block;line-height:1.4;border-bottom:1px dotted #cbd5e0;padding-bottom:8px;margin-bottom:1px;}
+  <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}@page{margin:6mm 8mm;size:A4 landscape}html,body{font-family:'Inter',Arial,sans-serif;font-size:12px;color:#1a202c;background:#fff}.laudo-wrapper{width:100%}.laudo-header{background:#1a56db;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0}.laudo-header h1{font-size:18px;font-weight:700}.laudo-header p{font-size:11px;margin-top:4px;opacity:.85}.laudo-header-meta{text-align:right;font-size:11px}.laudo-section{border:1px solid #e2e8f0;border-top:none;padding:12px 16px;break-inside:avoid;page-break-inside:avoid}.laudo-section:last-child{border-radius:0 0 6px 6px}.laudo-section-title{font-size:10px;font-weight:700;color:#1a56db;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0;break-after:avoid;page-break-after:avoid}.laudo-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}.laudo-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 16px}.laudo-field{margin-bottom:4px}.laudo-field label{font-size:9px;color:#718096;text-transform:uppercase;letter-spacing:.06em;display:block}.laudo-field span{font-size:12px;font-weight:600;color:#1a202c}.laudo-checklist-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table th{background:#1a56db;color:#fff;padding:5px 8px;text-align:left;font-size:10px}.laudo-checklist-table td{padding:4px 8px;border-bottom:1px solid #e2e8f0}.laudo-checklist-table tr{break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table tr:nth-child(even) td{background:#f8fafc}.ok{color:#059669;font-weight:700}.nok{color:#dc2626;font-weight:700}.na{color:#a0aec0}.laudo-assinatura-box{text-align:center;min-width:180px;break-inside:avoid;page-break-inside:avoid}.laudo-assinatura-linha{border-top:1px solid #1a202c;margin-top:8px;padding-top:4px;font-size:10px;color:#4a5568}img{max-width:100%;height:auto;display:block}.tag-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#e2e8f0;color:#2d3748}.tag-badge.success{background:#d1fae5;color:#065f46}.tag-badge.warning{background:#fef3c7;color:#92400e}.tag-badge.danger{background:#fee2e2;color:#991b1b}.tag-badge.andamento{background:#dbeafe;color:#1e40af}.laudo-field-em-branco{font-size:9px;color:#a0aec0;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px dotted #cbd5e0;padding-bottom:20px;}.laudo-pagebreak{break-after:page;page-break-after:always;}.laudo-checkbox-status{white-space:nowrap;font-size:11px;color:#4a5568;}.laudo-section-checklist{break-inside:auto !important;page-break-inside:auto !important;padding:6px 10px !important;}.exec-label{font-size:6.5px;color:#b0b8c4;display:block;line-height:1.4;border-bottom:1px dotted #cbd5e0;padding-bottom:8px;margin-bottom:1px;}
+.laudo-section{padding:6px 10px !important;}
+.laudo-grid-3{gap:3px 12px !important;}
+.laudo-field{margin-bottom:2px !important;}
+.laudo-field label{font-size:7.5px !important;}
+.laudo-field span{font-size:10px !important;}
+.laudo-section-title{font-size:8.5px !important;margin-bottom:4px !important;padding-bottom:2px !important;}
+p{margin:0 0 2px !important;font-size:8px !important;}
+table td,table th{font-size:8px;}
 table.chk-anual{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9px;}
 table.chk-anual th,table.chk-anual td{border:1px solid #e2e8f0;overflow:hidden;}
 table.chk-anual th:first-child,table.chk-anual td:first-child{width:auto;text-align:left;}
