@@ -1431,76 +1431,77 @@ function montarSecoesChecklistPMOC(categoria, frequenciaPalavra, checklist) {
 // Cada grupo de periodicidade só ativa as colunas dos meses em que é executado.
 // Colunas inativas ficam com fundo cinza (não se aplica naquele mês).
 // Resultado: uma única tabela compacta por equipamento, ideal para impressão A4 paisagem.
+// Monta o checklist como blocos repetidos por ocorrência no ano.
+// Mensal: 12 blocos (Jan…Dez) | Trimestral: 4 (Jan/Abr/Jul/Out) | Semestral: 2 (Jan/Jul) | Anual: 1 (Jan).
+// Cada bloco tem: cabeçalho com mês + lista de itens + Status (C/NC/NA) + Visto Técnico + Visto Fiscal.
 function montarChecklistEmBrancoHTML(categoria) {
   const defs = CHECKLIST_PMOC_DEFS[categoria] || CHECKLIST_PMOC_DEFS.OUT;
 
-  // Meses ativos por periodicidade
-  const MESES_ATIVOS = {
-    mensal:     new Set([0,1,2,3,4,5,6,7,8,9,10,11]),
-    trimestral: new Set([0,3,6,9]),
-    semestral:  new Set([0,6]),
-    anual:      new Set([0]),
+  // Quais meses (índice 0=Jan) cada periodicidade ocorre
+  const OCORRENCIAS = {
+    mensal:     [0,1,2,3,4,5,6,7,8,9,10,11],
+    trimestral: [0,3,6,9],
+    semestral:  [0,6],
+    anual:      [0],
   };
 
-  // Cor de fundo do cabeçalho por periodicidade
   const CORES = {
-    mensal:     { bg:'#1a56db', badge:'M', descr:'Mensal · 12×/ano' },
-    trimestral: { bg:'#6d28d9', badge:'T', descr:'Trimestral · 4×/ano (Jan · Abr · Jul · Out)' },
-    semestral:  { bg:'#0e7490', badge:'S', descr:'Semestral · 2×/ano (Jan · Jul)' },
-    anual:      { bg:'#065f46', badge:'A', descr:'Anual · 1×/ano (Janeiro)' },
+    mensal:     { bg:'#1a56db', badge:'M' },
+    trimestral: { bg:'#6d28d9', badge:'T' },
+    semestral:  { bg:'#0e7490', badge:'S' },
+    anual:      { bg:'#065f46', badge:'A' },
   };
 
-  const TH_MES = MESES_ABREV.map(m =>
-    `<th style="text-align:center;width:36px;min-width:30px;font-size:8px;font-weight:700;
-               color:#fff;padding:3px 1px;border-left:1px solid rgba(255,255,255,.25);">${m}</th>`
-  ).join('');
+  // Uma tabela por bloco (ocorrência do mês dentro da periodicidade)
+  function _blocoOcorrencia(cor, tituloPeriodicidade, nomeMes, itens) {
+    const linhas = itens.map(([codigo, label]) => `
+      <tr>
+        <td style="font-size:9px;padding:4px 8px;line-height:1.3;border:1px solid #e2e8f0;">${escapeHTML(label)}</td>
+        <td style="width:110px;text-align:center;border:1px solid #e2e8f0;padding:3px 4px;white-space:nowrap;">
+          <span style="font-size:9px;">☐ C &nbsp;☐ NC &nbsp;☐ NA</span>
+        </td>
+        <td style="width:90px;border:1px solid #e2e8f0;padding:2px 6px;vertical-align:bottom;">
+          <div style="border-bottom:1px solid #cbd5e0;height:24px;"></div>
+        </td>
+        <td style="width:90px;border:1px solid #e2e8f0;padding:2px 6px;vertical-align:bottom;">
+          <div style="border-bottom:1px solid #cbd5e0;height:24px;"></div>
+        </td>
+      </tr>`).join('');
+
+    return `
+    <div style="break-inside:avoid;page-break-inside:avoid;margin-top:8px;">
+      <table style="width:100%;border-collapse:collapse;font-size:9px;">
+        <thead>
+          <tr>
+            <th colspan="4" style="background:${cor.bg};color:#fff;padding:4px 8px;text-align:left;font-size:9px;">
+              <span style="background:rgba(255,255,255,.25);font-weight:700;padding:1px 7px;border-radius:3px;margin-right:6px;">${cor.badge}</span>
+              ${tituloPeriodicidade} &nbsp;—&nbsp; <strong>${nomeMes}</strong>
+            </th>
+          </tr>
+          <tr style="background:#f8fafc;">
+            <th style="text-align:left;padding:3px 8px;font-size:8.5px;font-weight:700;color:#4a5568;border:1px solid #e2e8f0;">Item Verificado</th>
+            <th style="width:110px;text-align:center;padding:3px 4px;font-size:8.5px;font-weight:700;color:#4a5568;border:1px solid #e2e8f0;">Status</th>
+            <th style="width:90px;text-align:center;padding:3px 4px;font-size:8.5px;font-weight:700;color:#4a5568;border:1px solid #e2e8f0;">Visto Técnico</th>
+            <th style="width:90px;text-align:center;padding:3px 4px;font-size:8.5px;font-weight:700;color:#4a5568;border:1px solid #e2e8f0;">Visto Fiscal</th>
+          </tr>
+        </thead>
+        <tbody>${linhas}</tbody>
+      </table>
+    </div>`;
+  }
 
   return CHECKLIST_PERIODICIDADE_INFO
     .filter(p => (defs[p.key] || []).length)
     .map(p => {
-      const ativos = MESES_ATIVOS[p.key];
       const cor    = CORES[p.key];
       const itens  = defs[p.key];
+      const meses  = OCORRENCIAS[p.key];
 
-      const linhas = itens.map(([codigo, label]) => {
-        const cels = MESES_ABREV.map((m, i) => {
-          if (ativos.has(i)) {
-            // Mês ativo: célula preenchível com C / NC / NA
-            return `<td style="border:1px solid #e2e8f0;padding:2px 1px;text-align:center;vertical-align:middle;min-width:30px;">
-              <div style="font-size:7.5px;color:#1e3a5f;line-height:1.6;">
-                <div style="border-bottom:1px dotted #cbd5e0;padding-bottom:2px;margin-bottom:1px;font-size:7px;color:#718096;">C/NC/NA</div>
-                <div style="border-bottom:1px dotted #cbd5e0;padding-bottom:2px;margin-bottom:1px;font-size:7px;color:#a0aec0;">Data</div>
-                <div style="font-size:7px;color:#a0aec0;">Tec.</div>
-              </div>
-            </td>`;
-          } else {
-            // Mês inativo: célula cinza (não executado neste mês)
-            return `<td style="background:#f1f5f9;border:1px solid #e2e8f0;"></td>`;
-          }
-        }).join('');
-        return `<tr style="border-bottom:1px solid #f0f4f8;">
-          <td style="font-size:9px;padding:4px 6px;line-height:1.3;border:1px solid #e2e8f0;">${escapeHTML(label)}</td>
-          ${cels}
-        </tr>`;
-      }).join('');
+      const blocos = meses.map(m =>
+        _blocoOcorrencia(cor, p.titulo, MESES_ABREV[m], itens)
+      ).join('');
 
-      return `
-      <div style="margin-top:10px;break-inside:avoid;page-break-inside:avoid;">
-        <div style="background:${cor.bg};color:#fff;padding:4px 8px;display:flex;align-items:center;gap:8px;break-after:avoid;">
-          <span style="background:rgba(255,255,255,.25);font-size:9px;font-weight:700;padding:1px 6px;border-radius:3px;">${cor.badge}</span>
-          <span style="font-size:9px;font-weight:700;">${p.titulo} &nbsp;·&nbsp; ${cor.descr}</span>
-        </div>
-        <table class="chk-anual" style="width:100%;border-collapse:collapse;font-size:9px;table-layout:fixed;">
-          <thead>
-            <tr style="background:${cor.bg}cc;">
-              <th style="text-align:left;padding:3px 6px;font-size:8.5px;font-weight:700;color:#fff;
-                         border:1px solid rgba(255,255,255,.2);">Item Verificado</th>
-              ${TH_MES}
-            </tr>
-          </thead>
-          <tbody>${linhas}</tbody>
-        </table>
-      </div>`;
+      return blocos;
     }).join('');
 }
 
