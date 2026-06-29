@@ -1268,7 +1268,7 @@ function _assinaturaImg(url, style) {
 const CHECKLIST_PMOC_DEFS = {
   AC: {
     mensal: [
-      ['bio_01', '[BIO-01] Bandeja de Condensados — Limpeza e Pastilha Sanitizante'],
+      ['bio_01', '[BIO-01] Bandeja de Condensados — Limpeza e Sanitizante'],
       ['bio_02', '[BIO-02] Rede de Drenagem — Desobstrução e Teste de Escoamento'],
       ['fil_01', '[FIL-01] Filtros de Ar (G4/F7/F9) — Higienização ou Substituição'],
       ['mec_01', '[MEC-01] Conjunto Ventilação — Ruídos, Coxins e Fixadores'],
@@ -1435,12 +1435,26 @@ function montarChecklistEmBrancoHTML(categoria) {
     .filter(p => (defs[p.key] || []).length)
     .map(p => {
       const linhas = defs[p.key].map(([codigo, label]) =>
-        `<tr><td>${escapeHTML(label)}</td><td class="laudo-checkbox-status" style="text-align:center;width:150px;">☐ C &nbsp; ☐ NC &nbsp; ☐ NA</td></tr>`
+        `<tr>
+          <td style="font-size:10px;padding:5px 8px;line-height:1.35;">${escapeHTML(label)}</td>
+          <td style="text-align:center;width:130px;padding:4px 6px;white-space:nowrap;border-left:1px solid #e2e8f0;">
+            <span style="font-size:10px;">☐ C &nbsp; ☐ NC &nbsp; ☐ NA</span>
+          </td>
+          <td style="width:180px;border-left:1px solid #e2e8f0;padding:4px 6px;">
+            <div style="font-size:8px;color:#a0aec0;border-bottom:1px dotted #cbd5e0;min-height:20px;"></div>
+          </td>
+        </tr>`
       ).join('');
       return `
-        <div style="font-size:10px;font-weight:700;color:#1a56db;margin:12px 0 4px;break-after:avoid;page-break-after:avoid;">${p.titulo}</div>
-        <table class="laudo-checklist-table">
-          <thead><tr><th>Item Verificado</th><th style="text-align:center;width:150px;">Status</th></tr></thead>
+        <div style="font-size:10px;font-weight:700;color:#1a56db;background:#eff6ff;padding:5px 8px;border-left:3px solid #1a56db;margin:14px 0 0;break-after:avoid;page-break-after:avoid;">${p.titulo}</div>
+        <table style="width:100%;border-collapse:collapse;font-size:10px;break-inside:auto;">
+          <thead>
+            <tr style="background:#1a56db;">
+              <th style="text-align:left;padding:5px 8px;font-size:9.5px;font-weight:700;color:#fff;border-bottom:2px solid #1a56db;">Item Verificado</th>
+              <th style="text-align:center;width:130px;padding:5px 6px;font-size:9.5px;font-weight:700;color:#fff;border-left:1px solid rgba(255,255,255,.3);">Status</th>
+              <th style="text-align:left;width:180px;padding:5px 8px;font-size:9.5px;font-weight:700;color:#fff;border-left:1px solid rgba(255,255,255,.3);">Observação</th>
+            </tr>
+          </thead>
           <tbody>${linhas}</tbody>
         </table>`;
     }).join('');
@@ -1531,51 +1545,49 @@ function _gradeVisitasMensais() {
 }
 
 // Monta o laudo PMOC anual agrupado de um único ativo.
-// Estrutura: capa de ID → grade de visitas mensais → tabelas por periodicidade.
+// Estrutura: capa de ID → dados da inspeção em branco → checklist Status+Observação (formato XLSX).
 function montarLaudoAnualAgrupadoHTML(eq, ultimoDaLista) {
-  const categoria  = eq.categoria || 'OUT';
-  const defs       = CHECKLIST_PMOC_DEFS[categoria] || CHECKLIST_PMOC_DEFS.OUT;
-  const classeQ    = ultimoDaLista ? '' : ' laudo-pagebreak';
-  const anoAtual   = new Date().getFullYear();
+  const categoria = eq.categoria || 'OUT';
+  const classeQ   = ultimoDaLista ? '' : ' laudo-pagebreak';
+  const anoAtual  = new Date().getFullYear();
+  const checklistHTML = montarChecklistEmBrancoHTML(categoria);
 
-  // Cores por periodicidade
-  const CORES = { mensal:'#1a56db', trimestral:'#7c3aed', semestral:'#0891b2', anual:'#065f46' };
-
-  const secoesPeriodidades = CHECKLIST_PERIODICIDADE_INFO
-    .map(p => {
-      const itens  = defs[p.key] || [];
-      const meses  = _mesesDaPeriodidade(p.key);
-      return _tabelaChecklistAnual(p.titulo, itens, meses, CORES[p.key]);
-    }).join('');
+  // Checkboxes de frequência para o cabeçalho (igual ao XLSX)
+  const freqChecks = `
+    <div style="font-size:9px;color:#fff;text-align:right;line-height:1.8;">
+      Frequência:&nbsp;
+      <label style="margin-right:8px;">☐ Mensal</label>
+      <label style="margin-right:8px;">☐ Trimestral</label>
+      <label style="margin-right:8px;">☐ Semestral</label>
+      <label>☐ Anual</label>
+    </div>`;
 
   return `
   <div class="laudo-wrapper${classeQ}">
 
-    <!-- CABEÇALHO -->
-    <div class="laudo-header">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <img src="${LOGO_ETIQUETA}" alt="Logo" style="height:38px;width:auto;display:block;">
+    <!-- CABEÇALHO — fundo azul igual ao XLSX -->
+    <div style="background:#1e3a5f;color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0;margin-bottom:0;">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <img src="${LOGO_ETIQUETA}" alt="Logo" style="height:36px;width:auto;display:block;filter:brightness(0) invert(1);">
         <div>
-          <h1 style="font-size:14px;margin:0;">Plano de Manutenção, Operação e Controle (PMOC)</h1>
-          <p style="font-size:10px;opacity:.85;margin:2px 0 0;">Programação Anual de Manutenções — ${anoAtual}</p>
+          <div style="font-size:13px;font-weight:700;">Plano de Manutenção, Operação e Controle (PMOC)</div>
+          <div style="font-size:10px;opacity:.85;margin-top:2px;">Laudo para Preenchimento Manual — ${anoAtual}</div>
         </div>
       </div>
-      <div class="laudo-header-meta">
-        <strong>Documento Anual — Preenchimento em Campo</strong><br>
-        Emissão: ${new Date().toLocaleDateString('pt-BR')}<br>
-        TAG: <strong>${escapeHTML(eq.tag)}</strong>
+      <div style="text-align:right;font-size:9px;opacity:.9;line-height:2;">
+        <div>Frequência: &nbsp;☐ Mensal &nbsp;☐ Trimestral &nbsp;☐ Semestral &nbsp;☐ Anual</div>
       </div>
     </div>
 
     <!-- IDENTIFICAÇÃO DO ATIVO -->
-    <div class="laudo-section">
-      <div class="laudo-section-title">Identificação do Ativo</div>
+    <div class="laudo-section" style="border-top:3px solid #1e3a5f;margin-top:0;">
+      <div class="laudo-section-title" style="color:#1e3a5f;">Identificação do Ativo</div>
       <div class="laudo-grid-3">
-        <div class="laudo-field"><label>TAG</label><span>${escapeHTML(eq.tag)}</span></div>
+        <div class="laudo-field"><label>TAG</label><span style="font-size:13px;font-weight:700;">${escapeHTML(eq.tag)}</span></div>
         <div class="laudo-field"><label>Equipamento / Produto</label><span>${escapeHTML(eq.produto || categoria)}</span></div>
-        <div class="laudo-field"><label>Categoria</label><span>${escapeHTML(EQ_CATEGORIA_LABEL[categoria] || categoria)}</span></div>
         <div class="laudo-field"><label>Marca</label><span>${escapeHTML(eq.marca)}</span></div>
-        <div class="laudo-field"><label>Nº de Série</label><span>${escapeHTML(eq.nr_serie)}</span></div>
+        <div class="laudo-field"><label>Potência</label><span>${escapeHTML(eq.potencia || '—')}</span></div>
+        <div class="laudo-field"><label>Nº Série</label><span>${escapeHTML(eq.nr_serie)}</span></div>
         <div class="laudo-field"><label>Patrimônio</label><span>${escapeHTML(eq.patrimonio)}</span></div>
         <div class="laudo-field"><label>Bloco / Edificação</label><span>${escapeHTML(eq.bloco)}</span></div>
         <div class="laudo-field"><label>Setor</label><span>${escapeHTML(eq.setor)}</span></div>
@@ -1583,41 +1595,53 @@ function montarLaudoAnualAgrupadoHTML(eq, ultimoDaLista) {
       </div>
     </div>
 
-    <!-- LEGENDA DE PERIODICIDADES -->
-    <div class="laudo-section" style="padding:10px 16px;">
-      <div class="laudo-section-title">Legenda — Periodicidades Previstas no Ano ${anoAtual}</div>
-      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:4px;">
-        <span style="font-size:10px;"><span style="background:#1a56db;color:#fff;padding:1px 7px;border-radius:3px;font-weight:700;">M</span> &nbsp;Mensal — 12 visitas</span>
-        <span style="font-size:10px;"><span style="background:#7c3aed;color:#fff;padding:1px 7px;border-radius:3px;font-weight:700;">T</span> &nbsp;Trimestral — 4 visitas (Jan · Abr · Jul · Out)</span>
-        <span style="font-size:10px;"><span style="background:#0891b2;color:#fff;padding:1px 7px;border-radius:3px;font-weight:700;">S</span> &nbsp;Semestral — 2 visitas (Jan · Jul)</span>
-        <span style="font-size:10px;"><span style="background:#065f46;color:#fff;padding:1px 7px;border-radius:3px;font-weight:700;">A</span> &nbsp;Anual — 1 visita (Janeiro)</span>
+    <!-- DADOS DA INSPEÇÃO (campos em branco para preenchimento em campo) -->
+    <div class="laudo-section">
+      <div class="laudo-section-title" style="color:#1e3a5f;">Dados da Inspeção (Preencher em Campo)</div>
+      <div class="laudo-grid-3">
+        <div class="laudo-field">
+          <label style="font-size:9px;color:#718096;">TÉCNICO RESPONSÁVEL</label>
+          <div style="border-bottom:1px solid #cbd5e0;min-height:22px;margin-top:4px;"></div>
+        </div>
+        <div class="laudo-field">
+          <label style="font-size:9px;color:#718096;">DATA DA INSPEÇÃO</label>
+          <div style="border-bottom:1px solid #cbd5e0;min-height:22px;margin-top:4px;"></div>
+        </div>
+        <div class="laudo-field">
+          <label style="font-size:9px;color:#718096;">FISCAL / VALIDADOR</label>
+          <div style="border-bottom:1px solid #cbd5e0;min-height:22px;margin-top:4px;"></div>
+        </div>
       </div>
     </div>
 
-    <!-- GRADE DE CONTROLE MENSAL -->
+    <!-- CHECKLIST — formato XLSX: Status + Observação -->
     <div class="laudo-section laudo-section-checklist">
-      <div class="laudo-section-title">Grade de Controle — Visitas Mensais ${anoAtual}</div>
-      <p style="font-size:10px;color:#718096;margin-bottom:6px;">Preencha data, nome do técnico e assinatura a cada visita realizada.</p>
-      ${_gradeVisitasMensais()}
+      <div class="laudo-section-title" style="color:#1e3a5f;">Checklist de Manutenção — Por Periodicidade</div>
+      <p style="font-size:10px;color:#718096;margin:0 0 6px;">Marque C (Conforme) · NC (Não Conforme) · NA (Não se Aplica) e registre observações quando necessário.</p>
+      ${checklistHTML}
     </div>
 
-    <!-- CHECKLISTS POR PERIODICIDADE -->
-    <div class="laudo-section laudo-section-checklist">
-      <div class="laudo-section-title">Checklist de Manutenção — Agrupado por Periodicidade</div>
-      <p style="font-size:10px;color:#718096;margin:0 0 4px;">Marque C (Conforme) · NC (Não Conforme) · NA (Não se Aplica) na coluna do mês correspondente.</p>
-      ${secoesPeriodidades}
+    <!-- OBSERVAÇÕES TÉCNICAS -->
+    <div class="laudo-section">
+      <div class="laudo-section-title" style="color:#1e3a5f;">Observações Técnicas</div>
+      <div style="border:1px solid #e2e8f0;border-radius:4px;min-height:54px;"></div>
     </div>
 
-    <!-- OBSERVAÇÕES E ASSINATURAS -->
+    <!-- ASSINATURAS -->
     <div class="laudo-section">
-      <div class="laudo-section-title">Observações Técnicas Anuais</div>
-      <div style="border:1px solid #e2e8f0;border-radius:4px;min-height:60px;"></div>
-    </div>
-    <div class="laudo-section">
-      <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;padding-top:8px;">
-        <div class="laudo-assinatura-box"><div class="laudo-assinatura-linha">Técnico Executor</div></div>
-        <div class="laudo-assinatura-box"><div class="laudo-assinatura-linha">Fiscal / Validador do Serviço</div></div>
-        <div class="laudo-assinatura-box"><div class="laudo-assinatura-linha">Responsável Técnico — CREA / ART nº __________</div></div>
+      <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;padding-top:6px;">
+        <div class="laudo-assinatura-box" style="flex:1;min-width:160px;text-align:center;">
+          <div style="height:52px;border-bottom:1px solid #2d3748;"></div>
+          <div class="laudo-assinatura-linha">Técnico Executor</div>
+        </div>
+        <div class="laudo-assinatura-box" style="flex:1;min-width:160px;text-align:center;">
+          <div style="height:52px;border-bottom:1px solid #2d3748;"></div>
+          <div class="laudo-assinatura-linha">Fiscal / Validador do Serviço</div>
+        </div>
+        <div class="laudo-assinatura-box" style="flex:1;min-width:200px;text-align:center;">
+          <div style="height:52px;border-bottom:1px solid #2d3748;"></div>
+          <div class="laudo-assinatura-linha">Responsável Técnico — CREA / ART nº __________</div>
+        </div>
       </div>
     </div>
 
