@@ -724,7 +724,7 @@ function exportarEquipamentosXLS() {
       'Ciclo':                     extras.ciclo   || '',
       'Tensão (V)':                extras.tensao  || '',
       'Quantidade de Gás (KG)':    (extras['gas-qtd'] || '').replace('.', ','),
-      'Potência (BTU/h)':          isAC ? (eq.potencia || '') : '',
+      'Potência (BTU/h)':          isAC ? (() => { const n = parseFloat((eq.potencia || '').replace(/\s*BTU\/h/i, '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? '' : n; })() : '',
       'Tecnologia do Compressor':  extras['tec-compressor']  || '',
       'Tipo de Instalação':        extras['instalacao-ac']   || '',
       'Possui QR Code':            eq.qrcode_token ? 'Sim' : 'Não',
