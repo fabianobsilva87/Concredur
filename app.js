@@ -1427,36 +1427,80 @@ function montarSecoesChecklistPMOC(categoria, frequenciaPalavra, checklist) {
     }).join('');
 }
 
-// Monta o checklist completo (todas as periodicidades, sem filtrar por frequência) com
-// checkboxes ☐ C ☐ NC ☐ NA para preenchimento manual em campo — usado no laudo em branco.
+// Monta o checklist unificado com 12 colunas de mês.
+// Cada grupo de periodicidade só ativa as colunas dos meses em que é executado.
+// Colunas inativas ficam com fundo cinza (não se aplica naquele mês).
+// Resultado: uma única tabela compacta por equipamento, ideal para impressão A4 paisagem.
 function montarChecklistEmBrancoHTML(categoria) {
   const defs = CHECKLIST_PMOC_DEFS[categoria] || CHECKLIST_PMOC_DEFS.OUT;
+
+  // Meses ativos por periodicidade
+  const MESES_ATIVOS = {
+    mensal:     new Set([0,1,2,3,4,5,6,7,8,9,10,11]),
+    trimestral: new Set([0,3,6,9]),
+    semestral:  new Set([0,6]),
+    anual:      new Set([0]),
+  };
+
+  // Cor de fundo do cabeçalho por periodicidade
+  const CORES = {
+    mensal:     { bg:'#1a56db', badge:'M', descr:'Mensal · 12×/ano' },
+    trimestral: { bg:'#6d28d9', badge:'T', descr:'Trimestral · 4×/ano (Jan · Abr · Jul · Out)' },
+    semestral:  { bg:'#0e7490', badge:'S', descr:'Semestral · 2×/ano (Jan · Jul)' },
+    anual:      { bg:'#065f46', badge:'A', descr:'Anual · 1×/ano (Janeiro)' },
+  };
+
+  const TH_MES = MESES_ABREV.map(m =>
+    `<th style="text-align:center;width:36px;min-width:30px;font-size:8px;font-weight:700;
+               color:#fff;padding:3px 1px;border-left:1px solid rgba(255,255,255,.25);">${m}</th>`
+  ).join('');
+
   return CHECKLIST_PERIODICIDADE_INFO
     .filter(p => (defs[p.key] || []).length)
     .map(p => {
-      const linhas = defs[p.key].map(([codigo, label]) =>
-        `<tr>
-          <td style="font-size:10px;padding:5px 8px;line-height:1.35;">${escapeHTML(label)}</td>
-          <td style="text-align:center;width:130px;padding:4px 6px;white-space:nowrap;border-left:1px solid #e2e8f0;">
-            <span style="font-size:10px;">☐ C &nbsp; ☐ NC &nbsp; ☐ NA</span>
-          </td>
-          <td style="width:180px;border-left:1px solid #e2e8f0;padding:4px 6px;">
-            <div style="font-size:8px;color:#a0aec0;border-bottom:1px dotted #cbd5e0;min-height:20px;"></div>
-          </td>
-        </tr>`
-      ).join('');
+      const ativos = MESES_ATIVOS[p.key];
+      const cor    = CORES[p.key];
+      const itens  = defs[p.key];
+
+      const linhas = itens.map(([codigo, label]) => {
+        const cels = MESES_ABREV.map((m, i) => {
+          if (ativos.has(i)) {
+            // Mês ativo: célula preenchível com C / NC / NA
+            return `<td style="border:1px solid #e2e8f0;padding:2px 1px;text-align:center;vertical-align:middle;min-width:30px;">
+              <div style="font-size:7.5px;color:#1e3a5f;line-height:1.6;">
+                <div style="border-bottom:1px dotted #cbd5e0;padding-bottom:2px;margin-bottom:1px;font-size:7px;color:#718096;">C/NC/NA</div>
+                <div style="border-bottom:1px dotted #cbd5e0;padding-bottom:2px;margin-bottom:1px;font-size:7px;color:#a0aec0;">Data</div>
+                <div style="font-size:7px;color:#a0aec0;">Tec.</div>
+              </div>
+            </td>`;
+          } else {
+            // Mês inativo: célula cinza (não executado neste mês)
+            return `<td style="background:#f1f5f9;border:1px solid #e2e8f0;"></td>`;
+          }
+        }).join('');
+        return `<tr style="border-bottom:1px solid #f0f4f8;">
+          <td style="font-size:9px;padding:4px 6px;line-height:1.3;border:1px solid #e2e8f0;">${escapeHTML(label)}</td>
+          ${cels}
+        </tr>`;
+      }).join('');
+
       return `
-        <div style="font-size:10px;font-weight:700;color:#1a56db;background:#eff6ff;padding:5px 8px;border-left:3px solid #1a56db;margin:14px 0 0;break-after:avoid;page-break-after:avoid;">${p.titulo}</div>
-        <table style="width:100%;border-collapse:collapse;font-size:10px;break-inside:auto;">
+      <div style="margin-top:10px;break-inside:avoid;page-break-inside:avoid;">
+        <div style="background:${cor.bg};color:#fff;padding:4px 8px;display:flex;align-items:center;gap:8px;break-after:avoid;">
+          <span style="background:rgba(255,255,255,.25);font-size:9px;font-weight:700;padding:1px 6px;border-radius:3px;">${cor.badge}</span>
+          <span style="font-size:9px;font-weight:700;">${p.titulo} &nbsp;·&nbsp; ${cor.descr}</span>
+        </div>
+        <table class="chk-anual" style="width:100%;border-collapse:collapse;font-size:9px;table-layout:fixed;">
           <thead>
-            <tr style="background:#1a56db;">
-              <th style="text-align:left;padding:5px 8px;font-size:9.5px;font-weight:700;color:#fff;border-bottom:2px solid #1a56db;">Item Verificado</th>
-              <th style="text-align:center;width:130px;padding:5px 6px;font-size:9.5px;font-weight:700;color:#fff;border-left:1px solid rgba(255,255,255,.3);">Status</th>
-              <th style="text-align:left;width:180px;padding:5px 8px;font-size:9.5px;font-weight:700;color:#fff;border-left:1px solid rgba(255,255,255,.3);">Observação</th>
+            <tr style="background:${cor.bg}cc;">
+              <th style="text-align:left;padding:3px 6px;font-size:8.5px;font-weight:700;color:#fff;
+                         border:1px solid rgba(255,255,255,.2);">Item Verificado</th>
+              ${TH_MES}
             </tr>
           </thead>
           <tbody>${linhas}</tbody>
-        </table>`;
+        </table>
+      </div>`;
     }).join('');
 }
 
@@ -1614,10 +1658,10 @@ function montarLaudoAnualAgrupadoHTML(eq, ultimoDaLista) {
       </div>
     </div>
 
-    <!-- CHECKLIST — formato XLSX: Status + Observação -->
-    <div class="laudo-section laudo-section-checklist">
-      <div class="laudo-section-title" style="color:#1e3a5f;">Checklist de Manutenção — Por Periodicidade</div>
-      <p style="font-size:10px;color:#718096;margin:0 0 6px;">Marque C (Conforme) · NC (Não Conforme) · NA (Não se Aplica) e registre observações quando necessário.</p>
+    <!-- CHECKLIST — 12 meses integrados por periodicidade -->
+    <div class="laudo-section laudo-section-checklist" style="padding-bottom:6px;">
+      <div class="laudo-section-title" style="color:#1e3a5f;">Checklist de Manutenção — Agrupado por Periodicidade</div>
+      <p style="font-size:9.5px;color:#718096;margin:0 0 4px;">Cada grupo exibe apenas os meses em que a manutenção é executada. Células cinzas = não se aplica naquele mês. Preencha C / NC / NA + Data + Tec.</p>
       ${checklistHTML}
     </div>
 
@@ -2277,7 +2321,12 @@ function imprimir(areaId, html) {
   if (!win) { alert('Permita pop-ups para imprimir os laudos.'); return; }
   win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Univag — Impressão</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}@page{margin:10mm 12mm;size:A4 landscape}html,body{font-family:'Inter',Arial,sans-serif;font-size:12px;color:#1a202c;background:#fff}.laudo-wrapper{width:100%}.laudo-header{background:#1a56db;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0}.laudo-header h1{font-size:18px;font-weight:700}.laudo-header p{font-size:11px;margin-top:4px;opacity:.85}.laudo-header-meta{text-align:right;font-size:11px}.laudo-section{border:1px solid #e2e8f0;border-top:none;padding:12px 16px;break-inside:avoid;page-break-inside:avoid}.laudo-section:last-child{border-radius:0 0 6px 6px}.laudo-section-title{font-size:10px;font-weight:700;color:#1a56db;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0;break-after:avoid;page-break-after:avoid}.laudo-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}.laudo-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 16px}.laudo-field{margin-bottom:4px}.laudo-field label{font-size:9px;color:#718096;text-transform:uppercase;letter-spacing:.06em;display:block}.laudo-field span{font-size:12px;font-weight:600;color:#1a202c}.laudo-checklist-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table th{background:#1a56db;color:#fff;padding:5px 8px;text-align:left;font-size:10px}.laudo-checklist-table td{padding:4px 8px;border-bottom:1px solid #e2e8f0}.laudo-checklist-table tr{break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table tr:nth-child(even) td{background:#f8fafc}.ok{color:#059669;font-weight:700}.nok{color:#dc2626;font-weight:700}.na{color:#a0aec0}.laudo-assinatura-box{text-align:center;min-width:180px;break-inside:avoid;page-break-inside:avoid}.laudo-assinatura-linha{border-top:1px solid #1a202c;margin-top:8px;padding-top:4px;font-size:10px;color:#4a5568}img{max-width:100%;height:auto;display:block}.tag-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#e2e8f0;color:#2d3748}.tag-badge.success{background:#d1fae5;color:#065f46}.tag-badge.warning{background:#fef3c7;color:#92400e}.tag-badge.danger{background:#fee2e2;color:#991b1b}.tag-badge.andamento{background:#dbeafe;color:#1e40af}.laudo-field-em-branco{font-size:9px;color:#a0aec0;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px dotted #cbd5e0;padding-bottom:20px;}.laudo-pagebreak{break-after:page;page-break-after:always;}.laudo-checkbox-status{white-space:nowrap;font-size:11px;color:#4a5568;}.laudo-section-checklist{break-inside:auto !important;page-break-inside:auto !important;}.exec-label{font-size:6.5px;color:#b0b8c4;display:block;line-height:1.4;border-bottom:1px dotted #cbd5e0;padding-bottom:8px;margin-bottom:1px;}</style></head>
+  <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}@page{margin:10mm 12mm;size:A4 landscape}html,body{font-family:'Inter',Arial,sans-serif;font-size:12px;color:#1a202c;background:#fff}.laudo-wrapper{width:100%}.laudo-header{background:#1a56db;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0}.laudo-header h1{font-size:18px;font-weight:700}.laudo-header p{font-size:11px;margin-top:4px;opacity:.85}.laudo-header-meta{text-align:right;font-size:11px}.laudo-section{border:1px solid #e2e8f0;border-top:none;padding:12px 16px;break-inside:avoid;page-break-inside:avoid}.laudo-section:last-child{border-radius:0 0 6px 6px}.laudo-section-title{font-size:10px;font-weight:700;color:#1a56db;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0;break-after:avoid;page-break-after:avoid}.laudo-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}.laudo-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 16px}.laudo-field{margin-bottom:4px}.laudo-field label{font-size:9px;color:#718096;text-transform:uppercase;letter-spacing:.06em;display:block}.laudo-field span{font-size:12px;font-weight:600;color:#1a202c}.laudo-checklist-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table th{background:#1a56db;color:#fff;padding:5px 8px;text-align:left;font-size:10px}.laudo-checklist-table td{padding:4px 8px;border-bottom:1px solid #e2e8f0}.laudo-checklist-table tr{break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table tr:nth-child(even) td{background:#f8fafc}.ok{color:#059669;font-weight:700}.nok{color:#dc2626;font-weight:700}.na{color:#a0aec0}.laudo-assinatura-box{text-align:center;min-width:180px;break-inside:avoid;page-break-inside:avoid}.laudo-assinatura-linha{border-top:1px solid #1a202c;margin-top:8px;padding-top:4px;font-size:10px;color:#4a5568}img{max-width:100%;height:auto;display:block}.tag-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#e2e8f0;color:#2d3748}.tag-badge.success{background:#d1fae5;color:#065f46}.tag-badge.warning{background:#fef3c7;color:#92400e}.tag-badge.danger{background:#fee2e2;color:#991b1b}.tag-badge.andamento{background:#dbeafe;color:#1e40af}.laudo-field-em-branco{font-size:9px;color:#a0aec0;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px dotted #cbd5e0;padding-bottom:20px;}.laudo-pagebreak{break-after:page;page-break-after:always;}.laudo-checkbox-status{white-space:nowrap;font-size:11px;color:#4a5568;}.laudo-section-checklist{break-inside:auto !important;page-break-inside:auto !important;}.exec-label{font-size:6.5px;color:#b0b8c4;display:block;line-height:1.4;border-bottom:1px dotted #cbd5e0;padding-bottom:8px;margin-bottom:1px;}
+table.chk-anual{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9px;}
+table.chk-anual th,table.chk-anual td{border:1px solid #e2e8f0;overflow:hidden;}
+table.chk-anual th:first-child,table.chk-anual td:first-child{width:auto;text-align:left;}
+table.chk-anual th:not(:first-child),table.chk-anual td:not(:first-child){width:36px;min-width:28px;text-align:center;}
+</style></head>
   <body>${html}<script>window.addEventListener('load',function(){setTimeout(function(){window.print();window.addEventListener('afterprint',function(){window.close();});},400);});<\/script></body></html>`);
   win.document.close();
 }
