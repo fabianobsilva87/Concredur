@@ -723,7 +723,7 @@ function exportarEquipamentosXLS() {
       'Gás Refrigerante':          extras.gas     || '',
       'Ciclo':                     extras.ciclo   || '',
       'Tensão (V)':                extras.tensao  || '',
-      'Quantidade de Gás (KG)':    extras['gas-qtd'] || '',
+      'Quantidade de Gás (KG)':    (extras['gas-qtd'] || '').replace('.', ','),
       'Potência (BTU/h)':          isAC ? (eq.potencia || '') : '',
       'Tecnologia do Compressor':  extras['tec-compressor']  || '',
       'Tipo de Instalação':        extras['instalacao-ac']   || '',
