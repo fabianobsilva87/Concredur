@@ -1446,75 +1446,197 @@ function montarChecklistEmBrancoHTML(categoria) {
     }).join('');
 }
 
-// Monta o laudo PMOC em branco (impressão/preenchimento manual em campo) de um único ativo.
-// Usa exatamente o mesmo checklist (CHECKLIST_PMOC_DEFS) do laudo digital e do formulário,
-// para garantir que as inspeções de campo fiquem 100% compatíveis com o que é exigido no sistema.
-function montarLaudoEmBrancoHTML(eq, ultimoDaLista) {
-  const categoria      = eq.categoria || 'OUT';
-  const checklistHTML  = montarChecklistEmBrancoHTML(categoria);
-  const classeQuebra   = ultimoDaLista ? '' : ' laudo-pagebreak';
+// ===================== LAUDO PMOC ANUAL AGRUPADO =====================
+// Gera um documento de planejamento anual por ativo, com:
+//  • Capa de identificação do ativo
+//  • Programação mensal (grade 12 meses) com campo de assinatura/data por visita
+//  • Tabelas de itens agrupadas por periodicidade (Mensal / Trimestral / Semestral / Anual)
+//    com colunas de execução para cada visita prevista no ano
+// Mantém a função legada montarLaudoEmBrancoHTML por compatibilidade interna.
+
+const MESES_ABREV = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+// Retorna quais meses (índices 0-11) uma periodicidade deve ser executada.
+// Convenção: mês 0 = Janeiro. Adota o primeiro mês como âncora.
+function _mesesDaPeriodidade(key) {
+  switch (key) {
+    case 'mensal':     return [0,1,2,3,4,5,6,7,8,9,10,11];
+    case 'trimestral': return [0,3,6,9];
+    case 'semestral':  return [0,6];
+    case 'anual':      return [0];
+    default:           return [];
+  }
+}
+
+// Cabeçalho de visitas (colunas de meses ativos para uma periodicidade).
+function _cabecalhoVisitas(meses) {
+  return meses.map(m =>
+    `<th style="text-align:center;min-width:38px;font-size:9px;padding:4px 2px;">${MESES_ABREV[m]}</th>`
+  ).join('');
+}
+
+// Célula de execução: campo para data + iniciais do técnico.
+function _celulaExecucao() {
+  return `<td style="text-align:center;border-left:1px solid #e2e8f0;padding:3px 2px;min-width:38px;">
+    <div style="font-size:7px;color:#a0aec0;border-bottom:1px dotted #cbd5e0;margin-bottom:2px;">Data</div>
+    <div style="font-size:7px;color:#a0aec0;margin-top:2px;">Tec.</div>
+  </td>`;
+}
+
+// Tabela de checklist de uma periodicidade com colunas de execução mensais.
+function _tabelaChecklistAnual(titulo, itens, meses, corTitulo) {
+  if (!itens || !itens.length) return '';
+  const thVisitas  = _cabecalhoVisitas(meses);
+  const numColunas = meses.length;
+  const linhas = itens.map(([codigo, label]) => {
+    const cels = Array.from({ length: numColunas }, () => _celulaExecucao()).join('');
+    return `<tr>
+      <td style="font-size:10px;padding:4px 6px;line-height:1.3;">${escapeHTML(label)}</td>
+      ${cels}
+    </tr>`;
+  }).join('');
 
   return `
-  <div class="laudo-wrapper${classeQuebra}">
+  <div style="margin-top:14px;break-inside:avoid;page-break-inside:avoid;">
+    <div style="font-size:10px;font-weight:700;color:${corTitulo};background:${corTitulo}18;
+                padding:5px 8px;border-left:3px solid ${corTitulo};margin-bottom:0;
+                break-after:avoid;page-break-after:avoid;">
+      ${titulo} &nbsp;·&nbsp; ${numColunas} visita${numColunas > 1 ? 's' : ''}/ano
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:10px;">
+      <thead>
+        <tr style="background:#f8fafc;">
+          <th style="text-align:left;padding:4px 6px;font-size:9px;font-weight:700;color:#4a5568;border-bottom:2px solid #e2e8f0;">Item Verificado</th>
+          ${thVisitas}
+        </tr>
+      </thead>
+      <tbody>${linhas}</tbody>
+    </table>
+  </div>`;
+}
+
+// Grade de visitas mensais (12 meses) com campos de data, técnico e assinatura.
+function _gradeVisitasMensais() {
+  const celulas = MESES_ABREV.map(m => `
+    <td style="border:1px solid #e2e8f0;padding:6px 4px;vertical-align:top;min-width:60px;">
+      <div style="font-size:9px;font-weight:700;color:#1a56db;text-align:center;margin-bottom:4px;">${m}</div>
+      <div style="font-size:8px;color:#a0aec0;border-bottom:1px dotted #cbd5e0;padding-bottom:10px;margin-bottom:4px;">Data:</div>
+      <div style="font-size:8px;color:#a0aec0;border-bottom:1px dotted #cbd5e0;padding-bottom:10px;margin-bottom:4px;">Técnico:</div>
+      <div style="font-size:8px;color:#a0aec0;padding-bottom:14px;">Assin.:</div>
+    </td>`).join('');
+  return `
+  <table style="width:100%;border-collapse:collapse;margin-top:6px;table-layout:fixed;">
+    <tbody><tr>${celulas}</tr></tbody>
+  </table>`;
+}
+
+// Monta o laudo PMOC anual agrupado de um único ativo.
+// Estrutura: capa de ID → grade de visitas mensais → tabelas por periodicidade.
+function montarLaudoAnualAgrupadoHTML(eq, ultimoDaLista) {
+  const categoria  = eq.categoria || 'OUT';
+  const defs       = CHECKLIST_PMOC_DEFS[categoria] || CHECKLIST_PMOC_DEFS.OUT;
+  const classeQ    = ultimoDaLista ? '' : ' laudo-pagebreak';
+  const anoAtual   = new Date().getFullYear();
+
+  // Cores por periodicidade
+  const CORES = { mensal:'#1a56db', trimestral:'#7c3aed', semestral:'#0891b2', anual:'#065f46' };
+
+  const secoesPeriodidades = CHECKLIST_PERIODICIDADE_INFO
+    .map(p => {
+      const itens  = defs[p.key] || [];
+      const meses  = _mesesDaPeriodidade(p.key);
+      return _tabelaChecklistAnual(p.titulo, itens, meses, CORES[p.key]);
+    }).join('');
+
+  return `
+  <div class="laudo-wrapper${classeQ}">
+
+    <!-- CABEÇALHO -->
     <div class="laudo-header">
       <div style="display:flex;align-items:center;gap:12px;">
         <img src="${LOGO_ETIQUETA}" alt="Logo" style="height:38px;width:auto;display:block;">
-        <div><h1 style="font-size:15px;">Plano de Manutenção, Operação e Controle (PMOC)</h1></div>
+        <div>
+          <h1 style="font-size:14px;margin:0;">Plano de Manutenção, Operação e Controle (PMOC)</h1>
+          <p style="font-size:10px;opacity:.85;margin:2px 0 0;">Programação Anual de Manutenções — ${anoAtual}</p>
+        </div>
       </div>
       <div class="laudo-header-meta">
-        <strong>Laudo para Preenchimento Manual</strong><br>
-        Frequência: ☐ Mensal &nbsp;☐ Trimestral &nbsp;☐ Semestral<br>
-        <span style="visibility:hidden;">Frequência: </span>☐ Anual
+        <strong>Documento Anual — Preenchimento em Campo</strong><br>
+        Emissão: ${new Date().toLocaleDateString('pt-BR')}<br>
+        TAG: <strong>${escapeHTML(eq.tag)}</strong>
       </div>
     </div>
+
+    <!-- IDENTIFICAÇÃO DO ATIVO -->
     <div class="laudo-section">
       <div class="laudo-section-title">Identificação do Ativo</div>
       <div class="laudo-grid-3">
         <div class="laudo-field"><label>TAG</label><span>${escapeHTML(eq.tag)}</span></div>
-        <div class="laudo-field"><label>Equipamento</label><span>${escapeHTML(eq.produto || categoria)}</span></div>
+        <div class="laudo-field"><label>Equipamento / Produto</label><span>${escapeHTML(eq.produto || categoria)}</span></div>
+        <div class="laudo-field"><label>Categoria</label><span>${escapeHTML(EQ_CATEGORIA_LABEL[categoria] || categoria)}</span></div>
         <div class="laudo-field"><label>Marca</label><span>${escapeHTML(eq.marca)}</span></div>
-        <div class="laudo-field"><label>Potência</label><span>${escapeHTML(eq.potencia)}</span></div>
-        <div class="laudo-field"><label>Nº Série</label><span>${escapeHTML(eq.nr_serie)}</span></div>
+        <div class="laudo-field"><label>Nº de Série</label><span>${escapeHTML(eq.nr_serie)}</span></div>
         <div class="laudo-field"><label>Patrimônio</label><span>${escapeHTML(eq.patrimonio)}</span></div>
-        <div class="laudo-field"><label>Bloco</label><span>${escapeHTML(eq.bloco)}</span></div>
+        <div class="laudo-field"><label>Bloco / Edificação</label><span>${escapeHTML(eq.bloco)}</span></div>
         <div class="laudo-field"><label>Setor</label><span>${escapeHTML(eq.setor)}</span></div>
-        <div class="laudo-field"><label>Sala</label><span>${escapeHTML(eq.sala)}</span></div>
+        <div class="laudo-field"><label>Sala / Local</label><span>${escapeHTML(eq.sala)}</span></div>
       </div>
     </div>
-    <div class="laudo-section">
-      <div class="laudo-section-title">Dados da Inspeção (preencher em campo)</div>
-      <div class="laudo-grid-3">
-        <div class="laudo-field-em-branco">Técnico Responsável</div>
-        <div class="laudo-field-em-branco">Data da Inspeção</div>
-        <div class="laudo-field-em-branco">Fiscal / Validador</div>
+
+    <!-- LEGENDA DE PERIODICIDADES -->
+    <div class="laudo-section" style="padding:10px 16px;">
+      <div class="laudo-section-title">Legenda — Periodicidades Previstas no Ano ${anoAtual}</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:4px;">
+        <span style="font-size:10px;"><span style="background:#1a56db;color:#fff;padding:1px 7px;border-radius:3px;font-weight:700;">M</span> &nbsp;Mensal — 12 visitas</span>
+        <span style="font-size:10px;"><span style="background:#7c3aed;color:#fff;padding:1px 7px;border-radius:3px;font-weight:700;">T</span> &nbsp;Trimestral — 4 visitas (Jan · Abr · Jul · Out)</span>
+        <span style="font-size:10px;"><span style="background:#0891b2;color:#fff;padding:1px 7px;border-radius:3px;font-weight:700;">S</span> &nbsp;Semestral — 2 visitas (Jan · Jul)</span>
+        <span style="font-size:10px;"><span style="background:#065f46;color:#fff;padding:1px 7px;border-radius:3px;font-weight:700;">A</span> &nbsp;Anual — 1 visita (Janeiro)</span>
       </div>
     </div>
-    ${checklistHTML ? `
+
+    <!-- GRADE DE CONTROLE MENSAL -->
     <div class="laudo-section laudo-section-checklist">
-      <div class="laudo-section-title">Checklist de Manutenção — Por Periodicidade</div>
-      ${checklistHTML}
-    </div>` : ''}
+      <div class="laudo-section-title">Grade de Controle — Visitas Mensais ${anoAtual}</div>
+      <p style="font-size:10px;color:#718096;margin-bottom:6px;">Preencha data, nome do técnico e assinatura a cada visita realizada.</p>
+      ${_gradeVisitasMensais()}
+    </div>
+
+    <!-- CHECKLISTS POR PERIODICIDADE -->
+    <div class="laudo-section laudo-section-checklist">
+      <div class="laudo-section-title">Checklist de Manutenção — Agrupado por Periodicidade</div>
+      <p style="font-size:10px;color:#718096;margin:0 0 4px;">Marque C (Conforme) · NC (Não Conforme) · NA (Não se Aplica) na coluna do mês correspondente.</p>
+      ${secoesPeriodidades}
+    </div>
+
+    <!-- OBSERVAÇÕES E ASSINATURAS -->
     <div class="laudo-section">
-      <div class="laudo-section-title">Observações Técnicas</div>
-      <div style="border:1px solid #e2e8f0;border-radius:4px;min-height:70px;"></div>
+      <div class="laudo-section-title">Observações Técnicas Anuais</div>
+      <div style="border:1px solid #e2e8f0;border-radius:4px;min-height:60px;"></div>
     </div>
     <div class="laudo-section">
-      <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-top:26px;">
+      <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;padding-top:8px;">
         <div class="laudo-assinatura-box"><div class="laudo-assinatura-linha">Técnico Executor</div></div>
         <div class="laudo-assinatura-box"><div class="laudo-assinatura-linha">Fiscal / Validador do Serviço</div></div>
         <div class="laudo-assinatura-box"><div class="laudo-assinatura-linha">Responsável Técnico — CREA / ART nº __________</div></div>
       </div>
     </div>
+
   </div>`;
 }
 
-// Emite, em um único documento de impressão, o laudo PMOC em branco de cada ativo cadastrado
-// (respeita os filtros aplicados na tela de Gerenciamento de Ativos) — um ativo por página,
-// sem quebra de página no meio do checklist de cada ativo.
+// Mantém a versão legada (laudo por visita individual) para compatibilidade interna.
+function montarLaudoEmBrancoHTML(eq, ultimoDaLista) {
+  return montarLaudoAnualAgrupadoHTML(eq, ultimoDaLista);
+}
+
+// Emite, em um único documento de impressão, o laudo PMOC anual agrupado de cada ativo
+// cadastrado (respeita os filtros aplicados na tela de Gerenciamento de Ativos).
+// Cada ativo ocupa seu próprio bloco; a grade de 12 meses e os checklists por periodicidade
+// ficam consolidados em uma única página/documento por ativo.
 function emitirLaudosEmBrancoPMOC() {
   const items = obterEquipamentosFiltrados();
   if (!items.length) { alert('Nenhum ativo encontrado para gerar laudos em branco com os filtros atuais.'); return; }
-  const html = items.map((eq, i) => montarLaudoEmBrancoHTML(eq, i === items.length - 1)).join('');
+  const html = items.map((eq, i) => montarLaudoAnualAgrupadoHTML(eq, i === items.length - 1)).join('');
   imprimir('area-laudos-em-branco', html);
 }
 
@@ -2131,7 +2253,7 @@ function imprimir(areaId, html) {
   if (!win) { alert('Permita pop-ups para imprimir os laudos.'); return; }
   win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Univag — Impressão</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}@page{margin:14mm;size:A4 portrait}html,body{font-family:'Inter',Arial,sans-serif;font-size:12px;color:#1a202c;background:#fff}.laudo-wrapper{width:100%}.laudo-header{background:#1a56db;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0}.laudo-header h1{font-size:18px;font-weight:700}.laudo-header p{font-size:11px;margin-top:4px;opacity:.85}.laudo-header-meta{text-align:right;font-size:11px}.laudo-section{border:1px solid #e2e8f0;border-top:none;padding:12px 16px;break-inside:avoid;page-break-inside:avoid}.laudo-section:last-child{border-radius:0 0 6px 6px}.laudo-section-title{font-size:10px;font-weight:700;color:#1a56db;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0;break-after:avoid;page-break-after:avoid}.laudo-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}.laudo-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 16px}.laudo-field{margin-bottom:4px}.laudo-field label{font-size:9px;color:#718096;text-transform:uppercase;letter-spacing:.06em;display:block}.laudo-field span{font-size:12px;font-weight:600;color:#1a202c}.laudo-checklist-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table th{background:#1a56db;color:#fff;padding:5px 8px;text-align:left;font-size:10px}.laudo-checklist-table td{padding:4px 8px;border-bottom:1px solid #e2e8f0}.laudo-checklist-table tr{break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table tr:nth-child(even) td{background:#f8fafc}.ok{color:#059669;font-weight:700}.nok{color:#dc2626;font-weight:700}.na{color:#a0aec0}.laudo-assinatura-box{text-align:center;min-width:180px;break-inside:avoid;page-break-inside:avoid}.laudo-assinatura-linha{border-top:1px solid #1a202c;margin-top:8px;padding-top:4px;font-size:10px;color:#4a5568}img{max-width:100%;height:auto;display:block}.tag-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#e2e8f0;color:#2d3748}.tag-badge.success{background:#d1fae5;color:#065f46}.tag-badge.warning{background:#fef3c7;color:#92400e}.tag-badge.danger{background:#fee2e2;color:#991b1b}.tag-badge.andamento{background:#dbeafe;color:#1e40af}.laudo-field-em-branco{font-size:9px;color:#a0aec0;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px dotted #cbd5e0;padding-bottom:20px;}.laudo-pagebreak{break-after:page;page-break-after:always;}.laudo-checkbox-status{white-space:nowrap;font-size:11px;color:#4a5568;}.laudo-section-checklist{break-inside:auto !important;page-break-inside:auto !important;}</style></head>
+  <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}@page{margin:10mm 12mm;size:A4 landscape}html,body{font-family:'Inter',Arial,sans-serif;font-size:12px;color:#1a202c;background:#fff}.laudo-wrapper{width:100%}.laudo-header{background:#1a56db;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0}.laudo-header h1{font-size:18px;font-weight:700}.laudo-header p{font-size:11px;margin-top:4px;opacity:.85}.laudo-header-meta{text-align:right;font-size:11px}.laudo-section{border:1px solid #e2e8f0;border-top:none;padding:12px 16px;break-inside:avoid;page-break-inside:avoid}.laudo-section:last-child{border-radius:0 0 6px 6px}.laudo-section-title{font-size:10px;font-weight:700;color:#1a56db;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0;break-after:avoid;page-break-after:avoid}.laudo-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}.laudo-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 16px}.laudo-field{margin-bottom:4px}.laudo-field label{font-size:9px;color:#718096;text-transform:uppercase;letter-spacing:.06em;display:block}.laudo-field span{font-size:12px;font-weight:600;color:#1a202c}.laudo-checklist-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table th{background:#1a56db;color:#fff;padding:5px 8px;text-align:left;font-size:10px}.laudo-checklist-table td{padding:4px 8px;border-bottom:1px solid #e2e8f0}.laudo-checklist-table tr{break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table tr:nth-child(even) td{background:#f8fafc}.ok{color:#059669;font-weight:700}.nok{color:#dc2626;font-weight:700}.na{color:#a0aec0}.laudo-assinatura-box{text-align:center;min-width:180px;break-inside:avoid;page-break-inside:avoid}.laudo-assinatura-linha{border-top:1px solid #1a202c;margin-top:8px;padding-top:4px;font-size:10px;color:#4a5568}img{max-width:100%;height:auto;display:block}.tag-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#e2e8f0;color:#2d3748}.tag-badge.success{background:#d1fae5;color:#065f46}.tag-badge.warning{background:#fef3c7;color:#92400e}.tag-badge.danger{background:#fee2e2;color:#991b1b}.tag-badge.andamento{background:#dbeafe;color:#1e40af}.laudo-field-em-branco{font-size:9px;color:#a0aec0;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px dotted #cbd5e0;padding-bottom:20px;}.laudo-pagebreak{break-after:page;page-break-after:always;}.laudo-checkbox-status{white-space:nowrap;font-size:11px;color:#4a5568;}.laudo-section-checklist{break-inside:auto !important;page-break-inside:auto !important;}.exec-label{font-size:6.5px;color:#b0b8c4;display:block;line-height:1.4;border-bottom:1px dotted #cbd5e0;padding-bottom:8px;margin-bottom:1px;}</style></head>
   <body>${html}<script>window.addEventListener('load',function(){setTimeout(function(){window.print();window.addEventListener('afterprint',function(){window.close();});},400);});<\/script></body></html>`);
   win.document.close();
 }
