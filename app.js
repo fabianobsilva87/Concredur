@@ -1285,6 +1285,29 @@ async function atualizarSelectBlocosCascataFiltroSetor() {
 // ----- CRUD: Salas -----
 let _salasCache = [];
 
+// Calcula a carga térmica estimada (BTU/h) de uma Sala, usando o método prático
+// baseado em NBR 16401 / ASHRAE (referência conceitual; cálculo simplificado por
+// ausência de dados climáticos detalhados por cidade no cadastro):
+//   Base:  area_m2 × btu_m2_base (padrão 600 BTU/m²)
+//   + 600 BTU por pessoa prevista
+//   + 3,41 BTU por Watt de equipamentos eletrônicos do ambiente
+//   × Fator solar: sem incidência = 1,00 | sol da manhã = 1,10 | sol da tarde = 1,20
+function calcularCargaTermicaBTU({ area_m2, pessoas_previstas, equip_watts, incidencia_solar, btu_m2_base }) {
+  const area     = parseFloat(area_m2) || 0;
+  const pessoas  = parseInt(pessoas_previstas) || 0;
+  const watts    = parseFloat(equip_watts) || 0;
+  const baseM2   = parseFloat(btu_m2_base) || 600;
+  const FATOR_SOLAR = { sem: 1.00, manha: 1.10, tarde: 1.20 };
+  const fator = FATOR_SOLAR[incidencia_solar] || 1.00;
+
+  const btuBase    = area * baseM2;
+  const btuPessoas = pessoas * 600;
+  const btuEquip   = watts * 3.41;
+
+  const total = (btuBase + btuPessoas + btuEquip) * fator;
+  return Math.round(total);
+}
+
 async function carregarSalas() {
   const tbody = $('tbody-salas'); if (!tbody) return;
   const filtroSetor = $('filtro-sala-setor')?.value || '';
@@ -1298,12 +1321,13 @@ async function carregarSalas() {
   tbody.innerHTML = _salasCache.length ? _salasCache.map(s => `<tr>
       <td><strong>${escapeHTML(s.nome)}</strong></td>
       <td>${escapeHTML(s.setores?.nome)} <span style="color:#a0aec0;">(${escapeHTML(s.setores?.blocos?.nome)})</span></td>
+      <td style="text-align:center;">${s.carga_termica_btu ? `<span class="tag-badge">${Number(s.carga_termica_btu).toLocaleString('pt-BR')} BTU/h</span>` : '<span style="color:#a0aec0;">—</span>'}</td>
       <td style="text-align:center;"><span class="tag-badge">${countMap[s.id] || 0}</span></td>
       <td style="display:flex;gap:4px;">
         <button class="btn-secondary" style="padding:3px 10px;font-size:11px;" onclick="editarSala('${s.id}')">✏️ Editar</button>
         <button class="btn-excluir" onclick="excluirSala('${s.id}')">✕</button>
       </td>
-    </tr>`).join('') : '<tr><td colspan="4" class="td-loading">Sem registros.</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="5" class="td-loading">Sem registros.</td></tr>';
 }
 
 function editarSala(id) {
@@ -1311,6 +1335,12 @@ function editarSala(id) {
   $('sala-id-edicao').value = s.id;
   $('sala-setor').value = s.setor_id || '';
   $('sala-nome').value = s.nome || '';
+  if ($('sala-area'))      $('sala-area').value      = s.area_m2 ?? '';
+  if ($('sala-pessoas'))   $('sala-pessoas').value    = s.pessoas_previstas ?? 0;
+  if ($('sala-equip-watts')) $('sala-equip-watts').value = s.equip_watts ?? 0;
+  if ($('sala-incidencia-solar')) $('sala-incidencia-solar').value = s.incidencia_solar || 'sem';
+  if ($('sala-btu-m2-base')) $('sala-btu-m2-base').value = s.btu_m2_base ?? 600;
+  atualizarPreviaCargaTermicaSala();
   $('btn-salvar-sala').textContent = '💾 Atualizar Sala';
   $('btn-cancelar-sala').style.display = 'inline-flex';
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1320,8 +1350,27 @@ function resetarFormSala() {
   $('sala-id-edicao').value = '';
   $('sala-setor').value = '';
   $('sala-nome').value = '';
+  if ($('sala-area'))      $('sala-area').value      = '';
+  if ($('sala-pessoas'))   $('sala-pessoas').value    = 0;
+  if ($('sala-equip-watts')) $('sala-equip-watts').value = 0;
+  if ($('sala-incidencia-solar')) $('sala-incidencia-solar').value = 'sem';
+  if ($('sala-btu-m2-base')) $('sala-btu-m2-base').value = 600;
+  atualizarPreviaCargaTermicaSala();
   $('btn-salvar-sala').textContent = '💾 Salvar Sala';
   $('btn-cancelar-sala').style.display = 'none';
+}
+
+// Recalcula e exibe em tempo real a prévia da carga térmica no formulário de Sala (locais.html)
+function atualizarPreviaCargaTermicaSala() {
+  const el = $('sala-carga-termica-previa'); if (!el) return;
+  const btu = calcularCargaTermicaBTU({
+    area_m2:           $('sala-area')?.value,
+    pessoas_previstas: $('sala-pessoas')?.value,
+    equip_watts:       $('sala-equip-watts')?.value,
+    incidencia_solar:  $('sala-incidencia-solar')?.value,
+    btu_m2_base:        $('sala-btu-m2-base')?.value,
+  });
+  el.textContent = btu > 0 ? `${btu.toLocaleString('pt-BR')} BTU/h` : '—';
 }
 
 async function excluirSala(id) {
@@ -1337,10 +1386,17 @@ if ($('btn-salvar-sala')) {
     const nome = $('sala-nome')?.value.trim();
     if (!setor_id || !nome) { msgForm('msg-sala', 'Selecione o Setor e informe o nome da Sala.', 'red'); return; }
     msgForm('msg-sala', 'Salvando...', 'blue');
+    const area_m2           = $('sala-area')?.value ? parseFloat($('sala-area').value) : null;
+    const pessoas_previstas = parseInt($('sala-pessoas')?.value) || 0;
+    const equip_watts       = parseFloat($('sala-equip-watts')?.value) || 0;
+    const incidencia_solar  = $('sala-incidencia-solar')?.value || 'sem';
+    const btu_m2_base       = parseFloat($('sala-btu-m2-base')?.value) || 600;
+    const carga_termica_btu = calcularCargaTermicaBTU({ area_m2, pessoas_previstas, equip_watts, incidencia_solar, btu_m2_base });
+    const payload = { setor_id, nome, area_m2, pessoas_previstas, equip_watts, incidencia_solar, btu_m2_base, carga_termica_btu };
     const idEd = $('sala-id-edicao')?.value;
     const { error } = idEd
-      ? await db.from('salas').update({ setor_id, nome }).eq('id', idEd)
-      : await db.from('salas').insert([{ setor_id, nome }]);
+      ? await db.from('salas').update(payload).eq('id', idEd)
+      : await db.from('salas').insert([payload]);
     if (error) { msgForm('msg-sala', 'Erro: ' + error.message, 'red'); return; }
     msgForm('msg-sala', idEd ? '✓ Sala atualizada!' : '✓ Sala salva!', 'green');
     resetarFormSala();
@@ -2800,6 +2856,148 @@ async function renderizarGraficosDashboard() {
 }
 
 // ===================== DASHBOARD — KPIs EXTRAS (Filtros a Vencer / PMOC Vencidos) =====================
+// ===================== DASHBOARD — FILTROS DE LOCALIZAÇÃO (cascata) =====================
+// Estado global do filtro aplicado ao Dashboard. Vazio = sem filtro (todos os locais).
+let _dashFiltro = { instituicaoId: '', blocoId: '', setorId: '' };
+
+// Popula um <select> de Blocos com um rótulo "Todos" customizado (uso em filtros, não cascata de formulário).
+async function popularSelectBlocosComTodos(instituicaoId, selectId, labelTodos) {
+  const sel = $(selectId); if (!sel) return;
+  if (!instituicaoId) {
+    sel.innerHTML = `<option value="">${labelTodos}</option>`;
+    sel.disabled = false;
+    return;
+  }
+  const { data } = await db.from('blocos').select('id, nome').eq('instituicao_id', instituicaoId).order('nome', { ascending: true });
+  sel.disabled = false;
+  sel.innerHTML = `<option value="">${labelTodos}</option>` + (data || []).map(b => `<option value="${b.id}">${escapeHTML(b.nome)}</option>`).join('');
+}
+
+// Popula um <select> de Setores com um rótulo "Todos" customizado (uso em filtros, não cascata de formulário).
+async function popularSelectSetoresComTodos(blocoId, selectId, labelTodos) {
+  const sel = $(selectId); if (!sel) return;
+  if (!blocoId) {
+    sel.innerHTML = `<option value="">${labelTodos}</option>`;
+    sel.disabled = false;
+    return;
+  }
+  const { data } = await db.from('setores').select('id, nome').eq('bloco_id', blocoId).order('nome', { ascending: true });
+  sel.disabled = false;
+  sel.innerHTML = `<option value="">${labelTodos}</option>` + (data || []).map(s => `<option value="${s.id}">${escapeHTML(s.nome)}</option>`).join('');
+}
+
+async function inicializarFiltrosDashboard() {
+  await popularSelectInstituicoes('dash-filtro-instituicao', true);
+  await popularSelectBlocosComTodos('', 'dash-filtro-bloco', 'Todos os Blocos');
+  await popularSelectSetoresComTodos('', 'dash-filtro-setor', 'Todos os Setores');
+}
+
+async function dashAoMudarInstituicao() {
+  _dashFiltro.instituicaoId = $('dash-filtro-instituicao')?.value || '';
+  _dashFiltro.blocoId = ''; _dashFiltro.setorId = '';
+  await popularSelectBlocosComTodos(_dashFiltro.instituicaoId, 'dash-filtro-bloco', 'Todos os Blocos');
+  await popularSelectSetoresComTodos('', 'dash-filtro-setor', 'Todos os Setores');
+  recarregarDashboardComFiltro();
+}
+
+async function dashAoMudarBloco() {
+  _dashFiltro.blocoId = $('dash-filtro-bloco')?.value || '';
+  _dashFiltro.setorId = '';
+  await popularSelectSetoresComTodos(_dashFiltro.blocoId, 'dash-filtro-setor', 'Todos os Setores');
+  recarregarDashboardComFiltro();
+}
+
+function dashAoMudarSetor() {
+  _dashFiltro.setorId = $('dash-filtro-setor')?.value || '';
+  recarregarDashboardComFiltro();
+}
+
+async function dashLimparFiltros() {
+  _dashFiltro = { instituicaoId: '', blocoId: '', setorId: '' };
+  if ($('dash-filtro-instituicao')) $('dash-filtro-instituicao').value = '';
+  await inicializarFiltrosDashboard();
+  recarregarDashboardComFiltro();
+}
+
+// Retorna a query base de equipamentos já filtrada pela Instituição/Bloco/Setor
+// selecionados no Dashboard (cascata). Sem filtro selecionado, retorna a query sem .eq().
+function aplicarFiltroLocalizacaoQuery(query) {
+  if (_dashFiltro.setorId)       return query.eq('setor_id', _dashFiltro.setorId);
+  if (_dashFiltro.blocoId)       return query.eq('bloco_id', _dashFiltro.blocoId);
+  if (_dashFiltro.instituicaoId) return query.eq('instituicao_id', _dashFiltro.instituicaoId);
+  return query;
+}
+
+function recarregarDashboardComFiltro() {
+  carregarKPIsExtras();
+  carregarInventarioGas();
+  carregarDistribuicaoCategoria();
+  carregarConformidadeFiltros();
+  carregarCoberturaPMOC();
+  carregarKpiCargaTermica();
+}
+
+// ===================== DASHBOARD — KPI: CARGA INSTALADA × CARGA NECESSÁRIA =====================
+// Compara a soma da potência (BTU/h) dos ACs instalados com a soma da carga térmica
+// prevista (BTU/h) das Salas cadastradas, respeitando o filtro de localização ativo.
+async function carregarKpiCargaTermica() {
+  const elInstalada  = $('dash-txt-carga-instalada');
+  const elNecessaria = $('dash-txt-carga-necessaria');
+  const elBadge       = $('dash-badge-carga-termica');
+  if (!elInstalada && !elNecessaria) return;
+
+  // Carga instalada: soma da potência dos equipamentos AC, respeitando o filtro de localização
+  let queryEq = db.from('equipamentos').select('potencia').eq('categoria', 'AC');
+  queryEq = aplicarFiltroLocalizacaoQuery(queryEq);
+  const { data: eqsAC } = await queryEq;
+  const cargaInstalada = (eqsAC || []).reduce((soma, e) => {
+    const n = parseFloat((e.potencia || '').toString().replace(/\s*BTU\/h/i, '').replace(/\./g, '').replace(',', '.'));
+    return soma + (isNaN(n) ? 0 : n);
+  }, 0);
+
+  // Carga necessária: soma da carga_termica_btu das Salas, respeitando o filtro de localização.
+  // Salas não têm instituicao_id/bloco_id diretos — resolve em etapas via setores/blocos.
+  let querySalas = db.from('salas').select('carga_termica_btu, setor_id');
+  if (_dashFiltro.setorId) {
+    querySalas = querySalas.eq('setor_id', _dashFiltro.setorId);
+  } else if (_dashFiltro.blocoId) {
+    const { data: setoresDoBloco } = await db.from('setores').select('id').eq('bloco_id', _dashFiltro.blocoId);
+    const idsSetores = (setoresDoBloco || []).map(s => s.id);
+    querySalas = idsSetores.length ? querySalas.in('setor_id', idsSetores) : querySalas.eq('setor_id', '00000000-0000-0000-0000-000000000000');
+  } else if (_dashFiltro.instituicaoId) {
+    const { data: blocosDaInst } = await db.from('blocos').select('id').eq('instituicao_id', _dashFiltro.instituicaoId);
+    const idsBlocos = (blocosDaInst || []).map(b => b.id);
+    if (idsBlocos.length) {
+      const { data: setoresDosBlocos } = await db.from('setores').select('id').in('bloco_id', idsBlocos);
+      const idsSetores = (setoresDosBlocos || []).map(s => s.id);
+      querySalas = idsSetores.length ? querySalas.in('setor_id', idsSetores) : querySalas.eq('setor_id', '00000000-0000-0000-0000-000000000000');
+    } else {
+      querySalas = querySalas.eq('setor_id', '00000000-0000-0000-0000-000000000000');
+    }
+  }
+  const { data: salasFiltradas } = await querySalas;
+  const cargaNecessaria = (salasFiltradas || []).reduce((soma, s) => soma + (parseFloat(s.carga_termica_btu) || 0), 0);
+
+  if (elInstalada)  elInstalada.textContent  = cargaInstalada  > 0 ? `${Math.round(cargaInstalada).toLocaleString('pt-BR')} BTU/h`  : '—';
+  if (elNecessaria) elNecessaria.textContent = cargaNecessaria > 0 ? `${Math.round(cargaNecessaria).toLocaleString('pt-BR')} BTU/h` : '—';
+
+  if (elBadge) {
+    if (!cargaNecessaria) {
+      elBadge.textContent = 'Sem dados de carga prevista para o filtro atual';
+      elBadge.style.color = '#a0aec0';
+    } else {
+      const diffPct = Math.round(((cargaInstalada - cargaNecessaria) / cargaNecessaria) * 100);
+      if (diffPct >= 0) {
+        elBadge.textContent = `✓ Carga instalada ${diffPct}% acima da necessária`;
+        elBadge.style.color = '#10b981';
+      } else {
+        elBadge.textContent = `⚠ Carga instalada ${Math.abs(diffPct)}% abaixo da necessária`;
+        elBadge.style.color = '#ef4444';
+      }
+    }
+  }
+}
+
 async function carregarKPIsExtras() {
   const elFiltros = $('dash-txt-filtros-vencer');
   const elPmoc    = $('dash-txt-pmoc-vencidos');
@@ -2810,8 +3008,10 @@ async function carregarKPIsExtras() {
   const hjStr = hj.toISOString().split('T')[0];
   const e30Str = em30.toISOString().split('T')[0];
 
+  let queryBebs  = db.from('equipamentos').select('validade').eq('categoria','BEB').not('validade','is',null).lte('validade', e30Str);
+  queryBebs = aplicarFiltroLocalizacaoQuery(queryBebs);
   const [{ data: bebs }, { data: pmocs }] = await Promise.all([
-    db.from('equipamentos').select('validade').eq('categoria','BEB').not('validade','is',null).lte('validade', e30Str),
+    queryBebs,
     db.from('fichas_pmoc').select('proxima_manutencao').not('proxima_manutencao','is',null).lt('proxima_manutencao', hjStr),
   ]);
 
@@ -2825,7 +3025,9 @@ async function carregarInventarioGas() {
   const elTot = $('dash-gas-total');
   if (!el) return;
 
-  const { data: eqs } = await db.from('equipamentos').select('extras_tecnico').eq('categoria','AC');
+  let queryEqs = db.from('equipamentos').select('extras_tecnico').eq('categoria','AC');
+  queryEqs = aplicarFiltroLocalizacaoQuery(queryEqs);
+  const { data: eqs } = await queryEqs;
   const mapa = {};
   let totalKg = 0;
 
@@ -2876,7 +3078,9 @@ async function carregarDistribuicaoCategoria() {
   const elCrit   = $('dash-cat-criticos');
   if (!el) return;
 
-  const { data: eqs } = await db.from('equipamentos').select('categoria,criticidade');
+  let queryEqs = db.from('equipamentos').select('categoria,criticidade');
+  queryEqs = aplicarFiltroLocalizacaoQuery(queryEqs);
+  const { data: eqs } = await queryEqs;
   const mapa  = {};
   let criticos = 0;
 
@@ -2921,7 +3125,9 @@ async function carregarConformidadeFiltros() {
   if (!el) return;
 
   const hj = new Date(); hj.setHours(0,0,0,0);
-  const { data: bebs } = await db.from('equipamentos').select('tag,validade,bloco').eq('categoria','BEB');
+  let queryBebs = db.from('equipamentos').select('tag,validade,bloco').eq('categoria','BEB');
+  queryBebs = aplicarFiltroLocalizacaoQuery(queryBebs);
+  const { data: bebs } = await queryBebs;
 
   if (!bebs || !bebs.length) {
     el.innerHTML = '<span style="color:#a0aec0;">Nenhum bebedouro cadastrado.</span>';
@@ -2968,8 +3174,10 @@ async function carregarCoberturaPMOC() {
   const el = $('dash-cob-pmoc');
   if (!el) return;
 
+  let queryEqs = db.from('equipamentos').select('id,categoria');
+  queryEqs = aplicarFiltroLocalizacaoQuery(queryEqs);
   const [{ data: eqs }, { data: fichas }] = await Promise.all([
-    db.from('equipamentos').select('id,categoria'),
+    queryEqs,
     db.from('fichas_pmoc').select('equipamento_id'),
   ]);
 
