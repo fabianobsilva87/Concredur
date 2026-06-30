@@ -40,6 +40,8 @@
     <div class="topbar no-print">
       <button class="btn-refresh" onclick="alternarAbasLocais('instituicao')">🏛️ Instituições / Unidades</button>
       <button class="btn-refresh" style="background:#7c3aed; border-color:#7c3aed; color:#fff;" onclick="alternarAbasLocais('bloco')">🏢 Blocos / Edificações</button>
+      <button class="btn-refresh" style="background:#0d9488; border-color:#0d9488; color:#fff;" onclick="alternarAbasLocais('setor')">🗂️ Setores</button>
+      <button class="btn-refresh" style="background:#d97706; border-color:#d97706; color:#fff;" onclick="alternarAbasLocais('sala')">🚪 Salas</button>
     </div>
 
     <div class="section-content">
@@ -117,6 +119,101 @@
         </div>
       </div>
 
+      <!-- ===== ABA: SETORES ===== -->
+      <div id="aba-setor" class="app-sub-panel" style="display:none;">
+        <div class="card">
+          <h3 class="card-title">🗂️ Novo Setor</h3>
+          <p style="font-size:12px;color:#718096;margin-bottom:14px;">Ex: UTI, Laboratório, RH. Todo Setor precisa estar vinculado a um Bloco/Edificação.</p>
+
+          <input type="hidden" id="setor-id-edicao" value="">
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Instituição / Unidade *</label>
+              <select id="setor-instituicao" class="form-input-style" onchange="atualizarSelectBlocosCascataSetor()"><option value="">— Selecione —</option></select>
+            </div>
+            <div class="form-group">
+              <label>Bloco / Edificação *</label>
+              <select id="setor-bloco" class="form-input-style" disabled><option value="">— Selecione a instituição primeiro —</option></select>
+            </div>
+            <div class="form-group"><label>Nome do Setor *</label><input type="text" id="setor-nome" placeholder="Ex: UTI, Laboratório, RH"></div>
+          </div>
+
+          <div class="btn-row" style="margin-top:16px;">
+            <button id="btn-salvar-setor" class="btn-primary">💾 Salvar Setor</button>
+            <button id="btn-cancelar-setor" class="btn-secondary" style="display:none;" onclick="resetarFormSetor()">✕ Cancelar</button>
+          </div>
+          <p id="msg-setor" class="msg-form"></p>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h3 class="card-title" style="margin:0;">Setores Cadastrados</h3>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <select id="filtro-setor-instituicao" class="form-input-style" style="font-size:12px;" onchange="atualizarSelectBlocosCascataFiltroSetor()"><option value="">Todas as Instituições</option></select>
+              <select id="filtro-setor-bloco" class="form-input-style" style="font-size:12px;" onchange="carregarSetores()"><option value="">Todos os Blocos</option></select>
+              <button class="btn-refresh" onclick="carregarSetores()">↺ Atualizar</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Setor</th><th>Bloco / Instituição</th><th>Ativos vinculados</th><th>Ações</th></tr></thead>
+              <tbody id="tbody-setores"><tr><td colspan="4" class="td-loading">Carregando...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== ABA: SALAS ===== -->
+      <div id="aba-sala" class="app-sub-panel" style="display:none;">
+        <div class="card">
+          <h3 class="card-title">🚪 Nova Sala</h3>
+          <p style="font-size:12px;color:#718096;margin-bottom:14px;">Ex: Sala 204, Copa, Corredor B. Toda Sala precisa estar vinculada a um Setor.</p>
+
+          <input type="hidden" id="sala-id-edicao" value="">
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Instituição / Unidade *</label>
+              <select id="sala-instituicao" class="form-input-style" onchange="atualizarSelectBlocosCascataSala()"><option value="">— Selecione —</option></select>
+            </div>
+            <div class="form-group">
+              <label>Bloco / Edificação *</label>
+              <select id="sala-bloco" class="form-input-style" disabled onchange="atualizarSelectSetoresCascataSala()"><option value="">— Selecione a instituição primeiro —</option></select>
+            </div>
+            <div class="form-group">
+              <label>Setor *</label>
+              <select id="sala-setor" class="form-input-style" disabled><option value="">— Selecione o bloco primeiro —</option></select>
+            </div>
+            <div class="form-group"><label>Nome da Sala *</label><input type="text" id="sala-nome" placeholder="Ex: Sala 204, Copa, Corredor B"></div>
+          </div>
+
+          <div class="btn-row" style="margin-top:16px;">
+            <button id="btn-salvar-sala" class="btn-primary">💾 Salvar Sala</button>
+            <button id="btn-cancelar-sala" class="btn-secondary" style="display:none;" onclick="resetarFormSala()">✕ Cancelar</button>
+          </div>
+          <p id="msg-sala" class="msg-form"></p>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h3 class="card-title" style="margin:0;">Salas Cadastradas</h3>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <select id="filtro-sala-instituicao" class="form-input-style" style="font-size:12px;" onchange="atualizarSelectBlocosCascataFiltroSala()"><option value="">Todas as Instituições</option></select>
+              <select id="filtro-sala-bloco" class="form-input-style" style="font-size:12px;" onchange="atualizarSelectSetoresCascataFiltroSala()"><option value="">Todos os Blocos</option></select>
+              <select id="filtro-sala-setor" class="form-input-style" style="font-size:12px;" onchange="carregarSalas()"><option value="">Todos os Setores</option></select>
+              <button class="btn-refresh" onclick="carregarSalas()">↺ Atualizar</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Sala</th><th>Setor / Bloco</th><th>Ativos vinculados</th><th>Ações</th></tr></thead>
+              <tbody id="tbody-salas"><tr><td colspan="4" class="td-loading">Carregando...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </div>
   </main>
 </div>
@@ -125,7 +222,7 @@
 <script>
 // ===================== CONTROLE DE ABAS =====================
 function alternarAbasLocais(aba) {
-  ['instituicao','bloco'].forEach(a => {
+  ['instituicao','bloco','setor','sala'].forEach(a => {
     const el = document.getElementById('aba-' + a);
     if (el) el.style.display = a === aba ? 'block' : 'none';
   });
@@ -137,6 +234,14 @@ window.addEventListener('DOMContentLoaded', async () => {
   await popularSelectInstituicoes('bloco-instituicao');
   await popularSelectInstituicoes('filtro-bloco-instituicao', true);
   await carregarBlocos();
+
+  await popularSelectInstituicoes('setor-instituicao');
+  await popularSelectInstituicoes('filtro-setor-instituicao', true);
+  await carregarSetores();
+
+  await popularSelectInstituicoes('sala-instituicao');
+  await popularSelectInstituicoes('filtro-sala-instituicao', true);
+  await carregarSalas();
 });
 </script>
 </body>

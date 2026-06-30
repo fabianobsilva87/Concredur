@@ -475,19 +475,23 @@ if ($('btn-salvar')) {
     const tag = $('eq-tag')?.value.trim(); const cat = $('eq-categoria')?.value;
     if (!tag || !cat) { msgForm('msg-equipamento', 'TAG e Categoria são obrigatórias.', 'red'); return; }
     msgForm('msg-equipamento', 'Salvando...', 'blue');
-    // Localização agora vem de catálogos (instituicoes / blocos) selecionados, não mais texto livre.
-    // bloco/instituicao (texto) são mantidos em sincronia automaticamente para compatibilidade
+    // Localização agora vem de catálogos (instituicoes / blocos / setores / salas) selecionados, não mais texto livre.
+    // setor/sala (texto) são mantidos em sincronia automaticamente para compatibilidade
     // com laudos, QR público, dashboard e filtros já existentes.
     const instId  = $('eq-instituicao-id')?.value || '';
     const blocoId = $('eq-bloco-id')?.value       || '';
+    const setorId = $('eq-setor-id')?.value       || '';
+    const salaId  = $('eq-sala-id')?.value        || '';
     const payload = {
       tag, categoria: cat,
       marca:      $('eq-marca')?.value.trim()      || null,
       produto:    $('eq-produto')?.value.trim()    || null,
       nr_serie:   $('eq-serie')?.value.trim()      || null,
       patrimonio: $('eq-patrimonio')?.value.trim() || null,
-      setor:      $('eq-setor')?.value.trim()      || null,
-      sala:       $('eq-sala')?.value.trim()       || null,
+      setor_id:       setorId || null,
+      sala_id:        salaId  || null,
+      setor:      setorId ? $('eq-setor-id').selectedOptions[0].textContent : null,
+      sala:       salaId  ? $('eq-sala-id').selectedOptions[0].textContent  : null,
       instituicao_id: instId  || null,
       bloco_id:       blocoId || null,
       instituicao: instId  ? $('eq-instituicao-id').selectedOptions[0].textContent : null,
@@ -550,11 +554,17 @@ async function carregarEquipamentoParaEdicao() {
   if ($('eq-serie'))       $('eq-serie').value       = eq.nr_serie    || '';
   if ($('eq-patrimonio'))  $('eq-patrimonio').value  = eq.patrimonio  || '';
   if ($('eq-instituicao-id')) $('eq-instituicao-id').value = eq.instituicao_id || '';
-  if ($('eq-setor'))       $('eq-setor').value       = eq.setor       || '';
-  if ($('eq-sala'))        $('eq-sala').value        = eq.sala        || '';
   if ($('eq-bloco-id')) {
     await popularSelectBlocos(eq.instituicao_id || '', 'eq-bloco-id');
     $('eq-bloco-id').value = eq.bloco_id || '';
+  }
+  if ($('eq-setor-id')) {
+    await popularSelectSetores(eq.bloco_id || '', 'eq-setor-id');
+    $('eq-setor-id').value = eq.setor_id || '';
+  }
+  if ($('eq-sala-id')) {
+    await popularSelectSalas(eq.setor_id || '', 'eq-sala-id');
+    $('eq-sala-id').value = eq.sala_id || '';
   }
   if (eq.categoria === 'AC') {
     definirCapacidadeBTU(eq.potencia || '');
@@ -723,8 +733,8 @@ function exportarEquipamentosXLS() {
       'Gás Refrigerante':          extras.gas     || '',
       'Ciclo':                     extras.ciclo   || '',
       'Tensão (V)':                extras.tensao  || '',
-      'Quantidade de Gás (KG)':    (extras['gas-qtd'] || '').replace('.', ','),
-      'Potência (BTU/h)':          isAC ? (() => { const n = parseFloat((eq.potencia || '').replace(/\s*BTU\/h/i, '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? '' : n; })() : '',
+      'Quantidade de Gás (KG)':    extras['gas-qtd'] || '',
+      'Potência (BTU/h)':          isAC ? (eq.potencia || '') : '',
       'Tecnologia do Compressor':  extras['tec-compressor']  || '',
       'Tipo de Instalação':        extras['instalacao-ac']   || '',
       'Possui QR Code':            eq.qrcode_token ? 'Sim' : 'Não',
@@ -1011,6 +1021,57 @@ async function atualizarSelectBlocosCascata(manterValor) {
   const blocoAnterior = manterValor ? $('eq-bloco-id')?.value : '';
   await popularSelectBlocos(instId, 'eq-bloco-id');
   if (blocoAnterior) $('eq-bloco-id').value = blocoAnterior;
+  // Bloco mudou → Setor e Sala (dependentes) precisam ser reiniciados também
+  await popularSelectSetores('', 'eq-setor-id');
+  await popularSelectSalas('', 'eq-sala-id');
+}
+
+// Popula um <select> de Setores filtrado pelo Bloco escolhido (cascata).
+// Sem blocoId, o select fica vazio e desabilitado.
+async function popularSelectSetores(blocoId, selectId) {
+  const sel = $(selectId); if (!sel) return;
+  if (!blocoId) {
+    sel.innerHTML = '<option value="">— Selecione o bloco primeiro —</option>';
+    sel.disabled = true;
+    return;
+  }
+  const { data } = await db.from('setores').select('id, nome').eq('bloco_id', blocoId).order('nome', { ascending: true });
+  sel.disabled = false;
+  sel.innerHTML = '<option value="">— Selecione —</option>'
+    + (data || []).map(s => `<option value="${s.id}">${escapeHTML(s.nome)}</option>`).join('');
+}
+
+// Popula um <select> de Salas filtrado pelo Setor escolhido (cascata).
+// Sem setorId, o select fica vazio e desabilitado.
+async function popularSelectSalas(setorId, selectId) {
+  const sel = $(selectId); if (!sel) return;
+  if (!setorId) {
+    sel.innerHTML = '<option value="">— Selecione o setor primeiro —</option>';
+    sel.disabled = true;
+    return;
+  }
+  const { data } = await db.from('salas').select('id, nome').eq('setor_id', setorId).order('nome', { ascending: true });
+  sel.disabled = false;
+  sel.innerHTML = '<option value="">— Selecione —</option>'
+    + (data || []).map(s => `<option value="${s.id}">${escapeHTML(s.nome)}</option>`).join('');
+}
+
+// Disparado pelo onchange do select de Bloco em equipamentos.html
+async function atualizarSelectSetoresCascata(manterValor) {
+  const blocoId = $('eq-bloco-id')?.value || '';
+  const setorAnterior = manterValor ? $('eq-setor-id')?.value : '';
+  await popularSelectSetores(blocoId, 'eq-setor-id');
+  if (setorAnterior) $('eq-setor-id').value = setorAnterior;
+  // Setor mudou → Sala (dependente) precisa ser reiniciada também
+  await popularSelectSalas('', 'eq-sala-id');
+}
+
+// Disparado pelo onchange do select de Setor em equipamentos.html
+async function atualizarSelectSalasCascata(manterValor) {
+  const setorId = $('eq-setor-id')?.value || '';
+  const salaAnterior = manterValor ? $('eq-sala-id')?.value : '';
+  await popularSelectSalas(setorId, 'eq-sala-id');
+  if (salaAnterior) $('eq-sala-id').value = salaAnterior;
 }
 
 // ----- CRUD: Instituições / Unidades -----
@@ -1140,6 +1201,175 @@ if ($('btn-salvar-bloco')) {
     resetarFormBloco();
     carregarBlocos();
   });
+}
+
+// ----- CRUD: Setores -----
+let _setoresCache = [];
+
+async function carregarSetores() {
+  const tbody = $('tbody-setores'); if (!tbody) return;
+  const filtroBloco = $('filtro-setor-bloco')?.value || '';
+  let query = db.from('setores').select('*, blocos(nome, instituicoes(nome))').order('nome', { ascending: true });
+  if (filtroBloco) query = query.eq('bloco_id', filtroBloco);
+  const { data: setores } = await query;
+  const { data: eqs } = await db.from('equipamentos').select('setor_id');
+  _setoresCache = setores || [];
+  const countMap = {};
+  (eqs || []).forEach(e => { if (e.setor_id) countMap[e.setor_id] = (countMap[e.setor_id] || 0) + 1; });
+  tbody.innerHTML = _setoresCache.length ? _setoresCache.map(s => `<tr>
+      <td><strong>${escapeHTML(s.nome)}</strong></td>
+      <td>${escapeHTML(s.blocos?.nome)} <span style="color:#a0aec0;">(${escapeHTML(s.blocos?.instituicoes?.nome)})</span></td>
+      <td style="text-align:center;"><span class="tag-badge">${countMap[s.id] || 0}</span></td>
+      <td style="display:flex;gap:4px;">
+        <button class="btn-secondary" style="padding:3px 10px;font-size:11px;" onclick="editarSetor('${s.id}')">✏️ Editar</button>
+        <button class="btn-excluir" onclick="excluirSetor('${s.id}')">✕</button>
+      </td>
+    </tr>`).join('') : '<tr><td colspan="4" class="td-loading">Sem registros.</td></tr>';
+}
+
+function editarSetor(id) {
+  const s = _setoresCache.find(x => x.id === id); if (!s) return;
+  $('setor-id-edicao').value = s.id;
+  $('setor-bloco').value = s.bloco_id || '';
+  $('setor-nome').value = s.nome || '';
+  $('btn-salvar-setor').textContent = '💾 Atualizar Setor';
+  $('btn-cancelar-setor').style.display = 'inline-flex';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function resetarFormSetor() {
+  $('setor-id-edicao').value = '';
+  $('setor-bloco').value = '';
+  $('setor-nome').value = '';
+  $('btn-salvar-setor').textContent = '💾 Salvar Setor';
+  $('btn-cancelar-setor').style.display = 'none';
+}
+
+async function excluirSetor(id) {
+  if (!confirm('Remover este Setor? Só será possível se não houver Salas ou Ativos vinculados a ele.')) return;
+  const { error } = await db.from('setores').delete().eq('id', id);
+  if (error) { alert('Não foi possível remover: ' + error.message); return; }
+  carregarSetores();
+}
+
+if ($('btn-salvar-setor')) {
+  $('btn-salvar-setor').addEventListener('click', async () => {
+    const bloco_id = $('setor-bloco')?.value;
+    const nome = $('setor-nome')?.value.trim();
+    if (!bloco_id || !nome) { msgForm('msg-setor', 'Selecione o Bloco e informe o nome do Setor.', 'red'); return; }
+    msgForm('msg-setor', 'Salvando...', 'blue');
+    const idEd = $('setor-id-edicao')?.value;
+    const { error } = idEd
+      ? await db.from('setores').update({ bloco_id, nome }).eq('id', idEd)
+      : await db.from('setores').insert([{ bloco_id, nome }]);
+    if (error) { msgForm('msg-setor', 'Erro: ' + error.message, 'red'); return; }
+    msgForm('msg-setor', idEd ? '✓ Setor atualizado!' : '✓ Setor salvo!', 'green');
+    resetarFormSetor();
+    carregarSetores();
+  });
+}
+
+// Cascata Instituição → Bloco usada no formulário de cadastro de Setor (locais.html)
+async function atualizarSelectBlocosCascataSetor() {
+  const instId = $('setor-instituicao')?.value || '';
+  await popularSelectBlocos(instId, 'setor-bloco');
+}
+
+// Cascata Instituição → Bloco usada no filtro de listagem de Setores (locais.html)
+async function atualizarSelectBlocosCascataFiltroSetor() {
+  const instId = $('filtro-setor-instituicao')?.value || '';
+  await popularSelectBlocos(instId, 'filtro-setor-bloco');
+  carregarSetores();
+}
+
+// ----- CRUD: Salas -----
+let _salasCache = [];
+
+async function carregarSalas() {
+  const tbody = $('tbody-salas'); if (!tbody) return;
+  const filtroSetor = $('filtro-sala-setor')?.value || '';
+  let query = db.from('salas').select('*, setores(nome, blocos(nome, instituicoes(nome)))').order('nome', { ascending: true });
+  if (filtroSetor) query = query.eq('setor_id', filtroSetor);
+  const { data: salas } = await query;
+  const { data: eqs } = await db.from('equipamentos').select('sala_id');
+  _salasCache = salas || [];
+  const countMap = {};
+  (eqs || []).forEach(e => { if (e.sala_id) countMap[e.sala_id] = (countMap[e.sala_id] || 0) + 1; });
+  tbody.innerHTML = _salasCache.length ? _salasCache.map(s => `<tr>
+      <td><strong>${escapeHTML(s.nome)}</strong></td>
+      <td>${escapeHTML(s.setores?.nome)} <span style="color:#a0aec0;">(${escapeHTML(s.setores?.blocos?.nome)})</span></td>
+      <td style="text-align:center;"><span class="tag-badge">${countMap[s.id] || 0}</span></td>
+      <td style="display:flex;gap:4px;">
+        <button class="btn-secondary" style="padding:3px 10px;font-size:11px;" onclick="editarSala('${s.id}')">✏️ Editar</button>
+        <button class="btn-excluir" onclick="excluirSala('${s.id}')">✕</button>
+      </td>
+    </tr>`).join('') : '<tr><td colspan="4" class="td-loading">Sem registros.</td></tr>';
+}
+
+function editarSala(id) {
+  const s = _salasCache.find(x => x.id === id); if (!s) return;
+  $('sala-id-edicao').value = s.id;
+  $('sala-setor').value = s.setor_id || '';
+  $('sala-nome').value = s.nome || '';
+  $('btn-salvar-sala').textContent = '💾 Atualizar Sala';
+  $('btn-cancelar-sala').style.display = 'inline-flex';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function resetarFormSala() {
+  $('sala-id-edicao').value = '';
+  $('sala-setor').value = '';
+  $('sala-nome').value = '';
+  $('btn-salvar-sala').textContent = '💾 Salvar Sala';
+  $('btn-cancelar-sala').style.display = 'none';
+}
+
+async function excluirSala(id) {
+  if (!confirm('Remover esta Sala? Só será possível se não houver Ativos vinculados a ela.')) return;
+  const { error } = await db.from('salas').delete().eq('id', id);
+  if (error) { alert('Não foi possível remover: ' + error.message); return; }
+  carregarSalas();
+}
+
+if ($('btn-salvar-sala')) {
+  $('btn-salvar-sala').addEventListener('click', async () => {
+    const setor_id = $('sala-setor')?.value;
+    const nome = $('sala-nome')?.value.trim();
+    if (!setor_id || !nome) { msgForm('msg-sala', 'Selecione o Setor e informe o nome da Sala.', 'red'); return; }
+    msgForm('msg-sala', 'Salvando...', 'blue');
+    const idEd = $('sala-id-edicao')?.value;
+    const { error } = idEd
+      ? await db.from('salas').update({ setor_id, nome }).eq('id', idEd)
+      : await db.from('salas').insert([{ setor_id, nome }]);
+    if (error) { msgForm('msg-sala', 'Erro: ' + error.message, 'red'); return; }
+    msgForm('msg-sala', idEd ? '✓ Sala atualizada!' : '✓ Sala salva!', 'green');
+    resetarFormSala();
+    carregarSalas();
+  });
+}
+
+// Cascata Instituição → Bloco → Setor usada no formulário de cadastro de Sala (locais.html)
+async function atualizarSelectBlocosCascataSala() {
+  const instId = $('sala-instituicao')?.value || '';
+  await popularSelectBlocos(instId, 'sala-bloco');
+  await popularSelectSetores('', 'sala-setor');
+}
+async function atualizarSelectSetoresCascataSala() {
+  const blocoId = $('sala-bloco')?.value || '';
+  await popularSelectSetores(blocoId, 'sala-setor');
+}
+
+// Cascata Instituição → Bloco → Setor usada no filtro de listagem de Salas (locais.html)
+async function atualizarSelectBlocosCascataFiltroSala() {
+  const instId = $('filtro-sala-instituicao')?.value || '';
+  await popularSelectBlocos(instId, 'filtro-sala-bloco');
+  await popularSelectSetores('', 'filtro-sala-setor');
+  carregarSalas();
+}
+async function atualizarSelectSetoresCascataFiltroSala() {
+  const blocoId = $('filtro-sala-bloco')?.value || '';
+  await popularSelectSetores(blocoId, 'filtro-sala-setor');
+  carregarSalas();
 }
 
 // ===================== FORMULÁRIO PMOC =====================
