@@ -40,6 +40,21 @@
       <div class="topbar no-print"><h2>📊 Dashboard Executivo & Operacional</h2></div>
       <div class="section-content">
 
+        <!-- ===== FILTROS DE LOCALIZAÇÃO (cascata) ===== -->
+        <div class="card no-print" style="padding:14px 18px;margin-bottom:18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:12px;font-weight:700;color:#4a5568;">📍 Filtrar por local:</span>
+          <select id="dash-filtro-instituicao" class="form-input-style" style="font-size:12px;width:auto;min-width:180px;" onchange="dashAoMudarInstituicao()">
+            <option value="">Todas as Instituições</option>
+          </select>
+          <select id="dash-filtro-bloco" class="form-input-style" style="font-size:12px;width:auto;min-width:180px;" onchange="dashAoMudarBloco()">
+            <option value="">Todos os Blocos</option>
+          </select>
+          <select id="dash-filtro-setor" class="form-input-style" style="font-size:12px;width:auto;min-width:180px;" onchange="dashAoMudarSetor()">
+            <option value="">Todos os Setores</option>
+          </select>
+          <button class="btn-refresh" style="font-size:12px;" onclick="dashLimparFiltros()">✕ Limpar filtros</button>
+        </div>
+
         <!-- ===== KPI CARDS — 6 cards ===== -->
         <p class="dash-section-label" style="font-size:11px;font-weight:700;color:#a0aec0;letter-spacing:.08em;text-transform:uppercase;margin:0 0 10px;">VISÃO GERAL DO PARQUE</p>
         <div class="dash-cards-grid" style="grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px;">
@@ -80,6 +95,23 @@
             <h3 id="dash-txt-pmoc-vencidos" class="dash-card-value">—</h3>
           </div>
 
+        </div>
+
+        <!-- ===== KPI: CARGA TÉRMICA INSTALADA × NECESSÁRIA ===== -->
+        <div class="card" style="padding:20px;margin-bottom:20px;">
+          <h3 class="card-title" style="margin-bottom:4px;">🌡️ Carga Térmica — Instalada × Necessária</h3>
+          <p style="font-size:12px;color:#a0aec0;margin:0 0 14px;">Soma da potência (BTU/h) dos ACs instalados vs. carga prevista (BTU/h) das Salas cadastradas, conforme filtro de local acima</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div style="background:#f8fafc;border-radius:8px;padding:14px 18px;">
+              <p style="font-size:11px;color:#718096;margin:0 0 4px;text-transform:uppercase;letter-spacing:.05em;">Carga Instalada (ACs)</p>
+              <h3 id="dash-txt-carga-instalada" class="dash-card-value" style="margin:0;">—</h3>
+            </div>
+            <div style="background:#f8fafc;border-radius:8px;padding:14px 18px;">
+              <p style="font-size:11px;color:#718096;margin:0 0 4px;text-transform:uppercase;letter-spacing:.05em;">Carga Necessária (Salas)</p>
+              <h3 id="dash-txt-carga-necessaria" class="dash-card-value" style="margin:0;">—</h3>
+            </div>
+          </div>
+          <p id="dash-badge-carga-termica" style="font-size:12px;font-weight:700;margin:12px 0 0;text-align:right;">—</p>
         </div>
 
         <!-- ===== PAINEL DE ALERTAS ===== -->
@@ -194,7 +226,8 @@
   <script src="app.js"></script>
   <script>
     window.addEventListener('DOMContentLoaded', () => {
-      setTimeout(() => {
+      setTimeout(async () => {
+        await inicializarFiltrosDashboard();
         renderizarGraficosDashboard();
         carregarAgendaManutencoes();
         carregarAlertasVencimento();
@@ -203,6 +236,7 @@
         carregarDistribuicaoCategoria();
         carregarConformidadeFiltros();
         carregarCoberturaPMOC();
+        carregarKpiCargaTermica();
       }, 400);
     });
   </script>
