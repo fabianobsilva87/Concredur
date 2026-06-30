@@ -666,7 +666,6 @@ function emitirRelatorioGeralAtivos() {
   }).join('');
 
   const html = `
-  <style>@page{size:A4 landscape;margin:12mm;}</style>
   <div class="laudo-wrapper">
     <div class="laudo-header">
       <div style="display:flex;align-items:center;gap:14px;"><img src="${LOGO_ETIQUETA}" alt="Logo" style="height:40px;width:auto;display:block;"><div><h1 style="font-size:16px;">Relatório Geral de Ativos</h1><p>Inventário de equipamentos cadastrados</p></div></div>
@@ -691,7 +690,7 @@ function emitirRelatorioGeralAtivos() {
       </div>
     </div>
   </div>`;
-  imprimir('area-relatorio-ativos', html);
+  imprimir('area-relatorio-ativos', html, 'paisagem');
 }
 
 const EQ_CATEGORIA_LABEL_PLANO = {
@@ -733,8 +732,8 @@ function exportarEquipamentosXLS() {
       'Gás Refrigerante':          extras.gas     || '',
       'Ciclo':                     extras.ciclo   || '',
       'Tensão (V)':                extras.tensao  || '',
-      'Quantidade de Gás (KG)':    extras['gas-qtd'] || '',
-      'Potência (BTU/h)':          isAC ? (eq.potencia || '') : '',
+      'Quantidade de Gás (KG)':    (extras['gas-qtd'] || '').replace('.', ','),
+      'Potência (BTU/h)':          isAC ? (() => { const n = parseFloat((eq.potencia || '').replace(/\s*BTU\/h/i, '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? '' : n; })() : '',
       'Tecnologia do Compressor':  extras['tec-compressor']  || '',
       'Tipo de Instalação':        extras['instalacao-ac']   || '',
       'Possui QR Code':            eq.qrcode_token ? 'Sim' : 'Não',
@@ -1805,8 +1804,8 @@ function montarChecklistEmBrancoHTML(categoria) {
     }).join('');
 }
 
+// ===================== LAUDO PMOC ANUAL AGRUPADO =====================
 // Gera um documento de planejamento anual por ativo, com:
-
 //  • Capa de identificação do ativo
 //  • Programação mensal (grade 12 meses) com campo de assinatura/data por visita
 //  • Tabelas de itens agrupadas por periodicidade (Mensal / Trimestral / Semestral / Anual)
