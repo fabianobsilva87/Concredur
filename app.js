@@ -1750,39 +1750,42 @@ function montarSecoesChecklistPMOC(categoria, frequenciaPalavra, checklist) {
 function montarChecklistEmBrancoHTML(categoria) {
   const defs = CHECKLIST_PMOC_DEFS[categoria] || CHECKLIST_PMOC_DEFS.OUT;
 
+  // Quantidade de repetições (visitas previstas no ano) por periodicidade —
+  // 12 mensais, 4 trimestrais, 2 semestrais, 1 anual — cada uma com sua própria
+  // tabela "Item Verificado / Status" e bloco de Dados da Inspeção, empilhadas
+  // em sequência, fiel ao modelo de referência (sem grade de meses em colunas).
   const CFG = {
-    mensal:     { meses:[0,1,2,3,4,5,6,7,8,9,10,11], bg:'#1e3a5f', badge:'M', label:'Mensal — 12 visitas/ano'                       },
-    trimestral: { meses:[0,3,6,9],                    bg:'#5b21b6', badge:'T', label:'Trimestral — 4 visitas/ano (Jan·Abr·Jul·Out)'  },
-    semestral:  { meses:[0,6],                        bg:'#0e7490', badge:'S', label:'Semestral — 2 visitas/ano (Jan·Jul)'            },
-    anual:      { meses:[0],                          bg:'#065f46', badge:'A', label:'Anual — 1 visita/ano (Janeiro)'                 },
+    mensal:     { cor:'#1e3a5f', titulo:'🔧 Rotinas Mensais',     repeticoes:12 },
+    trimestral: { cor:'#5b21b6', titulo:'📅 Rotinas Trimestrais', repeticoes:4  },
+    semestral:  { cor:'#0e7490', titulo:'📆 Rotinas Semestrais',  repeticoes:2  },
+    anual:      { cor:'#065f46', titulo:'📋 Rotinas Anuais',      repeticoes:1  },
   };
 
-  // Célula de mês: C/NC/NA em 3 checkboxes microscópicos + linha data + linha tec
-  function _celMes(nomeMes) {
-    return `<th style="width:52px;min-width:44px;text-align:center;padding:2px 1px;
-                       border-left:1px solid rgba(255,255,255,.2);font-size:8px;font-weight:600;
-                       color:#fff;white-space:nowrap;">${nomeMes}</th>`;
+  function _tabelaChecklist(cor, itens) {
+    const linhas = itens.map(([, label]) => `
+      <tr>
+        <td style="font-size:8px;padding:3px 6px;border-bottom:1px solid #e2e8f0;line-height:1.25;">${escapeHTML(label)}</td>
+        <td style="font-size:8px;padding:3px 6px;border-bottom:1px solid #e2e8f0;white-space:nowrap;text-align:right;color:#374151;">☐ C&nbsp;&nbsp;☐ NC&nbsp;&nbsp;☐ NA</td>
+      </tr>`).join('');
+    return `
+      <table style="width:100%;border-collapse:collapse;font-size:8px;margin-top:2px;">
+        <thead>
+          <tr style="background:${cor};">
+            <th style="text-align:left;padding:4px 6px;font-size:8px;font-weight:700;color:#fff;">Item Verificado</th>
+            <th style="text-align:right;padding:4px 6px;font-size:8px;font-weight:700;color:#fff;width:90px;">Status</th>
+          </tr>
+        </thead>
+        <tbody>${linhas}</tbody>
+      </table>`;
   }
-  function _celDado() {
-    return `<td style="width:52px;border:1px solid #dde3ea;padding:1px 2px;vertical-align:top;text-align:center;">
-      <div style="font-size:7px;color:#374151;white-space:nowrap;line-height:1.5;">☐C ☐NC ☐NA</div>
-      <div style="font-size:6.5px;color:#9ca3af;border-top:1px dotted #d1d5db;margin-top:1px;padding-top:1px;text-align:left;">Data:___________</div>
-      <div style="font-size:6.5px;color:#9ca3af;border-top:1px dotted #d1d5db;margin-top:1px;padding-top:1px;text-align:left;">Tec.:____________</div>
-    </td>`;
-  }
-  // Rodapé: visto técnico + fiscal por coluna de mês
-  function _rodape(n) {
-    const cels = Array.from({length: n}, () =>
-      `<td style="border:1px solid #dde3ea;padding:1px 2px;vertical-align:top;text-align:center;width:52px;">
-        <div style="font-size:6.5px;color:#9ca3af;text-align:left;">V.Tec:___________</div>
-        <div style="font-size:6.5px;color:#9ca3af;border-top:1px dotted #d1d5db;margin-top:1px;padding-top:1px;text-align:left;">V.Fis:____________</div>
-      </td>`
-    ).join('');
-    return `<tr>
-      <td style="border:1px solid #dde3ea;padding:2px 6px;font-size:7px;font-weight:700;
-                 color:#374151;background:#f9fafb;white-space:nowrap;">Visto / Assinatura</td>
-      ${cels}
-    </tr>`;
+
+  function _dadosInspecao() {
+    return `
+      <div style="display:grid;grid-template-columns:2fr 1fr 1.4fr;gap:10px;margin:4px 0 8px;">
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Técnico Responsável</div><div style="border-bottom:1px dotted #cbd5e0;height:13px;"></div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Data da Inspeção</div><div style="border-bottom:1px dotted #cbd5e0;height:13px;"></div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Fiscal / Validador</div><div style="border-bottom:1px dotted #cbd5e0;height:13px;"></div></div>
+      </div>`;
   }
 
   return CHECKLIST_PERIODICIDADE_INFO
@@ -1790,178 +1793,20 @@ function montarChecklistEmBrancoHTML(categoria) {
     .map(p => {
       const cfg   = CFG[p.key];
       const itens = defs[p.key];
-      const nMes  = cfg.meses.length;
 
-      const thMeses = cfg.meses.map(m => _celMes(MESES_ABREV[m])).join('');
-      const linhas  = itens.map(([, label]) =>
-        `<tr>
-          <td style="font-size:8px;padding:2px 6px;border:1px solid #dde3ea;line-height:1.25;">${escapeHTML(label)}</td>
-          ${Array.from({length: nMes}, _celDado).join('')}
-        </tr>`
+      // Repete o bloco (título + tabela + dados da inspeção) uma vez por visita prevista
+      return Array.from({ length: cfg.repeticoes }, () => `
+        <div style="margin-top:6px;break-inside:avoid;page-break-inside:avoid;">
+          <div style="font-size:8px;font-weight:700;color:${cfg.cor};margin-bottom:2px;">${cfg.titulo}</div>
+          ${_tabelaChecklist(cfg.cor, itens)}
+          ${_dadosInspecao()}
+        </div>`
       ).join('');
-
-      return `<div style="margin-top:6px;break-inside:avoid;page-break-inside:avoid;">
-        <div style="background:${cfg.bg};color:#fff;padding:3px 7px;font-size:8px;font-weight:700;
-                    display:flex;align-items:center;gap:6px;">
-          <span style="background:rgba(255,255,255,.22);padding:0 5px;border-radius:2px;font-weight:800;">${cfg.badge}</span>
-          ${cfg.label}
-        </div>
-        <table style="width:100%;border-collapse:collapse;font-size:8px;table-layout:fixed;">
-          <thead>
-            <tr style="background:${cfg.bg}dd;">
-              <th style="text-align:left;padding:2px 6px;font-size:8px;font-weight:700;color:#fff;
-                         border:1px solid rgba(255,255,255,.2);">Item Verificado</th>
-              ${thMeses}
-            </tr>
-          </thead>
-          <tbody>
-            ${linhas}
-            ${_rodape(nMes)}
-          </tbody>
-        </table>
-      </div>`;
     }).join('');
 }
-
-// ===================== LAUDO PMOC — FORMATO "BOOK" (vertical A4, 1 tabela por periodicidade) =====================
-// Modelo alternativo ao laudo compacto A4 paisagem: cada periodicidade (Mensal/Trimestral/
-// Semestral/Anual) ocupa sua própria seção, com uma única tabela "Item Verificado / Status"
-// (checkboxes C·NC·NA) — sem grade de 12 meses. Pensado para impressão em campo, uma visita
-// por folha, formando um "book" (conjunto) de fichas por ativo.
-function montarChecklistBookHTML(categoria) {
-  const defs = CHECKLIST_PMOC_DEFS[categoria] || CHECKLIST_PMOC_DEFS.OUT;
-
-  const CFG = {
-    mensal:     { cor: '#1e3a5f', titulo: '🔧 Rotinas Mensais'     },
-    trimestral: { cor: '#5b21b6', titulo: '📅 Rotinas Trimestrais' },
-    semestral:  { cor: '#0e7490', titulo: '📆 Rotinas Semestrais'  },
-    anual:      { cor: '#065f46', titulo: '📋 Rotinas Anuais'      },
-  };
-
-  function _blocoDadosInspecao() {
-    return `
-      <div style="display:grid;grid-template-columns:2fr 1fr 1.4fr;gap:14px;margin:8px 0 4px;">
-        <div>
-          <div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Técnico Responsável</div>
-          <div style="border-bottom:1px dotted #cbd5e0;height:16px;"></div>
-        </div>
-        <div>
-          <div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Data da Inspeção</div>
-          <div style="border-bottom:1px dotted #cbd5e0;height:16px;"></div>
-        </div>
-        <div>
-          <div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Fiscal / Validador</div>
-          <div style="border-bottom:1px dotted #cbd5e0;height:16px;"></div>
-        </div>
-      </div>`;
-  }
-
-  return CHECKLIST_PERIODICIDADE_INFO
-    .filter(p => (defs[p.key] || []).length)
-    .map(p => {
-      const cfg    = CFG[p.key];
-      const itens  = defs[p.key];
-      const linhas = itens.map(([codigo, label]) => `
-        <tr>
-          <td style="font-size:10px;padding:6px 10px;border-bottom:1px solid #e2e8f0;line-height:1.3;">${escapeHTML(label)}</td>
-          <td style="font-size:10px;padding:6px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;text-align:right;color:#4a5568;">☐ C&nbsp;&nbsp;☐ NC&nbsp;&nbsp;☐ NA</td>
-        </tr>`).join('');
-
-      return `
-      <div style="margin-top:14px;break-inside:avoid;page-break-inside:avoid;">
-        <div style="font-size:11px;font-weight:700;color:${cfg.cor};margin-bottom:6px;break-after:avoid;page-break-after:avoid;">${cfg.titulo}</div>
-        <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:4px;overflow:hidden;">
-          <thead>
-            <tr style="background:${cfg.cor};">
-              <th style="text-align:left;padding:7px 10px;font-size:10px;font-weight:700;color:#fff;">Item Verificado</th>
-              <th style="text-align:right;padding:7px 10px;font-size:10px;font-weight:700;color:#fff;">Status</th>
-            </tr>
-          </thead>
-          <tbody>${linhas}</tbody>
-        </table>
-        ${_blocoDadosInspecao()}
-      </div>`;
-    }).join('');
-}
-
-// Monta a ficha "book" de um único ativo: cabeçalho azul Univag, identificação do ativo,
-// e as 4 seções de checklist (Mensal/Trimestral/Semestral/Anual) empilhadas verticalmente,
-// uma única vez cada — formato vertical A4, sem repetição de seções.
-function montarLaudoBookHTML(eq, ultimoDaLista) {
-  const categoria = eq.categoria || 'OUT';
-  const classeQ   = ultimoDaLista ? '' : ' laudo-pagebreak';
-  const checklistHTML = montarChecklistBookHTML(categoria);
-
-  return `
-  <div class="laudo-wrapper${classeQ}">
-
-    <!-- CABEÇALHO -->
-    <div class="laudo-header">
-      <div style="display:flex;align-items:center;gap:14px;">
-        <img src="${LOGO_ETIQUETA}" alt="Logo" style="height:38px;width:auto;display:block;filter:brightness(0) invert(1);">
-        <div>
-          <div style="font-size:14px;font-weight:700;">Plano de Manutenção, Operação e Controle (PMOC)</div>
-        </div>
-      </div>
-      <div class="laudo-header-meta">
-        <div style="font-weight:700;">Laudo para Preenchimento Manual</div>
-        <div style="margin-top:2px;">Frequência: ☐ Mensal &nbsp;☐ Trimestral &nbsp;☐ Semestral &nbsp;☐ Anual</div>
-      </div>
-    </div>
-
-    <!-- IDENTIFICAÇÃO DO ATIVO -->
-    <div class="laudo-section">
-      <div class="laudo-section-title">Identificação do Ativo</div>
-      <div class="laudo-grid-3">
-        <div class="laudo-field"><label>TAG</label><span>${escapeHTML(eq.tag)}</span></div>
-        <div class="laudo-field"><label>Equipamento</label><span>${escapeHTML(eq.produto || categoria)}</span></div>
-        <div class="laudo-field"><label>Marca</label><span>${escapeHTML(eq.marca)}</span></div>
-        <div class="laudo-field"><label>Potência</label><span>${escapeHTML(eq.potencia || '—')}</span></div>
-        <div class="laudo-field"><label>Nº Série</label><span>${escapeHTML(eq.nr_serie)}</span></div>
-        <div class="laudo-field"><label>Patrimônio</label><span>${escapeHTML(eq.patrimonio)}</span></div>
-        <div class="laudo-field"><label>Bloco</label><span>${escapeHTML(eq.bloco)}</span></div>
-        <div class="laudo-field"><label>Setor</label><span>${escapeHTML(eq.setor)}</span></div>
-        <div class="laudo-field"><label>Sala</label><span>${escapeHTML(eq.sala)}</span></div>
-      </div>
-    </div>
-
-    <!-- CHECKLIST POR PERIODICIDADE (Mensal → Trimestral → Semestral → Anual, sem repetição) -->
-    <div class="laudo-section">
-      <div class="laudo-section-title">Checklist de Manutenção — por Periodicidade</div>
-      ${checklistHTML}
-    </div>
-
-    <!-- OBSERVAÇÕES + ASSINATURAS -->
-    <div class="laudo-section">
-      <div class="laudo-section-title">Observações Técnicas</div>
-      <div style="border:1px solid #e2e8f0;height:48px;border-radius:2px;margin-bottom:14px;"></div>
-      <div style="display:flex;gap:18px;">
-        <div class="laudo-assinatura-box" style="flex:1;">
-          <div class="laudo-assinatura-linha">Técnico Executor</div>
-        </div>
-        <div class="laudo-assinatura-box" style="flex:1;">
-          <div class="laudo-assinatura-linha">Fiscal / Validador</div>
-        </div>
-        <div class="laudo-assinatura-box" style="flex:1.4;">
-          <div class="laudo-assinatura-linha">Resp. Técnico — CREA / ART nº ________</div>
-        </div>
-      </div>
-    </div>
-
-  </div>`;
-}
-
-// Emite o laudo PMOC em formato "book" (vertical A4, uma ficha por ativo, sem repetição de
-// seções) para todos os ativos filtrados na tela de Gerenciamento de Ativos.
-function emitirLaudosBookPMOC() {
-  const items = obterEquipamentosFiltrados();
-  if (!items.length) { alert('Nenhum ativo encontrado para gerar laudos com os filtros atuais.'); return; }
-  const html = items.map((eq, i) => montarLaudoBookHTML(eq, i === items.length - 1)).join('');
-  imprimir('area-laudos-em-branco', html, 'retrato');
-}
-
 
 // Gera um documento de planejamento anual por ativo, com:
+
 //  • Capa de identificação do ativo
 //  • Programação mensal (grade 12 meses) com campo de assinatura/data por visita
 //  • Tabelas de itens agrupadas por periodicidade (Mensal / Trimestral / Semestral / Anual)
@@ -2141,7 +1986,7 @@ function emitirLaudosEmBrancoPMOC() {
   const items = obterEquipamentosFiltrados();
   if (!items.length) { alert('Nenhum ativo encontrado para gerar laudos em branco com os filtros atuais.'); return; }
   const html = items.map((eq, i) => montarLaudoAnualAgrupadoHTML(eq, i === items.length - 1)).join('');
-  imprimir('area-laudos-em-branco', html);
+  imprimir('area-laudos-em-branco', html, 'retrato');
 }
 
 async function emitirRelatorioPMOC(b64) {
