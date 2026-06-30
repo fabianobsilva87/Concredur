@@ -1285,26 +1285,48 @@ async function atualizarSelectBlocosCascataFiltroSetor() {
 // ----- CRUD: Salas -----
 let _salasCache = [];
 
+// Fator climático de referência absoluta do sistema. Cuiabá-MT (zona bioclimática 5B/7,
+// NBR 15220-3) é a cidade-base de calibração — fator = 1,00. Caso o sistema passe a atender
+// unidades em outras cidades/regiões no futuro, basta adicionar entradas a este mapa e
+// expor um campo de seleção de cidade no formulário de Sala (hoje fixo, sem campo na UI).
+const FATOR_CLIMATICO_REGIAO = {
+  'cuiaba-mt': 1.00, // referência absoluta — TBSm ≈ 26,7°C, zona bioclimática 5B
+};
+const CIDADE_REFERENCIA_PADRAO = 'cuiaba-mt';
+
+// Fator de cobertura/isolamento térmico do ambiente. Ambientes com cobertura exposta ao sol
+// (telhado/laje de topo) ganham mais calor por radiação que ambientes entre andares,
+// que por sua vez têm troca térmica adicional pela proteção de pavimentos acima/abaixo.
+const FATOR_COBERTURA = {
+  entre_andares: 0.95, // protegido por lajes acima e abaixo — menor ganho térmico
+  laje:          1.00, // referência — laje de cobertura sem exposição direta ao telhado
+  telhado:       1.10, // cobertura exposta diretamente ao telhado — maior ganho por radiação
+};
+
 // Calcula a carga térmica estimada (BTU/h) de uma Sala, usando o método prático
 // baseado em NBR 16401 / ASHRAE (referência conceitual; cálculo simplificado por
-// ausência de dados climáticos detalhados por cidade no cadastro):
+// ausência de dados climáticos horários completos por cidade):
 //   Base:  area_m2 × btu_m2_base (padrão 600 BTU/m²)
 //   + 600 BTU por pessoa prevista
 //   + 3,41 BTU por Watt de equipamentos eletrônicos do ambiente
 //   × Fator solar: sem incidência = 1,00 | sol da manhã = 1,10 | sol da tarde = 1,20
-function calcularCargaTermicaBTU({ area_m2, pessoas_previstas, equip_watts, incidencia_solar, btu_m2_base }) {
+//   × Fator cobertura: entre andares = 0,95 | laje = 1,00 | telhado exposto = 1,10
+//   × Fator climático regional: Cuiabá-MT (referência absoluta) = 1,00
+function calcularCargaTermicaBTU({ area_m2, pessoas_previstas, equip_watts, incidencia_solar, btu_m2_base, cobertura }) {
   const area     = parseFloat(area_m2) || 0;
   const pessoas  = parseInt(pessoas_previstas) || 0;
   const watts    = parseFloat(equip_watts) || 0;
   const baseM2   = parseFloat(btu_m2_base) || 600;
   const FATOR_SOLAR = { sem: 1.00, manha: 1.10, tarde: 1.20 };
-  const fator = FATOR_SOLAR[incidencia_solar] || 1.00;
+  const fatorSolar     = FATOR_SOLAR[incidencia_solar] || 1.00;
+  const fatorCobertura = FATOR_COBERTURA[cobertura] || 1.00;
+  const fatorClimatico = FATOR_CLIMATICO_REGIAO[CIDADE_REFERENCIA_PADRAO];
 
   const btuBase    = area * baseM2;
   const btuPessoas = pessoas * 600;
   const btuEquip   = watts * 3.41;
 
-  const total = (btuBase + btuPessoas + btuEquip) * fator;
+  const total = (btuBase + btuPessoas + btuEquip) * fatorSolar * fatorCobertura * fatorClimatico;
   return Math.round(total);
 }
 
@@ -1339,6 +1361,7 @@ function editarSala(id) {
   if ($('sala-pessoas'))   $('sala-pessoas').value    = s.pessoas_previstas ?? 0;
   if ($('sala-equip-watts')) $('sala-equip-watts').value = s.equip_watts ?? 0;
   if ($('sala-incidencia-solar')) $('sala-incidencia-solar').value = s.incidencia_solar || 'sem';
+  if ($('sala-cobertura')) $('sala-cobertura').value = s.cobertura || 'laje';
   if ($('sala-btu-m2-base')) $('sala-btu-m2-base').value = s.btu_m2_base ?? 600;
   atualizarPreviaCargaTermicaSala();
   $('btn-salvar-sala').textContent = '💾 Atualizar Sala';
@@ -1354,6 +1377,7 @@ function resetarFormSala() {
   if ($('sala-pessoas'))   $('sala-pessoas').value    = 0;
   if ($('sala-equip-watts')) $('sala-equip-watts').value = 0;
   if ($('sala-incidencia-solar')) $('sala-incidencia-solar').value = 'sem';
+  if ($('sala-cobertura')) $('sala-cobertura').value = 'laje';
   if ($('sala-btu-m2-base')) $('sala-btu-m2-base').value = 600;
   atualizarPreviaCargaTermicaSala();
   $('btn-salvar-sala').textContent = '💾 Salvar Sala';
@@ -1369,6 +1393,7 @@ function atualizarPreviaCargaTermicaSala() {
     equip_watts:       $('sala-equip-watts')?.value,
     incidencia_solar:  $('sala-incidencia-solar')?.value,
     btu_m2_base:        $('sala-btu-m2-base')?.value,
+    cobertura:          $('sala-cobertura')?.value,
   });
   el.textContent = btu > 0 ? `${btu.toLocaleString('pt-BR')} BTU/h` : '—';
 }
@@ -1390,9 +1415,10 @@ if ($('btn-salvar-sala')) {
     const pessoas_previstas = parseInt($('sala-pessoas')?.value) || 0;
     const equip_watts       = parseFloat($('sala-equip-watts')?.value) || 0;
     const incidencia_solar  = $('sala-incidencia-solar')?.value || 'sem';
+    const cobertura          = $('sala-cobertura')?.value || 'laje';
     const btu_m2_base       = parseFloat($('sala-btu-m2-base')?.value) || 600;
-    const carga_termica_btu = calcularCargaTermicaBTU({ area_m2, pessoas_previstas, equip_watts, incidencia_solar, btu_m2_base });
-    const payload = { setor_id, nome, area_m2, pessoas_previstas, equip_watts, incidencia_solar, btu_m2_base, carga_termica_btu };
+    const carga_termica_btu = calcularCargaTermicaBTU({ area_m2, pessoas_previstas, equip_watts, incidencia_solar, btu_m2_base, cobertura });
+    const payload = { setor_id, nome, area_m2, pessoas_previstas, equip_watts, incidencia_solar, cobertura, btu_m2_base, carga_termica_btu };
     const idEd = $('sala-id-edicao')?.value;
     const { error } = idEd
       ? await db.from('salas').update(payload).eq('id', idEd)
