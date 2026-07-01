@@ -1754,7 +1754,12 @@ function montarChecklistEmBrancoHTML(categoria) {
   // Largura fixa das colunas de período (px) por número de colunas.
   // A coluna "Itens Verificado" ocupa o restante (width:auto no colgroup).
   // A4 paisagem ≈ 277mm área útil. Cada col de mês: 55px (6 cols), 90px (4), 160px (2), 300px (1).
-  const COL_W = { 6:55, 4:90, 2:160, 1:300 };
+  const COL_W = { 6:72, 4:110, 2:200, 1:360 };
+
+  // Largura mínima garantida para a coluna de texto dos itens (% do total da tabela)
+  // Garante que os checkboxes não sejam cortados — o resto vai para os itens.
+  // Com 6 colunas de 72px = 432px; com margem 8mm cada lado ≈ 1000px úteis → itens ≈ 568px (~57%)
+  const ITEM_COL_PCT = { 6:'56%', 4:'55%', 2:'50%', 1:'40%' };
 
   // Célula de cabeçalho de coluna (mês / trimestre / semestre / anual)
   function _th(label, cor, w) {
@@ -1766,8 +1771,9 @@ function montarChecklistEmBrancoHTML(categoria) {
   // Célula de dado: ☐C ☐NC ☐NA, fonte 10px, largura explícita
   function _td(w) {
     return `<td style="border:1px solid #dde3ea;padding:3px 2px;text-align:center;
-      width:${w}px;white-space:nowrap;font-size:10px;color:#374151;vertical-align:middle;">
-      ☐ C &nbsp;☐ NC &nbsp;☐ NA</td>`;
+      width:${w}px;white-space:nowrap;font-size:10px;color:#374151;
+      vertical-align:middle;overflow:hidden;">
+      ☐&nbsp;C &nbsp;☐&nbsp;NC &nbsp;☐&nbsp;NA</td>`;
   }
 
   // Linha de item verificado
@@ -1793,13 +1799,14 @@ function montarChecklistEmBrancoHTML(categoria) {
   // Monta uma tabela completa
   function _tabela(titulo, cor, colunas, itens) {
     const n = colunas.length;
-    const w = COL_W[n] || 60;
+    const w = COL_W[n] || 72;
+    const itemPct = ITEM_COL_PCT[n] || '50%';
     return `
     <div style="margin-top:12px;">
       <div style="font-size:10px;font-weight:700;color:${cor};margin-bottom:3px;">${titulo}</div>
       <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
         <colgroup>
-          <col>
+          <col style="width:${itemPct};">
           ${Array.from({length:n}, () => `<col style="width:${w}px;">`).join('')}
         </colgroup>
         <thead>
@@ -1957,16 +1964,11 @@ function montarLaudoAnualAgrupadoHTML(eq, ultimoDaLista) {
   <div class="laudo-wrapper${classeQ}">
 
     <!-- CABEÇALHO compacto -->
-    <div style="background:#1e3a5f;color:#fff;padding:6px 12px;display:flex;justify-content:space-between;align-items:center;border-radius:4px 4px 0 0;">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <img src="${LOGO_ETIQUETA}" alt="Logo" style="height:26px;width:auto;display:block;filter:brightness(0) invert(1);">
-        <div>
-          <div style="font-size:11px;font-weight:700;line-height:1.2;">Plano de Manutenção, Operação e Controle (PMOC)</div>
-          <div style="font-size:8.5px;opacity:.8;margin-top:1px;">Laudo para Preenchimento em Campo — ${anoAtual} &nbsp;·&nbsp; TAG: <strong>${escapeHTML(eq.tag)}</strong></div>
-        </div>
-      </div>
-      <div style="font-size:8px;opacity:.9;white-space:nowrap;">
-        ☐ Mensal &nbsp;☐ Trimestral &nbsp;☐ Semestral &nbsp;☐ Anual
+    <div style="background:#1e3a5f;color:#fff;padding:6px 12px;display:flex;align-items:center;gap:10px;border-radius:4px 4px 0 0;">
+      <img src="${LOGO_ETIQUETA}" alt="Logo" style="height:26px;width:auto;display:block;filter:brightness(0) invert(1);">
+      <div>
+        <div style="font-size:11px;font-weight:700;line-height:1.2;">Plano de Manutenção, Operação e Controle (PMOC)</div>
+        <div style="font-size:8.5px;opacity:.8;margin-top:1px;">Laudo para Preenchimento em Campo — ${anoAtual}</div>
       </div>
     </div>
 
