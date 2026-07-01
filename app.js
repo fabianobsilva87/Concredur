@@ -1965,7 +1965,7 @@ function montarLaudoAnualAgrupadoHTML(eq, ultimoDaLista) {
       <img src="${LOGO_ETIQUETA}" alt="Logo" style="height:22px;width:auto;display:block;filter:brightness(0) invert(1);">
       <div>
         <div style="font-size:10px;font-weight:700;line-height:1.2;">Plano de Manutenção, Operação e Controle (PMOC)</div>
-        <div style="font-size:8px;opacity:.8;margin-top:1px;">Laudo para Preenchimento em Campo — ${anoAtual}</div>
+        <div style="font-size:8px;opacity:.8;margin-top:1px;">Checklist de Manutenção Preventiva — ${anoAtual}</div>
       </div>
     </div>
 
@@ -2065,7 +2065,7 @@ async function emitirRelatorioPMOC(b64) {
   const html = `
   <div class="laudo-wrapper">
     <div class="laudo-header">
-      <div style="display:flex;align-items:center;gap:14px;"><img src="${LOGO_ETIQUETA}" alt="Logo" style="height:40px;width:auto;display:block;"><div><h1 style="font-size:16px;">Plano de Manutenção, Operação e Controle</h1></div></div>
+      <div style="display:flex;align-items:center;gap:14px;"><img src="${LOGO_ETIQUETA}" alt="Logo" style="height:40px;width:auto;display:block;"><div><h1 style="font-size:16px;">Plano de Manutenção, Operação e Controle</h1><p style="font-size:11px;opacity:.85;margin-top:2px;">Checklist de Manutenção Preventiva</p></div></div>
       <div class="laudo-header-meta">
         <strong>Código: ${codigoLaudo}</strong><br>
         Data de Emissão: ${new Date().toLocaleDateString('pt-BR')}<br>
