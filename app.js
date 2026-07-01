@@ -1749,53 +1749,69 @@ function montarSecoesChecklistPMOC(categoria, frequenciaPalavra, checklist) {
 function montarChecklistEmBrancoHTML(categoria) {
   const defs = CHECKLIST_PMOC_DEFS[categoria] || CHECKLIST_PMOC_DEFS.OUT;
 
-  // Cores por periodicidade (igual ao cabeçalho do PDF de referência)
   const COR = { mensal:'#1e3a5f', trimestral:'#5b21b6', semestral:'#0e7490', anual:'#065f46' };
 
-  // Célula de cabeçalho de mês
-  function _th(label, cor) {
-    return `<th style="background:${cor};color:#fff;font-size:8px;font-weight:700;padding:4px 6px;text-align:center;border:1px solid rgba(255,255,255,.25);white-space:nowrap;">${label}</th>`;
+  // Largura fixa das colunas de período (px) por número de colunas.
+  // A coluna "Itens Verificado" ocupa o restante (width:auto no colgroup).
+  // A4 paisagem ≈ 277mm área útil. Cada col de mês: 55px (6 cols), 90px (4), 160px (2), 300px (1).
+  const COL_W = { 6:55, 4:90, 2:160, 1:300 };
+
+  // Célula de cabeçalho de coluna (mês / trimestre / semestre / anual)
+  function _th(label, cor, w) {
+    return `<th style="background:${cor};color:#fff;font-size:10px;font-weight:700;
+      padding:5px 4px;text-align:center;width:${w}px;
+      border:1px solid rgba(255,255,255,.25);white-space:pre-line;">${label}</th>`;
   }
 
-  // Célula de dado: C/NC/NA + linha data/técnico/fiscal (usada nas linhas de item)
-  function _td() {
-    return `<td style="border:1px solid #dde3ea;padding:2px 4px;text-align:center;white-space:nowrap;font-size:7.5px;color:#374151;">☐ C &nbsp;☐ NC &nbsp;☐ NA</td>`;
+  // Célula de dado: ☐C ☐NC ☐NA, fonte 10px, largura explícita
+  function _td(w) {
+    return `<td style="border:1px solid #dde3ea;padding:3px 2px;text-align:center;
+      width:${w}px;white-space:nowrap;font-size:10px;color:#374151;vertical-align:middle;">
+      ☐ C &nbsp;☐ NC &nbsp;☐ NA</td>`;
   }
 
   // Linha de item verificado
-  function _linhaItem(label, nCols) {
-    return `<tr><td style="border:1px solid #dde3ea;font-size:8px;padding:3px 6px;line-height:1.25;">${escapeHTML(label)}</td>${Array.from({length:nCols},_td).join('')}</tr>`;
-  }
-
-  // Rodapé: Data Realiz. / Técnico / Fiscal/Validador — uma linha por label, N colunas
-  function _rodape(nCols) {
-    const _linhaRod = (label) => `<tr>
-      <td style="border:1px solid #dde3ea;font-size:7px;color:#718096;padding:2px 6px;text-align:right;white-space:nowrap;">${label}</td>
-      ${Array.from({length:nCols}, () => `<td style="border:1px solid #dde3ea;border-bottom:1px dotted #94a3b8;padding:4px 4px 0;"></td>`).join('')}
+  function _linhaItem(label, nCols, w) {
+    return `<tr>
+      <td style="border:1px solid #dde3ea;font-size:10px;padding:4px 8px;line-height:1.3;">${escapeHTML(label)}</td>
+      ${Array.from({length:nCols}, () => _td(w)).join('')}
     </tr>`;
-    return _linhaRod('Data Realiz.') + _linhaRod('Tecnico:') + _linhaRod('Fiscal / Validador');
   }
 
-  // Monta uma tabela completa: título + colunas + itens + rodapé
+  // Rodapé: Data Realiz. / Técnico / Fiscal/Validador por coluna
+  function _rodape(nCols, w) {
+    const _lr = (label) => `<tr>
+      <td style="border:1px solid #dde3ea;font-size:9px;color:#718096;
+        padding:3px 8px;text-align:right;white-space:nowrap;">${label}</td>
+      ${Array.from({length:nCols}, () =>
+        `<td style="border:1px solid #dde3ea;width:${w}px;
+          border-bottom:1px dotted #94a3b8;padding:6px 4px 1px;"></td>`).join('')}
+    </tr>`;
+    return _lr('Data Realiz.') + _lr('Tecnico:') + _lr('Fiscal / Validador');
+  }
+
+  // Monta uma tabela completa
   function _tabela(titulo, cor, colunas, itens) {
     const n = colunas.length;
+    const w = COL_W[n] || 60;
     return `
-    <div style="margin-top:10px;">
-      <div style="font-size:8.5px;font-weight:700;color:${cor};margin-bottom:3px;">${titulo}</div>
+    <div style="margin-top:12px;">
+      <div style="font-size:10px;font-weight:700;color:${cor};margin-bottom:3px;">${titulo}</div>
       <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
         <colgroup>
-          <col style="width:auto;">
-          ${Array.from({length:n}, () => `<col style="width:${Math.round(300/n/10)*10}px;">`).join('')}
+          <col>
+          ${Array.from({length:n}, () => `<col style="width:${w}px;">`).join('')}
         </colgroup>
         <thead>
           <tr>
-            <th style="background:${cor};color:#fff;font-size:8px;font-weight:700;padding:4px 6px;text-align:left;border:1px solid rgba(255,255,255,.25);">Itens Verificado</th>
-            ${colunas.map(c => _th(c, cor)).join('')}
+            <th style="background:${cor};color:#fff;font-size:10px;font-weight:700;
+              padding:5px 8px;text-align:left;border:1px solid rgba(255,255,255,.25);">Itens Verificado</th>
+            ${colunas.map(c => _th(c, cor, w)).join('')}
           </tr>
         </thead>
         <tbody>
-          ${itens.map(([,label]) => _linhaItem(label, n)).join('')}
-          ${_rodape(n)}
+          ${itens.map(([,label]) => _linhaItem(label, n, w)).join('')}
+          ${_rodape(n, w)}
         </tbody>
       </table>
     </div>`;
@@ -1814,7 +1830,7 @@ function montarChecklistEmBrancoHTML(categoria) {
   const itensT = defs.trimestral || [];
   if (itensT.length) {
     html += _tabela('Rotinas trimestrais', COR.trimestral,
-      ['1º Trimestre\n(Jan-Mar)', '2º Trimestre\n(Abr-Jun)', '3º Trimestre\n(Jul-Set)', '4º Trimestre\n(Out-Dez)'],
+      ['1º Trimestre\n(Jan–Mar)', '2º Trimestre\n(Abr–Jun)', '3º Trimestre\n(Jul–Set)', '4º Trimestre\n(Out–Dez)'],
       itensT);
   }
 
@@ -1822,7 +1838,7 @@ function montarChecklistEmBrancoHTML(categoria) {
   const itensS = defs.semestral || [];
   if (itensS.length) {
     html += _tabela('Rotinas semestrais', COR.semestral,
-      ['1º Semestre\n(Jan-Jun)', '2º Semestre\n(Jul-Dez)'],
+      ['1º Semestre\n(Jan–Jun)', '2º Semestre\n(Jul–Dez)'],
       itensS);
   }
 
@@ -2633,17 +2649,15 @@ function imprimir(areaId, html, orientacao) {
   if (!win) { alert('Permita pop-ups para imprimir os laudos.'); return; }
   win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Univag — Impressão</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}@page{margin:6mm 8mm;size:A4 ${orient}}html,body{font-family:'Inter',Arial,sans-serif;font-size:12px;color:#1a202c;background:#fff}.laudo-wrapper{width:100%}.laudo-header{background:#1a56db;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0}.laudo-header h1{font-size:18px;font-weight:700}.laudo-header p{font-size:11px;margin-top:4px;opacity:.85}.laudo-header-meta{text-align:right;font-size:11px}.laudo-section{border:1px solid #e2e8f0;border-top:none;padding:12px 16px;break-inside:avoid;page-break-inside:avoid}.laudo-section:last-child{border-radius:0 0 6px 6px}.laudo-section-title{font-size:10px;font-weight:700;color:#1a56db;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0;break-after:avoid;page-break-after:avoid}.laudo-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}.laudo-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 16px}.laudo-field{margin-bottom:4px}.laudo-field label{font-size:9px;color:#718096;text-transform:uppercase;letter-spacing:.06em;display:block}.laudo-field span{font-size:12px;font-weight:600;color:#1a202c}.laudo-checklist-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table th{background:#1a56db;color:#fff;padding:5px 8px;text-align:left;font-size:10px}.laudo-checklist-table td{padding:4px 8px;border-bottom:1px solid #e2e8f0}.laudo-checklist-table tr{break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table tr:nth-child(even) td{background:#f8fafc}.ok{color:#059669;font-weight:700}.nok{color:#dc2626;font-weight:700}.na{color:#a0aec0}.laudo-assinatura-box{text-align:center;min-width:180px;break-inside:avoid;page-break-inside:avoid}.laudo-assinatura-linha{border-top:1px solid #1a202c;margin-top:8px;padding-top:4px;font-size:10px;color:#4a5568}img{max-width:100%;height:auto;display:block}.tag-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#e2e8f0;color:#2d3748}.tag-badge.success{background:#d1fae5;color:#065f46}.tag-badge.warning{background:#fef3c7;color:#92400e}.tag-badge.danger{background:#fee2e2;color:#991b1b}.tag-badge.andamento{background:#dbeafe;color:#1e40af}.laudo-field-em-branco{font-size:9px;color:#a0aec0;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px dotted #cbd5e0;padding-bottom:20px;}.laudo-pagebreak{break-after:page;page-break-after:always;}.laudo-checkbox-status{white-space:nowrap;font-size:11px;color:#4a5568;}.laudo-section-checklist{break-inside:auto !important;page-break-inside:auto !important;padding:6px 10px !important;}.exec-label{font-size:6.5px;color:#b0b8c4;display:block;line-height:1.4;border-bottom:1px dotted #cbd5e0;padding-bottom:8px;margin-bottom:1px;}.relatorio-livre .laudo-section{break-inside:auto !important;page-break-inside:auto !important;}.relatorio-livre .laudo-checklist-table{break-inside:auto !important;page-break-inside:auto !important;}.relatorio-livre .laudo-checklist-table tr{break-inside:avoid;page-break-inside:avoid;}
+  <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}@page{margin:6mm 8mm;size:A4 ${orient}}html,body{font-family:'Inter',Arial,sans-serif;font-size:10px;color:#1a202c;background:#fff}.laudo-wrapper{width:100%}.laudo-header{background:#1a56db;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0}.laudo-header h1{font-size:16px;font-weight:700}.laudo-header p{font-size:10px;margin-top:4px;opacity:.85}.laudo-header-meta{text-align:right;font-size:10px}.laudo-section{border:1px solid #e2e8f0;border-top:none;padding:12px 16px;break-inside:avoid;page-break-inside:avoid}.laudo-section:last-child{border-radius:0 0 6px 6px}.laudo-section-title{font-size:10px;font-weight:700;color:#1a56db;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0;break-after:avoid;page-break-after:avoid}.laudo-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}.laudo-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 16px}.laudo-field{margin-bottom:4px}.laudo-field label{font-size:9px;color:#718096;text-transform:uppercase;letter-spacing:.06em;display:block}.laudo-field span{font-size:10px;font-weight:600;color:#1a202c}.laudo-checklist-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:10px;break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table th{background:#1a56db;color:#fff;padding:5px 8px;text-align:left;font-size:10px}.laudo-checklist-table td{padding:4px 8px;border-bottom:1px solid #e2e8f0;font-size:10px}.laudo-checklist-table tr{break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table tr:nth-child(even) td{background:#f8fafc}.ok{color:#059669;font-weight:700}.nok{color:#dc2626;font-weight:700}.na{color:#a0aec0}.laudo-assinatura-box{text-align:center;min-width:180px;break-inside:avoid;page-break-inside:avoid}.laudo-assinatura-linha{border-top:1px solid #1a202c;margin-top:8px;padding-top:4px;font-size:10px;color:#4a5568}img{max-width:100%;height:auto;display:block}.tag-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600;background:#e2e8f0;color:#2d3748}.tag-badge.success{background:#d1fae5;color:#065f46}.tag-badge.warning{background:#fef3c7;color:#92400e}.tag-badge.danger{background:#fee2e2;color:#991b1b}.tag-badge.andamento{background:#dbeafe;color:#1e40af}.laudo-field-em-branco{font-size:9px;color:#a0aec0;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px dotted #cbd5e0;padding-bottom:20px;}.laudo-pagebreak{break-after:page;page-break-after:always;}.laudo-checkbox-status{white-space:nowrap;font-size:10px;color:#4a5568;}.laudo-section-checklist{break-inside:auto !important;page-break-inside:auto !important;padding:6px 10px !important;}.exec-label{font-size:9px;color:#b0b8c4;display:block;line-height:1.4;border-bottom:1px dotted #cbd5e0;padding-bottom:8px;margin-bottom:1px;}.relatorio-livre .laudo-section{break-inside:auto !important;page-break-inside:auto !important;}.relatorio-livre .laudo-checklist-table{break-inside:auto !important;page-break-inside:auto !important;}.relatorio-livre .laudo-checklist-table tr{break-inside:avoid;page-break-inside:avoid;}
 ${orient === 'landscape' ? `
 .laudo-section{padding:6px 10px !important;}
 .laudo-grid-3{gap:3px 12px !important;}
 .laudo-field{margin-bottom:2px !important;}
-.laudo-field label{font-size:7.5px !important;}
+.laudo-field label{font-size:8px !important;}
 .laudo-field span{font-size:10px !important;}
-.laudo-section-title{font-size:8.5px !important;margin-bottom:4px !important;padding-bottom:2px !important;}
-p{margin:0 0 2px !important;font-size:8px !important;}
-table td,table th{font-size:8px;}
-table.chk-anual{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9px;}
+.laudo-section-title{font-size:9px !important;margin-bottom:4px !important;padding-bottom:2px !important;}
+table.chk-anual{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px;}
 table.chk-anual th,table.chk-anual td{border:1px solid #e2e8f0;overflow:hidden;}
 table.chk-anual th:first-child,table.chk-anual td:first-child{width:auto;text-align:left;}
 table.chk-anual th:not(:first-child),table.chk-anual td:not(:first-child){width:36px;min-width:28px;text-align:center;}
