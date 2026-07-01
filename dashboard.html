@@ -1,290 +1,244 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Concredur — Locais</title>
-  <link rel="stylesheet" href="style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <script src="config.js"></script>
-  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Concredur — Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="config.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-<div class="app-container">
-  <aside class="sidebar no-print">
-    <div class="sidebar-header">
-      <div class="sidebar-logo">🏗️</div><h3>Concredur</h3><p>Gestão de Manutenção</p>
-        
-      <div class="user-logged-badge"><span class="user-icon-dot">●</span><span id="user-display-email">...</span></div>
-    </div>
-    <nav>
-      <div class="nav-label">Visão Geral</div>
-      <div class="nav-item" onclick="location.href='dashboard.html'"><span>📊</span> Dashboard Geral</div>
-      <div class="nav-label">Refrigeração</div>
-      <div class="nav-item" onclick="location.href='equipamentos.html'"><span>➕</span> Novo Ativo</div>
-      <div class="nav-item" onclick="location.href='gerir-equipamentos.html'"><span>⚙️</span> Gerenciamento de Ativos</div>
-      <div class="nav-item" onclick="location.href='pmoc.html'"><span>📋</span> Formulário PMOC</div>
-      <div class="nav-item" onclick="location.href='programacao-pmoc.html'"><span>📅</span> Programação de Manutenções PMOC</div>
-      <div class="nav-label">Manutenção</div>
-      <div class="nav-item" onclick="location.href='os.html'"><span>🛠️</span> Ordens de Serviço</div>
-      <div class="nav-label">Administração</div>
-      <div class="nav-item" onclick="location.href='colaborador.html'"><span>👷</span> Colaboradores</div>
-      <div class="nav-item" onclick="location.href='empresas.html'"><span>🏢</span> Empresas</div>
-      <div class="nav-item active" onclick="location.href='locais.html'"><span>📍</span> Locais</div>
-      <div class="nav-item" onclick="location.href='usuarios.html'"><span>👥</span> Gestão de Usuários</div>
-    </nav>
-    <div class="sidebar-footer"><button id="btn-logout" class="btn-sair">⬅ Sair</button></div>
-  </aside>
-
-  <main class="main-content">
-    <div class="topbar no-print">
-      <button class="btn-refresh" onclick="alternarAbasLocais('instituicao')">🏛️ Instituições / Unidades</button>
-      <button class="btn-refresh" style="background:#7c3aed; border-color:#7c3aed; color:#fff;" onclick="alternarAbasLocais('bloco')">🏢 Blocos / Edificações</button>
-      <button class="btn-refresh" style="background:#0d9488; border-color:#0d9488; color:#fff;" onclick="alternarAbasLocais('setor')">🗂️ Setores</button>
-      <button class="btn-refresh" style="background:#d97706; border-color:#d97706; color:#fff;" onclick="alternarAbasLocais('sala')">🚪 Salas</button>
-    </div>
-
-    <div class="section-content">
-
-      <!-- ===== ABA: INSTITUIÇÕES / UNIDADES ===== -->
-      <div id="aba-instituicao" class="app-sub-panel">
-        <div class="card">
-          <h3 class="card-title">🏛️ Nova Instituição / Unidade</h3>
-          <p style="font-size:12px;color:#718096;margin-bottom:14px;">Ex: Matriz Sede, Filial Centro. Cada Bloco/Edificação cadastrado ficará vinculado a uma destas unidades.</p>
-
-          <input type="hidden" id="inst-id-edicao" value="">
-
-          <div class="form-grid">
-            <div class="form-group"><label>Nome da Instituição / Unidade *</label><input type="text" id="inst-nome" placeholder="Ex: Matriz Sede, Filial Centro"></div>
-          </div>
-
-          <div class="btn-row" style="margin-top:16px;">
-            <button id="btn-salvar-instituicao" class="btn-primary">💾 Salvar Instituição</button>
-            <button id="btn-cancelar-instituicao" class="btn-secondary" style="display:none;" onclick="resetarFormInstituicao()">✕ Cancelar</button>
-          </div>
-          <p id="msg-instituicao" class="msg-form"></p>
-        </div>
-
-        <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-            <h3 class="card-title" style="margin:0;">Instituições / Unidades Cadastradas</h3>
-            <button class="btn-refresh" onclick="carregarInstituicoes()">↺ Atualizar</button>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Instituição / Unidade</th><th>Blocos vinculados</th><th>Ações</th></tr></thead>
-              <tbody id="tbody-instituicoes"><tr><td colspan="3" class="td-loading">Carregando...</td></tr></tbody>
-            </table>
-          </div>
-        </div>
+  <div class="app-container">
+    <aside class="sidebar no-print">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">🏗️</div><h3>Concredur</h3><p>Gestão de Manutenção</p>
+        <div class="user-logged-badge"><span class="user-icon-dot">●</span><span id="user-display-email">...</span></div>
       </div>
+      <nav>
+        <div class="nav-label">Visão Geral</div>
+        <div class="nav-item active" onclick="location.href='dashboard.html'"><span>📊</span> Dashboard Geral</div>
+        <div class="nav-label">Refrigeração</div>
+        <div class="nav-item" onclick="location.href='equipamentos.html'"><span>➕</span> Novo Ativo</div>
+        <div class="nav-item" onclick="location.href='gerir-equipamentos.html'"><span>⚙️</span> Gerenciamento de Ativos</div>
+        <div class="nav-item" onclick="location.href='pmoc.html'"><span>📋</span> Formulário PMOC</div>
+        <div class="nav-item" onclick="location.href='programacao-pmoc.html'"><span>📅</span> Programação de Manutenções PMOC</div>
+        <div class="nav-label">Manutenção</div>
+        <div class="nav-item" onclick="location.href='os.html'"><span>🛠️</span> Ordens de Serviço</div>
+        <div class="nav-label">Administração</div>
+        <div class="nav-item" onclick="location.href='colaborador.html'"><span>👷</span> Colaboradores</div>
+        <div class="nav-item" onclick="location.href='empresas.html'"><span>🏢</span> Empresas</div>
+        <div class="nav-item" onclick="location.href='locais.html'"><span>📍</span> Locais</div>
+        <div class="nav-item" onclick="location.href='usuarios.html'"><span>👥</span> Gestão de Usuários</div>
+      </nav>
+      <div class="sidebar-footer"><button id="btn-logout" class="btn-sair">⬅ Sair</button></div>
+    </aside>
 
-      <!-- ===== ABA: BLOCOS / EDIFICAÇÕES ===== -->
-      <div id="aba-bloco" class="app-sub-panel" style="display:none;">
-        <div class="card">
-          <h3 class="card-title">🏢 Novo Bloco / Edificação</h3>
-          <p style="font-size:12px;color:#718096;margin-bottom:14px;">Ex: Bloco A, Prédio Central. Todo Bloco precisa estar vinculado a uma Instituição / Unidade.</p>
+    <main class="main-content">
+      <div class="topbar no-print"><h2>📊 Dashboard Executivo & Operacional</h2></div>
+      <div class="section-content">
 
-          <input type="hidden" id="bloco-id-edicao" value="">
-
-          <div class="form-grid">
-            <div class="form-group">
-              <label>Instituição / Unidade *</label>
-              <select id="bloco-instituicao" class="form-input-style"><option value="">— Selecione —</option></select>
-            </div>
-            <div class="form-group"><label>Nome do Bloco / Edificação *</label><input type="text" id="bloco-nome" placeholder="Ex: Bloco A, Prédio Central"></div>
-          </div>
-
-          <div class="btn-row" style="margin-top:16px;">
-            <button id="btn-salvar-bloco" class="btn-primary">💾 Salvar Bloco</button>
-            <button id="btn-cancelar-bloco" class="btn-secondary" style="display:none;" onclick="resetarFormBloco()">✕ Cancelar</button>
-          </div>
-          <p id="msg-bloco" class="msg-form"></p>
+        <!-- ===== FILTROS DE LOCALIZAÇÃO (cascata) ===== -->
+        <div class="card no-print" style="padding:14px 18px;margin-bottom:18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:12px;font-weight:700;color:#4a5568;">📍 Filtrar por local:</span>
+          <select id="dash-filtro-instituicao" class="form-input-style" style="font-size:12px;width:auto;min-width:180px;" onchange="dashAoMudarInstituicao()">
+            <option value="">Todas as Instituições</option>
+          </select>
+          <select id="dash-filtro-bloco" class="form-input-style" style="font-size:12px;width:auto;min-width:180px;" onchange="dashAoMudarBloco()">
+            <option value="">Todos os Blocos</option>
+          </select>
+          <select id="dash-filtro-setor" class="form-input-style" style="font-size:12px;width:auto;min-width:180px;" onchange="dashAoMudarSetor()">
+            <option value="">Todos os Setores</option>
+          </select>
+          <button class="btn-refresh" style="font-size:12px;" onclick="dashLimparFiltros()">✕ Limpar filtros</button>
         </div>
 
-        <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-            <h3 class="card-title" style="margin:0;">Blocos / Edificações Cadastrados</h3>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <select id="filtro-bloco-instituicao" class="form-input-style" style="font-size:12px;" onchange="carregarBlocos()"><option value="">Todas as Instituições</option></select>
-              <button class="btn-refresh" onclick="carregarBlocos()">↺ Atualizar</button>
+        <!-- ===== KPI CARDS — 6 cards ===== -->
+        <p class="dash-section-label" style="font-size:11px;font-weight:700;color:#a0aec0;letter-spacing:.08em;text-transform:uppercase;margin:0 0 10px;">VISÃO GERAL DO PARQUE</p>
+        <div class="dash-cards-grid" style="grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px;">
+
+          <div class="dash-card">
+            <div class="dash-card-icon">🌡️</div>
+            <p class="dash-card-title">Ativos Cadastrados</p>
+            <h3 id="dash-txt-ativos" class="dash-card-value">—</h3>
+          </div>
+
+          <div class="dash-card">
+            <div class="dash-card-icon">📋</div>
+            <p class="dash-card-title">Fichas PMOC Ativas</p>
+            <h3 id="dash-txt-fichas" class="dash-card-value">—</h3>
+          </div>
+
+          <div class="dash-card dash-card-warning">
+            <div class="dash-card-icon">⚠️</div>
+            <p class="dash-card-title">O.S. Abertas</p>
+            <h3 id="dash-txt-os-abertas" class="dash-card-value">—</h3>
+          </div>
+
+          <div class="dash-card dash-card-success">
+            <div class="dash-card-icon">✅</div>
+            <p class="dash-card-title">O.S. Concluídas</p>
+            <h3 id="dash-txt-os-fechadas" class="dash-card-value">—</h3>
+          </div>
+
+          <div class="dash-card" style="border-top:3px solid #0ea5e9;">
+            <div class="dash-card-icon">💧</div>
+            <p class="dash-card-title">Filtros a Vencer</p>
+            <h3 id="dash-txt-filtros-vencer" class="dash-card-value">—</h3>
+          </div>
+
+          <div class="dash-card" style="border-top:3px solid #ef4444;">
+            <div class="dash-card-icon">🕐</div>
+            <p class="dash-card-title">PMOC Vencidos</p>
+            <h3 id="dash-txt-pmoc-vencidos" class="dash-card-value">—</h3>
+          </div>
+
+        </div>
+
+        <!-- ===== KPI: CARGA TÉRMICA INSTALADA × NECESSÁRIA ===== -->
+        <div class="card" style="padding:20px;margin-bottom:20px;">
+          <h3 class="card-title" style="margin-bottom:4px;">🌡️ Carga Térmica — Instalada × Necessária</h3>
+          <p style="font-size:12px;color:#a0aec0;margin:0 0 14px;">Soma da potência (BTU/h) dos ACs instalados vs. carga prevista (BTU/h) das Salas cadastradas, conforme filtro de local acima</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div style="background:#f8fafc;border-radius:8px;padding:14px 18px;">
+              <p style="font-size:11px;color:#718096;margin:0 0 4px;text-transform:uppercase;letter-spacing:.05em;">Carga Instalada (ACs)</p>
+              <h3 id="dash-txt-carga-instalada" class="dash-card-value" style="margin:0;">—</h3>
+            </div>
+            <div style="background:#f8fafc;border-radius:8px;padding:14px 18px;">
+              <p style="font-size:11px;color:#718096;margin:0 0 4px;text-transform:uppercase;letter-spacing:.05em;">Carga Necessária (Salas)</p>
+              <h3 id="dash-txt-carga-necessaria" class="dash-card-value" style="margin:0;">—</h3>
             </div>
           </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Bloco / Edificação</th><th>Instituição / Unidade</th><th>Ativos vinculados</th><th>Ações</th></tr></thead>
-              <tbody id="tbody-blocos"><tr><td colspan="4" class="td-loading">Carregando...</td></tr></tbody>
-            </table>
+          <p id="dash-badge-carga-termica" style="font-size:12px;font-weight:700;margin:12px 0 0;text-align:right;">—</p>
+        </div>
+
+        <!-- ===== PAINEL DE ALERTAS ===== -->
+        <div id="painel-alertas-vencimento" style="display:none;">
+          <div style="background:linear-gradient(135deg,#fff7ed,#fff);border:1.5px solid #f97316;border-radius:12px;padding:20px 24px;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+              <span style="font-size:22px;">🚨</span>
+              <div>
+                <h3 style="margin:0;font-size:16px;font-weight:700;color:#c2410c;">Alertas de Vencimento — Próximos 30 dias</h3>
+                <p style="margin:0;font-size:12px;color:#9a3412;" id="txt-alerta-subtitulo">Itens que requerem atenção imediata</p>
+              </div>
+              <span id="badge-alertas-count" style="margin-left:auto;background:#ef4444;color:#fff;border-radius:20px;padding:4px 12px;font-size:13px;font-weight:700;"></span>
+            </div>
+            <div id="lista-alertas-vencimento" style="display:flex;flex-direction:column;gap:8px;"></div>
           </div>
         </div>
+
+        <!-- ===== INVENTÁRIO DE GÁS + DISTRIBUIÇÃO POR CATEGORIA ===== -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+
+          <!-- Inventário de Gás Refrigerante -->
+          <div class="card" style="padding:20px;">
+            <h3 class="card-title" style="margin-bottom:4px;">🧪 Inventário de Gás Refrigerante</h3>
+            <p style="font-size:12px;color:#a0aec0;margin:0 0 14px;">Equipamentos AC · volume por tipo de fluido</p>
+            <div id="dash-inv-gas" style="font-size:13px;color:#a0aec0;">Carregando inventário de gás...</div>
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:12px;color:#718096;">Volume total inventariado</span>
+              <span id="dash-gas-total" style="font-size:13px;font-weight:700;color:#1e3a5f;">— kg</span>
+            </div>
+          </div>
+
+          <!-- Distribuição por Categoria -->
+          <div class="card" style="padding:20px;">
+            <h3 class="card-title" style="margin-bottom:4px;">🗂️ Distribuição por Categoria</h3>
+            <p style="font-size:12px;color:#a0aec0;margin:0 0 14px;">Total de ativos no parque</p>
+            <div id="dash-dist-cat" style="font-size:13px;color:#a0aec0;">Carregando categorias...</div>
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:12px;color:#718096;">Criticidade Alta (Classe A)</span>
+              <span id="dash-cat-criticos" style="font-size:13px;font-weight:700;color:#ef4444;">— ativos</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ===== STATUS OS + CONFORMIDADE FILTROS + COBERTURA PMOC ===== -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
+
+          <!-- Status das O.S. -->
+          <div class="card chart-card" style="padding:20px;">
+            <h3 class="card-title" style="margin-bottom:14px;">📝 Status das O.S.</h3>
+            <div class="chart-wrapper" style="max-height:180px;">
+              <canvas id="chartStatusOS"></canvas>
+            </div>
+            <div style="margin-top:10px;font-size:11px;color:#718096;display:flex;flex-direction:column;gap:4px;">
+              <span><span style="color:#f59e0b;font-size:14px;">●</span> Aberta / Pendente</span>
+              <span><span style="color:#3b82f6;font-size:14px;">●</span> Em Andamento</span>
+              <span><span style="color:#10b981;font-size:14px;">●</span> Concluída</span>
+            </div>
+          </div>
+
+          <!-- Conformidade de Filtros -->
+          <div class="card" style="padding:20px;">
+            <h3 class="card-title" style="margin-bottom:4px;">💧 Conformidade — Filtros</h3>
+            <p style="font-size:12px;color:#a0aec0;margin:0 0 14px;">Bebedouros com filtro e lacre no prazo</p>
+            <div id="dash-conf-filtros" style="font-size:13px;color:#a0aec0;">Carregando conformidade...</div>
+          </div>
+
+          <!-- Cobertura PMOC -->
+          <div class="card" style="padding:20px;">
+            <h3 class="card-title" style="margin-bottom:14px;">📋 Cobertura PMOC</h3>
+            <div id="dash-cob-pmoc" style="font-size:13px;color:#a0aec0;">Carregando cobertura...</div>
+          </div>
+
+        </div>
+
+        <!-- ===== AGENDA + LOGS ===== -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+
+          <div class="card">
+            <h3 class="card-title">📅 Próximas Manutenções Agendadas (Previsão PMOC)</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Equipamento (TAG)</th><th>Localização</th><th>Data Programada</th><th>Status</th></tr></thead>
+                <tbody id="tbody-agenda-pmoc"><tr><td colspan="4" class="td-loading">Carregando cronograma...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 class="card-title">🕐 Logs Críticos Recentes</h3>
+            <div id="dash-atividades" style="font-size:13px;">Carregando trilha de auditoria...</div>
+          </div>
+
+        </div>
+
+        <!-- ===== GRÁFICOS CRITICIDADE + FACILITIES ===== -->
+        <div class="dash-charts-grid" style="margin-bottom:20px;">
+          <div class="card chart-card">
+            <h3 class="card-title">🎯 Severidade por Classe de Ativo</h3>
+            <div class="chart-wrapper"><canvas id="chartCriticidade"></canvas></div>
+          </div>
+          <div class="card chart-card">
+            <h3 class="card-title">📝 Distribuição de O.S. — Facilities</h3>
+            <div class="chart-wrapper"><canvas id="chartStatusOSG"></canvas></div>
+          </div>
+        </div>
+
       </div>
+    </main>
+  </div>
 
-      <!-- ===== ABA: SETORES ===== -->
-      <div id="aba-setor" class="app-sub-panel" style="display:none;">
-        <div class="card">
-          <h3 class="card-title">🗂️ Novo Setor</h3>
-          <p style="font-size:12px;color:#718096;margin-bottom:14px;">Ex: UTI, Laboratório, RH. Todo Setor precisa estar vinculado a um Bloco/Edificação.</p>
-
-          <input type="hidden" id="setor-id-edicao" value="">
-
-          <div class="form-grid">
-            <div class="form-group">
-              <label>Instituição / Unidade *</label>
-              <select id="setor-instituicao" class="form-input-style" onchange="atualizarSelectBlocosCascataSetor()"><option value="">— Selecione —</option></select>
-            </div>
-            <div class="form-group">
-              <label>Bloco / Edificação *</label>
-              <select id="setor-bloco" class="form-input-style" disabled><option value="">— Selecione a instituição primeiro —</option></select>
-            </div>
-            <div class="form-group"><label>Nome do Setor *</label><input type="text" id="setor-nome" placeholder="Ex: UTI, Laboratório, RH"></div>
-          </div>
-
-          <div class="btn-row" style="margin-top:16px;">
-            <button id="btn-salvar-setor" class="btn-primary">💾 Salvar Setor</button>
-            <button id="btn-cancelar-setor" class="btn-secondary" style="display:none;" onclick="resetarFormSetor()">✕ Cancelar</button>
-          </div>
-          <p id="msg-setor" class="msg-form"></p>
-        </div>
-
-        <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-            <h3 class="card-title" style="margin:0;">Setores Cadastrados</h3>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <select id="filtro-setor-instituicao" class="form-input-style" style="font-size:12px;" onchange="atualizarSelectBlocosCascataFiltroSetor()"><option value="">Todas as Instituições</option></select>
-              <select id="filtro-setor-bloco" class="form-input-style" style="font-size:12px;" onchange="carregarSetores()"><option value="">Todos os Blocos</option></select>
-              <button class="btn-refresh" onclick="carregarSetores()">↺ Atualizar</button>
-            </div>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Setor</th><th>Bloco / Instituição</th><th>Ativos vinculados</th><th>Ações</th></tr></thead>
-              <tbody id="tbody-setores"><tr><td colspan="4" class="td-loading">Carregando...</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- ===== ABA: SALAS ===== -->
-      <div id="aba-sala" class="app-sub-panel" style="display:none;">
-        <div class="card">
-          <h3 class="card-title">🚪 Nova Sala</h3>
-          <p style="font-size:12px;color:#718096;margin-bottom:14px;">Ex: Sala 204, Copa, Corredor B. Toda Sala precisa estar vinculada a um Setor.</p>
-
-          <input type="hidden" id="sala-id-edicao" value="">
-
-          <div class="form-grid">
-            <div class="form-group">
-              <label>Instituição / Unidade *</label>
-              <select id="sala-instituicao" class="form-input-style" onchange="atualizarSelectBlocosCascataSala()"><option value="">— Selecione —</option></select>
-            </div>
-            <div class="form-group">
-              <label>Bloco / Edificação *</label>
-              <select id="sala-bloco" class="form-input-style" disabled onchange="atualizarSelectSetoresCascataSala()"><option value="">— Selecione a instituição primeiro —</option></select>
-            </div>
-            <div class="form-group">
-              <label>Setor *</label>
-              <select id="sala-setor" class="form-input-style" disabled><option value="">— Selecione o bloco primeiro —</option></select>
-            </div>
-            <div class="form-group"><label>Nome da Sala *</label><input type="text" id="sala-nome" placeholder="Ex: Sala 204, Copa, Corredor B"></div>
-          </div>
-
-          <h4 style="font-size:13px;font-weight:700;color:#4a5568;margin:18px 0 4px;">🌡️ Carga Térmica Prevista (BTU/h)</h4>
-          <p style="font-size:11px;color:#a0aec0;margin:0 0 12px;">Estimativa baseada em método prático NBR 16401 / ASHRAE: 600 BTU/m² (base) + 600 BTU/pessoa + 3,41 BTU/Watt de equipamentos, ajustado por incidência solar.</p>
-          <div class="form-grid">
-            <div class="form-group">
-              <label>Área (m²)</label>
-              <input type="number" step="0.01" min="0" id="sala-area" placeholder="Ex: 18.5" oninput="atualizarPreviaCargaTermicaSala()">
-            </div>
-            <div class="form-group">
-              <label>Pessoas Previstas</label>
-              <input type="number" step="1" min="0" id="sala-pessoas" value="0" oninput="atualizarPreviaCargaTermicaSala()">
-            </div>
-            <div class="form-group">
-              <label>Equipamentos no Ambiente (Watts)</label>
-              <input type="number" step="1" min="0" id="sala-equip-watts" value="0" placeholder="Ex: 400" oninput="atualizarPreviaCargaTermicaSala()">
-            </div>
-            <div class="form-group">
-              <label>Incidência Solar</label>
-              <select id="sala-incidencia-solar" class="form-input-style" onchange="atualizarPreviaCargaTermicaSala()">
-                <option value="sem">Sem incidência direta</option>
-                <option value="manha">Sol da manhã</option>
-                <option value="tarde">Sol da tarde</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Tipo de Cobertura</label>
-              <select id="sala-cobertura" class="form-input-style" onchange="atualizarPreviaCargaTermicaSala()">
-                <option value="entre_andares">Entre andares (protegido)</option>
-                <option value="laje" selected>Laje de cobertura</option>
-                <option value="telhado">Telhado exposto</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Base BTU/m² <small style="color:#a0aec0;font-weight:400;">(padrão 600)</small></label>
-              <input type="number" step="1" min="0" id="sala-btu-m2-base" value="600" oninput="atualizarPreviaCargaTermicaSala()">
-            </div>
-          </div>
-          <p style="font-size:10px;color:#a0aec0;margin:8px 0 0;">📍 Calibrado com Cuiabá-MT como referência climática absoluta (zona bioclimática 5B, NBR 15220-3).</p>
-          <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px 16px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:12px;font-weight:600;color:#0369a1;">Carga térmica estimada</span>
-            <span id="sala-carga-termica-previa" style="font-size:16px;font-weight:800;color:#0369a1;">—</span>
-          </div>
-
-          <div class="btn-row" style="margin-top:16px;">
-            <button id="btn-salvar-sala" class="btn-primary">💾 Salvar Sala</button>
-            <button id="btn-cancelar-sala" class="btn-secondary" style="display:none;" onclick="resetarFormSala()">✕ Cancelar</button>
-          </div>
-          <p id="msg-sala" class="msg-form"></p>
-        </div>
-
-        <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-            <h3 class="card-title" style="margin:0;">Salas Cadastradas</h3>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <select id="filtro-sala-instituicao" class="form-input-style" style="font-size:12px;" onchange="atualizarSelectBlocosCascataFiltroSala()"><option value="">Todas as Instituições</option></select>
-              <select id="filtro-sala-bloco" class="form-input-style" style="font-size:12px;" onchange="atualizarSelectSetoresCascataFiltroSala()"><option value="">Todos os Blocos</option></select>
-              <select id="filtro-sala-setor" class="form-input-style" style="font-size:12px;" onchange="carregarSalas()"><option value="">Todos os Setores</option></select>
-              <button class="btn-refresh" onclick="carregarSalas()">↺ Atualizar</button>
-            </div>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Sala</th><th>Setor / Bloco</th><th>Carga Térmica</th><th>Ativos vinculados</th><th>Ações</th></tr></thead>
-              <tbody id="tbody-salas"><tr><td colspan="5" class="td-loading">Carregando...</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </main>
-</div>
-
-<script src="app.js"></script>
-<script>
-// ===================== CONTROLE DE ABAS =====================
-function alternarAbasLocais(aba) {
-  ['instituicao','bloco','setor','sala'].forEach(a => {
-    const el = document.getElementById('aba-' + a);
-    if (el) el.style.display = a === aba ? 'block' : 'none';
-  });
-}
-
-// ===================== INIT =====================
-window.addEventListener('DOMContentLoaded', async () => {
-  await carregarInstituicoes();
-  await popularSelectInstituicoes('bloco-instituicao');
-  await popularSelectInstituicoes('filtro-bloco-instituicao', true);
-  await carregarBlocos();
-
-  await popularSelectInstituicoes('setor-instituicao');
-  await popularSelectInstituicoes('filtro-setor-instituicao', true);
-  await carregarSetores();
-
-  await popularSelectInstituicoes('sala-instituicao');
-  await popularSelectInstituicoes('filtro-sala-instituicao', true);
-  await carregarSalas();
-});
-</script>
+  <script src="app.js"></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(async () => {
+        await inicializarFiltrosDashboard();
+        renderizarGraficosDashboard();
+        carregarAgendaManutencoes();
+        carregarAlertasVencimento();
+        carregarKPIsExtras();
+        carregarInventarioGas();
+        carregarDistribuicaoCategoria();
+        carregarConformidadeFiltros();
+        carregarCoberturaPMOC();
+        carregarKpiCargaTermica();
+      }, 400);
+    });
+  </script>
 </body>
-</html>   
+</html>
