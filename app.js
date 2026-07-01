@@ -1749,59 +1749,90 @@ function montarSecoesChecklistPMOC(categoria, frequenciaPalavra, checklist) {
 function montarChecklistEmBrancoHTML(categoria) {
   const defs = CHECKLIST_PMOC_DEFS[categoria] || CHECKLIST_PMOC_DEFS.OUT;
 
-  // Quantidade de repetições (visitas previstas no ano) por periodicidade —
-  // 12 mensais, 4 trimestrais, 2 semestrais, 1 anual — cada uma com sua própria
-  // tabela "Item Verificado / Status" e bloco de Dados da Inspeção, empilhadas
-  // em sequência, fiel ao modelo de referência (sem grade de meses em colunas).
-  const CFG = {
-    mensal:     { cor:'#1e3a5f', titulo:'🔧 Rotinas Mensais',     repeticoes:12 },
-    trimestral: { cor:'#5b21b6', titulo:'📅 Rotinas Trimestrais', repeticoes:4  },
-    semestral:  { cor:'#0e7490', titulo:'📆 Rotinas Semestrais',  repeticoes:2  },
-    anual:      { cor:'#065f46', titulo:'📋 Rotinas Anuais',      repeticoes:1  },
-  };
+  // Cores por periodicidade (igual ao cabeçalho do PDF de referência)
+  const COR = { mensal:'#1e3a5f', trimestral:'#5b21b6', semestral:'#0e7490', anual:'#065f46' };
 
-  function _tabelaChecklist(cor, itens) {
-    const linhas = itens.map(([, label]) => `
-      <tr>
-        <td style="font-size:8px;padding:3px 6px;border-bottom:1px solid #e2e8f0;line-height:1.25;">${escapeHTML(label)}</td>
-        <td style="font-size:8px;padding:3px 6px;border-bottom:1px solid #e2e8f0;white-space:nowrap;text-align:right;color:#374151;">☐ C&nbsp;&nbsp;☐ NC&nbsp;&nbsp;☐ NA</td>
-      </tr>`).join('');
+  // Célula de cabeçalho de mês
+  function _th(label, cor) {
+    return `<th style="background:${cor};color:#fff;font-size:8px;font-weight:700;padding:4px 6px;text-align:center;border:1px solid rgba(255,255,255,.25);white-space:nowrap;">${label}</th>`;
+  }
+
+  // Célula de dado: C/NC/NA + linha data/técnico/fiscal (usada nas linhas de item)
+  function _td() {
+    return `<td style="border:1px solid #dde3ea;padding:2px 4px;text-align:center;white-space:nowrap;font-size:7.5px;color:#374151;">☐ C &nbsp;☐ NC &nbsp;☐ NA</td>`;
+  }
+
+  // Linha de item verificado
+  function _linhaItem(label, nCols) {
+    return `<tr><td style="border:1px solid #dde3ea;font-size:8px;padding:3px 6px;line-height:1.25;">${escapeHTML(label)}</td>${Array.from({length:nCols},_td).join('')}</tr>`;
+  }
+
+  // Rodapé: Data Realiz. / Técnico / Fiscal/Validador — uma linha por label, N colunas
+  function _rodape(nCols) {
+    const _linhaRod = (label) => `<tr>
+      <td style="border:1px solid #dde3ea;font-size:7px;color:#718096;padding:2px 6px;text-align:right;white-space:nowrap;">${label}</td>
+      ${Array.from({length:nCols}, () => `<td style="border:1px solid #dde3ea;border-bottom:1px dotted #94a3b8;padding:4px 4px 0;"></td>`).join('')}
+    </tr>`;
+    return _linhaRod('Data Realiz.') + _linhaRod('Tecnico:') + _linhaRod('Fiscal / Validador');
+  }
+
+  // Monta uma tabela completa: título + colunas + itens + rodapé
+  function _tabela(titulo, cor, colunas, itens) {
+    const n = colunas.length;
     return `
-      <table style="width:100%;border-collapse:collapse;font-size:8px;margin-top:2px;">
+    <div style="margin-top:10px;">
+      <div style="font-size:8.5px;font-weight:700;color:${cor};margin-bottom:3px;">${titulo}</div>
+      <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
+        <colgroup>
+          <col style="width:auto;">
+          ${Array.from({length:n}, () => `<col style="width:${Math.round(300/n/10)*10}px;">`).join('')}
+        </colgroup>
         <thead>
-          <tr style="background:${cor};">
-            <th style="text-align:left;padding:4px 6px;font-size:8px;font-weight:700;color:#fff;">Item Verificado</th>
-            <th style="text-align:right;padding:4px 6px;font-size:8px;font-weight:700;color:#fff;width:90px;">Status</th>
+          <tr>
+            <th style="background:${cor};color:#fff;font-size:8px;font-weight:700;padding:4px 6px;text-align:left;border:1px solid rgba(255,255,255,.25);">Itens Verificado</th>
+            ${colunas.map(c => _th(c, cor)).join('')}
           </tr>
         </thead>
-        <tbody>${linhas}</tbody>
-      </table>`;
+        <tbody>
+          ${itens.map(([,label]) => _linhaItem(label, n)).join('')}
+          ${_rodape(n)}
+        </tbody>
+      </table>
+    </div>`;
   }
 
-  function _dadosInspecao() {
-    return `
-      <div style="display:grid;grid-template-columns:2fr 1fr 1.4fr;gap:10px;margin:4px 0 8px;">
-        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Técnico Responsável</div><div style="border-bottom:1px dotted #cbd5e0;height:13px;"></div></div>
-        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Data da Inspeção</div><div style="border-bottom:1px dotted #cbd5e0;height:13px;"></div></div>
-        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Fiscal / Validador</div><div style="border-bottom:1px dotted #cbd5e0;height:13px;"></div></div>
-      </div>`;
+  let html = '';
+
+  // ── MENSAIS: 2 tabelas de 6 meses cada ──────────────────────────────────────
+  const itensM = defs.mensal || [];
+  if (itensM.length) {
+    html += _tabela('Rotinas mensais', COR.mensal, ['Jan','Fev','Mar','Abr','Mai','Jun'], itensM);
+    html += _tabela('Rotinas mensais', COR.mensal, ['Jul','Ago','Set','Out','Nov','Dez'], itensM);
   }
 
-  return CHECKLIST_PERIODICIDADE_INFO
-    .filter(p => (defs[p.key] || []).length)
-    .map(p => {
-      const cfg   = CFG[p.key];
-      const itens = defs[p.key];
+  // ── TRIMESTRAIS: 1 tabela de 4 colunas ──────────────────────────────────────
+  const itensT = defs.trimestral || [];
+  if (itensT.length) {
+    html += _tabela('Rotinas trimestrais', COR.trimestral,
+      ['1º Trimestre\n(Jan-Mar)', '2º Trimestre\n(Abr-Jun)', '3º Trimestre\n(Jul-Set)', '4º Trimestre\n(Out-Dez)'],
+      itensT);
+  }
 
-      // Repete o bloco (título + tabela + dados da inspeção) uma vez por visita prevista
-      return Array.from({ length: cfg.repeticoes }, () => `
-        <div style="margin-top:6px;break-inside:avoid;page-break-inside:avoid;">
-          <div style="font-size:8px;font-weight:700;color:${cfg.cor};margin-bottom:2px;">${cfg.titulo}</div>
-          ${_tabelaChecklist(cfg.cor, itens)}
-          ${_dadosInspecao()}
-        </div>`
-      ).join('');
-    }).join('');
+  // ── SEMESTRAIS: 1 tabela de 2 colunas ───────────────────────────────────────
+  const itensS = defs.semestral || [];
+  if (itensS.length) {
+    html += _tabela('Rotinas semestrais', COR.semestral,
+      ['1º Semestre\n(Jan-Jun)', '2º Semestre\n(Jul-Dez)'],
+      itensS);
+  }
+
+  // ── ANUAIS: 1 tabela de 1 coluna ────────────────────────────────────────────
+  const itensA = defs.anual || [];
+  if (itensA.length) {
+    html += _tabela('Rotinas anuais', COR.anual, ['Anual'], itensA);
+  }
+
+  return html;
 }
 
 // ===================== LAUDO PMOC ANUAL AGRUPADO =====================
@@ -1985,7 +2016,7 @@ function emitirLaudosEmBrancoPMOC() {
   const items = obterEquipamentosFiltrados();
   if (!items.length) { alert('Nenhum ativo encontrado para gerar laudos em branco com os filtros atuais.'); return; }
   const html = items.map((eq, i) => montarLaudoAnualAgrupadoHTML(eq, i === items.length - 1)).join('');
-  imprimir('area-laudos-em-branco', html, 'retrato');
+  imprimir('area-laudos-em-branco', html, 'paisagem');
 }
 
 async function emitirRelatorioPMOC(b64) {
