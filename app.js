@@ -1823,14 +1823,13 @@ function montarChecklistEmBrancoHTML(categoria) {
 
   let html = '';
 
-  // ── MENSAIS: 2 tabelas de 6 meses cada ──────────────────────────────────────
+  // ── PÁGINA 1: MENSAIS + TRIMESTRAIS ─────────────────────────────────────────
   const itensM = defs.mensal || [];
   if (itensM.length) {
     html += _tabela('Rotinas mensais', COR.mensal, ['Jan','Fev','Mar','Abr','Mai','Jun'], itensM);
     html += _tabela('Rotinas mensais', COR.mensal, ['Jul','Ago','Set','Out','Nov','Dez'], itensM);
   }
 
-  // ── TRIMESTRAIS: 1 tabela de 4 colunas ──────────────────────────────────────
   const itensT = defs.trimestral || [];
   if (itensT.length) {
     html += _tabela('Rotinas trimestrais', COR.trimestral,
@@ -1838,7 +1837,14 @@ function montarChecklistEmBrancoHTML(categoria) {
       itensT);
   }
 
-  // ── SEMESTRAIS: 1 tabela de 2 colunas ───────────────────────────────────────
+  // ── QUEBRA ENTRE PÁGINAS ─────────────────────────────────────────────────────
+  // Semestrais e Anuais abrem sempre em nova página (página 2 do ativo)
+  const temPag2 = (defs.semestral || []).length || (defs.anual || []).length;
+  if (temPag2) {
+    html += `<div style="break-before:page;page-break-before:always;"></div>`;
+  }
+
+  // ── PÁGINA 2: SEMESTRAIS + ANUAIS ───────────────────────────────────────────
   const itensS = defs.semestral || [];
   if (itensS.length) {
     html += _tabela('Rotinas semestrais', COR.semestral,
@@ -1846,7 +1852,6 @@ function montarChecklistEmBrancoHTML(categoria) {
       itensS);
   }
 
-  // ── ANUAIS: 1 tabela de 1 coluna ────────────────────────────────────────────
   const itensA = defs.anual || [];
   if (itensA.length) {
     html += _tabela('Rotinas anuais', COR.anual, ['Anual'], itensA);
