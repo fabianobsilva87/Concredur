@@ -1751,47 +1751,45 @@ function montarChecklistEmBrancoHTML(categoria) {
 
   const COR = { mensal:'#1e3a5f', trimestral:'#5b21b6', semestral:'#0e7490', anual:'#065f46' };
 
-  // Largura fixa das colunas de período (px) por número de colunas.
-  // A coluna "Itens Verificado" ocupa o restante (width:auto no colgroup).
-  // A4 paisagem ≈ 277mm área útil. Cada col de mês: 55px (6 cols), 90px (4), 160px (2), 300px (1).
-  const COL_W = { 6:72, 4:110, 2:200, 1:360 };
-
-  // Largura mínima garantida para a coluna de texto dos itens (% do total da tabela)
-  // Garante que os checkboxes não sejam cortados — o resto vai para os itens.
-  // Com 6 colunas de 72px = 432px; com margem 8mm cada lado ≈ 1000px úteis → itens ≈ 568px (~57%)
-  const ITEM_COL_PCT = { 6:'56%', 4:'55%', 2:'50%', 1:'40%' };
+  // Larguras absolutas calculadas para A4 paisagem (~1050px úteis a 96dpi, margem 8mm).
+  // Coluna de item + N colunas de período devem somar ≤ 1050px.
+  // item=580px + 6×78px=468px → 1048px (6 meses)
+  // item=580px + 4×116px=464px → 1044px (4 trimestres)
+  // item=580px + 2×232px=464px → 1044px (2 semestres)
+  // item=580px + 1×468px=468px → 1048px (1 anual)
+  const COL_W   = { 6:78,  4:116, 2:232, 1:468 };
+  const ITEM_W  = 580; // px — fixo para todas as tabelas
 
   // Célula de cabeçalho de coluna (mês / trimestre / semestre / anual)
   function _th(label, cor, w) {
-    return `<th style="background:${cor};color:#fff;font-size:10px;font-weight:700;
-      padding:5px 4px;text-align:center;width:${w}px;
-      border:1px solid rgba(255,255,255,.25);white-space:pre-line;">${label}</th>`;
+    return `<th style="background:${cor};color:#fff;font-size:9px;font-weight:700;
+      padding:4px 2px;text-align:center;width:${w}px;
+      border:1px solid rgba(255,255,255,.25);white-space:pre-line;line-height:1.2;">${label}</th>`;
   }
 
-  // Célula de dado: ☐C ☐NC ☐NA, fonte 10px, largura explícita
+  // Célula de dado: ☐C ☐NC ☐NA
   function _td(w) {
-    return `<td style="border:1px solid #dde3ea;padding:3px 2px;text-align:center;
-      width:${w}px;white-space:nowrap;font-size:10px;color:#374151;
-      vertical-align:middle;overflow:hidden;">
-      ☐&nbsp;C &nbsp;☐&nbsp;NC &nbsp;☐&nbsp;NA</td>`;
+    return `<td style="border:1px solid #dde3ea;padding:2px 1px;text-align:center;
+      width:${w}px;white-space:nowrap;font-size:9px;color:#374151;
+      vertical-align:middle;overflow:hidden;">☐&nbsp;C&nbsp;☐&nbsp;NC&nbsp;☐&nbsp;NA</td>`;
   }
 
   // Linha de item verificado
   function _linhaItem(label, nCols, w) {
     return `<tr>
-      <td style="border:1px solid #dde3ea;font-size:10px;padding:4px 8px;line-height:1.3;">${escapeHTML(label)}</td>
+      <td style="border:1px solid #dde3ea;font-size:9px;padding:3px 6px;line-height:1.25;width:${ITEM_W}px;">${escapeHTML(label)}</td>
       ${Array.from({length:nCols}, () => _td(w)).join('')}
     </tr>`;
   }
 
-  // Rodapé: Data Realiz. / Técnico / Fiscal/Validador por coluna
+  // Rodapé: Data Realiz. / Técnico / Fiscal/Validador por coluna — linhas compactas
   function _rodape(nCols, w) {
     const _lr = (label) => `<tr>
-      <td style="border:1px solid #dde3ea;font-size:9px;color:#718096;
-        padding:3px 8px;text-align:right;white-space:nowrap;">${label}</td>
+      <td style="border:1px solid #dde3ea;font-size:8px;color:#718096;
+        padding:2px 6px;text-align:right;white-space:nowrap;width:${ITEM_W}px;">${label}</td>
       ${Array.from({length:nCols}, () =>
         `<td style="border:1px solid #dde3ea;width:${w}px;
-          border-bottom:1px dotted #94a3b8;padding:6px 4px 1px;"></td>`).join('')}
+          border-bottom:1px dotted #94a3b8;padding:5px 2px 1px;"></td>`).join('')}
     </tr>`;
     return _lr('Data Realiz.') + _lr('Tecnico:') + _lr('Fiscal / Validador');
   }
@@ -1799,20 +1797,19 @@ function montarChecklistEmBrancoHTML(categoria) {
   // Monta uma tabela completa
   function _tabela(titulo, cor, colunas, itens) {
     const n = colunas.length;
-    const w = COL_W[n] || 72;
-    const itemPct = ITEM_COL_PCT[n] || '50%';
+    const w = COL_W[n] || 78;
     return `
-    <div style="margin-top:12px;">
-      <div style="font-size:10px;font-weight:700;color:${cor};margin-bottom:3px;">${titulo}</div>
+    <div style="margin-top:8px;">
+      <div style="font-size:9px;font-weight:700;color:${cor};margin-bottom:2px;">${titulo}</div>
       <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
         <colgroup>
-          <col style="width:${itemPct};">
+          <col style="width:${ITEM_W}px;">
           ${Array.from({length:n}, () => `<col style="width:${w}px;">`).join('')}
         </colgroup>
         <thead>
           <tr>
-            <th style="background:${cor};color:#fff;font-size:10px;font-weight:700;
-              padding:5px 8px;text-align:left;border:1px solid rgba(255,255,255,.25);">Itens Verificado</th>
+            <th style="background:${cor};color:#fff;font-size:9px;font-weight:700;
+              padding:4px 6px;text-align:left;border:1px solid rgba(255,255,255,.25);width:${ITEM_W}px;">Itens Verificado</th>
             ${colunas.map(c => _th(c, cor, w)).join('')}
           </tr>
         </thead>
@@ -1964,56 +1961,56 @@ function montarLaudoAnualAgrupadoHTML(eq, ultimoDaLista) {
   <div class="laudo-wrapper${classeQ}">
 
     <!-- CABEÇALHO compacto -->
-    <div style="background:#1e3a5f;color:#fff;padding:6px 12px;display:flex;align-items:center;gap:10px;border-radius:4px 4px 0 0;">
-      <img src="${LOGO_ETIQUETA}" alt="Logo" style="height:26px;width:auto;display:block;filter:brightness(0) invert(1);">
+    <div style="background:#1e3a5f;color:#fff;padding:5px 10px;display:flex;align-items:center;gap:10px;border-radius:4px 4px 0 0;">
+      <img src="${LOGO_ETIQUETA}" alt="Logo" style="height:22px;width:auto;display:block;filter:brightness(0) invert(1);">
       <div>
-        <div style="font-size:11px;font-weight:700;line-height:1.2;">Plano de Manutenção, Operação e Controle (PMOC)</div>
-        <div style="font-size:8.5px;opacity:.8;margin-top:1px;">Laudo para Preenchimento em Campo — ${anoAtual}</div>
+        <div style="font-size:10px;font-weight:700;line-height:1.2;">Plano de Manutenção, Operação e Controle (PMOC)</div>
+        <div style="font-size:8px;opacity:.8;margin-top:1px;">Laudo para Preenchimento em Campo — ${anoAtual}</div>
       </div>
     </div>
 
     <!-- IDENTIFICAÇÃO DO ATIVO — compacto em 2 linhas -->
-    <div style="border:1px solid #e2e8f0;border-top:3px solid #1e3a5f;padding:5px 10px;background:#fafbfc;">
-      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:3px 14px;">
-        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">TAG</div><div style="font-size:10px;font-weight:700;color:#1e3a5f;">${escapeHTML(eq.tag)}</div></div>
-        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Equipamento</div><div style="font-size:9.5px;font-weight:600;">${escapeHTML(eq.produto || categoria)}</div></div>
-        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Marca</div><div style="font-size:9.5px;font-weight:600;">${escapeHTML(eq.marca)}</div></div>
-        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Nº Série</div><div style="font-size:9.5px;font-weight:600;">${escapeHTML(eq.nr_serie)}</div></div>
-        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Patrimônio</div><div style="font-size:9.5px;font-weight:600;">${escapeHTML(eq.patrimonio)}</div></div>
-        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Potência</div><div style="font-size:9.5px;font-weight:600;">${escapeHTML(eq.potencia || '—')}</div></div>
-        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Bloco</div><div style="font-size:9.5px;font-weight:600;">${escapeHTML(eq.bloco)}</div></div>
-        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Setor</div><div style="font-size:9.5px;font-weight:600;">${escapeHTML(eq.setor)}</div></div>
-        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Sala/Local</div><div style="font-size:9.5px;font-weight:600;">${escapeHTML(eq.sala)}</div></div>
-        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Técnico</div><div style="font-size:9px;border-bottom:1px solid #cbd5e0;min-height:16px;"></div></div>
-        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Data da Inspeção</div><div style="font-size:9px;border-bottom:1px solid #cbd5e0;min-height:16px;"></div></div>
-        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Fiscal/Validador</div><div style="font-size:9px;border-bottom:1px solid #cbd5e0;min-height:16px;"></div></div>
+    <div style="border:1px solid #e2e8f0;border-top:2px solid #1e3a5f;padding:4px 10px;background:#fafbfc;">
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:2px 10px;">
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">TAG</div><div style="font-size:9px;font-weight:700;color:#1e3a5f;">${escapeHTML(eq.tag)}</div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Equipamento</div><div style="font-size:9px;font-weight:600;">${escapeHTML(eq.produto || categoria)}</div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Marca</div><div style="font-size:9px;font-weight:600;">${escapeHTML(eq.marca)}</div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Nº Série</div><div style="font-size:9px;font-weight:600;">${escapeHTML(eq.nr_serie)}</div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Patrimônio</div><div style="font-size:9px;font-weight:600;">${escapeHTML(eq.patrimonio)}</div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Potência</div><div style="font-size:9px;font-weight:600;">${escapeHTML(eq.potencia || '—')}</div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Bloco</div><div style="font-size:9px;font-weight:600;">${escapeHTML(eq.bloco)}</div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Setor</div><div style="font-size:9px;font-weight:600;">${escapeHTML(eq.setor)}</div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Sala/Local</div><div style="font-size:9px;font-weight:600;">${escapeHTML(eq.sala)}</div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Técnico</div><div style="border-bottom:1px solid #cbd5e0;min-height:13px;"></div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Data da Inspeção</div><div style="border-bottom:1px solid #cbd5e0;min-height:13px;"></div></div>
+        <div><div style="font-size:7px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Fiscal/Validador</div><div style="border-bottom:1px solid #cbd5e0;min-height:13px;"></div></div>
       </div>
     </div>
 
     <!-- CHECKLIST compacto -->
-    <div style="border:1px solid #e2e8f0;border-top:none;padding:4px 10px 6px;">
-      <div style="font-size:7.5px;font-weight:700;color:#1e3a5f;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px;padding-bottom:2px;border-bottom:1px solid #e2e8f0;">Checklist de Manutenção · Marque C / NC / NA · Registre Data e Técnico</div>
+    <div style="border:1px solid #e2e8f0;border-top:none;padding:3px 8px 4px;">
+      <div style="font-size:7px;font-weight:700;color:#1e3a5f;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px;padding-bottom:2px;border-bottom:1px solid #e2e8f0;">Checklist de Manutenção · Marque C / NC / NA · Registre Data e Técnico</div>
       ${checklistHTML}
     </div>
 
-    <!-- OBSERVAÇÕES + ASSINATURAS compactos em bloco único -->
-    <div style="border:1px solid #e2e8f0;border-top:none;padding:4px 10px;">
-      <div style="display:flex;gap:12px;align-items:flex-start;">
+    <!-- OBSERVAÇÕES + ASSINATURAS -->
+    <div style="border:1px solid #e2e8f0;border-top:none;padding:3px 8px;">
+      <div style="display:flex;gap:10px;align-items:flex-start;">
         <div style="flex:2;">
           <div style="font-size:7px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Observações Técnicas</div>
-          <div style="border:1px solid #e2e8f0;height:32px;border-radius:2px;"></div>
+          <div style="border:1px solid #e2e8f0;height:26px;border-radius:2px;"></div>
         </div>
         <div style="flex:1;text-align:center;">
-          <div style="height:30px;border-bottom:1px solid #2d3748;"></div>
-          <div style="font-size:7.5px;color:#4a5568;margin-top:2px;">Técnico Executor</div>
+          <div style="height:24px;border-bottom:1px solid #2d3748;"></div>
+          <div style="font-size:7px;color:#4a5568;margin-top:2px;">Técnico Executor</div>
         </div>
         <div style="flex:1;text-align:center;">
-          <div style="height:30px;border-bottom:1px solid #2d3748;"></div>
-          <div style="font-size:7.5px;color:#4a5568;margin-top:2px;">Fiscal / Validador</div>
+          <div style="height:24px;border-bottom:1px solid #2d3748;"></div>
+          <div style="font-size:7px;color:#4a5568;margin-top:2px;">Fiscal / Validador</div>
         </div>
         <div style="flex:1.4;text-align:center;">
-          <div style="height:30px;border-bottom:1px solid #2d3748;"></div>
-          <div style="font-size:7.5px;color:#4a5568;margin-top:2px;">Resp. Técnico — CREA / ART nº ________</div>
+          <div style="height:24px;border-bottom:1px solid #2d3748;"></div>
+          <div style="font-size:7px;color:#4a5568;margin-top:2px;">Resp. Técnico — CREA / ART nº ________</div>
         </div>
       </div>
     </div>
