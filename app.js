@@ -2917,7 +2917,7 @@ async function renderizarGraficosDashboard() {
 // ===================== DASHBOARD — KPIs EXTRAS (Filtros a Vencer / PMOC Vencidos) =====================
 // ===================== DASHBOARD — FILTROS DE LOCALIZAÇÃO (cascata) =====================
 // Estado global do filtro aplicado ao Dashboard. Vazio = sem filtro (todos os locais).
-let _dashFiltro = { instituicaoId: '', blocoId: '', setorId: '' };
+let _dashFiltro = { instituicaoId: '', blocoId: '', setorId: '', salaId: '' };
 
 // Popula um <select> de Blocos com um rótulo "Todos" customizado (uso em filtros, não cascata de formulário).
 async function popularSelectBlocosComTodos(instituicaoId, selectId, labelTodos) {
@@ -2945,34 +2945,57 @@ async function popularSelectSetoresComTodos(blocoId, selectId, labelTodos) {
   sel.innerHTML = `<option value="">${labelTodos}</option>` + (data || []).map(s => `<option value="${s.id}">${escapeHTML(s.nome)}</option>`).join('');
 }
 
+// Popula um <select> de Salas com um rótulo "Todos" customizado (uso em filtros, não cascata de formulário).
+async function popularSelectSalasComTodos(setorId, selectId, labelTodos) {
+  const sel = $(selectId); if (!sel) return;
+  if (!setorId) {
+    sel.innerHTML = `<option value="">${labelTodos}</option>`;
+    sel.disabled = false;
+    return;
+  }
+  const { data } = await db.from('salas').select('id, nome').eq('setor_id', setorId).order('nome', { ascending: true });
+  sel.disabled = false;
+  sel.innerHTML = `<option value="">${labelTodos}</option>` + (data || []).map(s => `<option value="${s.id}">${escapeHTML(s.nome)}</option>`).join('');
+}
+
 async function inicializarFiltrosDashboard() {
   await popularSelectInstituicoes('dash-filtro-instituicao', true);
   await popularSelectBlocosComTodos('', 'dash-filtro-bloco', 'Todos os Blocos');
   await popularSelectSetoresComTodos('', 'dash-filtro-setor', 'Todos os Setores');
+  await popularSelectSalasComTodos('', 'dash-filtro-sala', 'Todas as Salas');
 }
 
 async function dashAoMudarInstituicao() {
   _dashFiltro.instituicaoId = $('dash-filtro-instituicao')?.value || '';
-  _dashFiltro.blocoId = ''; _dashFiltro.setorId = '';
+  _dashFiltro.blocoId = ''; _dashFiltro.setorId = ''; _dashFiltro.salaId = '';
   await popularSelectBlocosComTodos(_dashFiltro.instituicaoId, 'dash-filtro-bloco', 'Todos os Blocos');
   await popularSelectSetoresComTodos('', 'dash-filtro-setor', 'Todos os Setores');
+  await popularSelectSalasComTodos('', 'dash-filtro-sala', 'Todas as Salas');
   recarregarDashboardComFiltro();
 }
 
 async function dashAoMudarBloco() {
   _dashFiltro.blocoId = $('dash-filtro-bloco')?.value || '';
-  _dashFiltro.setorId = '';
+  _dashFiltro.setorId = ''; _dashFiltro.salaId = '';
   await popularSelectSetoresComTodos(_dashFiltro.blocoId, 'dash-filtro-setor', 'Todos os Setores');
+  await popularSelectSalasComTodos('', 'dash-filtro-sala', 'Todas as Salas');
   recarregarDashboardComFiltro();
 }
 
-function dashAoMudarSetor() {
+async function dashAoMudarSetor() {
   _dashFiltro.setorId = $('dash-filtro-setor')?.value || '';
+  _dashFiltro.salaId = '';
+  await popularSelectSalasComTodos(_dashFiltro.setorId, 'dash-filtro-sala', 'Todas as Salas');
+  recarregarDashboardComFiltro();
+}
+
+function dashAoMudarSala() {
+  _dashFiltro.salaId = $('dash-filtro-sala')?.value || '';
   recarregarDashboardComFiltro();
 }
 
 async function dashLimparFiltros() {
-  _dashFiltro = { instituicaoId: '', blocoId: '', setorId: '' };
+  _dashFiltro = { instituicaoId: '', blocoId: '', setorId: '', salaId: '' };
   if ($('dash-filtro-instituicao')) $('dash-filtro-instituicao').value = '';
   await inicializarFiltrosDashboard();
   recarregarDashboardComFiltro();
@@ -2981,6 +3004,7 @@ async function dashLimparFiltros() {
 // Retorna a query base de equipamentos já filtrada pela Instituição/Bloco/Setor
 // selecionados no Dashboard (cascata). Sem filtro selecionado, retorna a query sem .eq().
 function aplicarFiltroLocalizacaoQuery(query) {
+  if (_dashFiltro.salaId)        return query.eq('sala_id', _dashFiltro.salaId);
   if (_dashFiltro.setorId)       return query.eq('setor_id', _dashFiltro.setorId);
   if (_dashFiltro.blocoId)       return query.eq('bloco_id', _dashFiltro.blocoId);
   if (_dashFiltro.instituicaoId) return query.eq('instituicao_id', _dashFiltro.instituicaoId);
@@ -3017,7 +3041,9 @@ async function carregarKpiCargaTermica() {
   // Carga necessária: soma da carga_termica_btu das Salas, respeitando o filtro de localização.
   // Salas não têm instituicao_id/bloco_id diretos — resolve em etapas via setores/blocos.
   let querySalas = db.from('salas').select('carga_termica_btu, setor_id');
-  if (_dashFiltro.setorId) {
+  if (_dashFiltro.salaId) {
+    querySalas = querySalas.eq('id', _dashFiltro.salaId);
+  } else if (_dashFiltro.setorId) {
     querySalas = querySalas.eq('setor_id', _dashFiltro.setorId);
   } else if (_dashFiltro.blocoId) {
     const { data: setoresDoBloco } = await db.from('setores').select('id').eq('bloco_id', _dashFiltro.blocoId);
