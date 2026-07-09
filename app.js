@@ -328,20 +328,12 @@ async function verificarSessaoGlobal() {
 
   if (ehPaginaLogin || ehPaginaPublica) {
     if ($('user-display-email')) $('user-display-email').textContent = '';
-    // Avisa o usuário que ele caiu por inatividade, e não por credencial inválida
-    if (ehPaginaLogin && new URLSearchParams(window.location.search).get('expirado') === '1') {
-      const m = $('mensagem');
-      if (m) m.textContent = '⏱️ Sua sessão foi encerrada por inatividade. Faça login novamente.';
-    }
     return;
   }
 
   // Verifica sessão — APENAS getUser(), sem depender da tabela profiles
   const { data: { user }, error } = await db.auth.getUser();
   if (!user || error) { window.location.href = 'index.html'; return; }
-
-  // Sessão válida → arma o watchdog de inatividade (30 min)
-  iniciarWatchdogInatividade();
 
   // Exibe email imediatamente — não bloqueia em profiles
   if ($('user-display-email')) $('user-display-email').textContent = user.email;
@@ -372,105 +364,13 @@ async function verificarSessaoGlobal() {
     console.warn('profiles sync:', e.message);
   }
 }
+verificarSessaoGlobal();
+
 if ($('btn-logout')) {
   $('btn-logout').addEventListener('click', async () => {
     if (confirm('Encerrar sessão?')) { await db.auth.signOut(); window.location.href = 'index.html'; }
   });
 }
-
-// ===================== WATCHDOG DE INATIVIDADE =====================
-// O Supabase mantém a sessão viva indefinidamente (persistSession + autoRefreshToken).
-// Este watchdog encerra a sessão após INATIVIDADE_LIMITE_MS sem interação do usuário.
-// A última atividade é compartilhada via localStorage, então usar QUALQUER aba do
-// sistema mantém todas as outras vivas (e o logout derruba todas juntas).
-const INATIVIDADE_LIMITE_MS = 30 * 60 * 1000; // 30 minutos
-const INATIVIDADE_AVISO_MS  = 60 * 1000;      // avisa 1 min antes de expirar
-const INATIVIDADE_CHAVE     = 'pmoc_ultima_atividade';
-
-let _idleIntervalo   = null;
-let _idleAvisoAberto = false;
-let _idleUltimaGrav  = 0;
-
-function idleRegistrarAtividade() {
-  const agora = Date.now();
-  // Grava no máximo 1x a cada 5s para não martelar o localStorage a cada mousemove
-  if (agora - _idleUltimaGrav < 5000) return;
-  _idleUltimaGrav = agora;
-  try { localStorage.setItem(INATIVIDADE_CHAVE, String(agora)); } catch (e) { /* modo privado */ }
-  if (_idleAvisoAberto) idleFecharAviso();
-}
-
-function idleLerUltimaAtividade() {
-  try {
-    const v = parseInt(localStorage.getItem(INATIVIDADE_CHAVE) || '0', 10);
-    return isNaN(v) ? Date.now() : v;
-  } catch (e) { return Date.now(); }
-}
-
-function idleFecharAviso() {
-  _idleAvisoAberto = false;
-  document.getElementById('idle-aviso-overlay')?.remove();
-}
-
-function idleMostrarAviso(segundosRestantes) {
-  if (_idleAvisoAberto) {
-    const c = document.getElementById('idle-aviso-contador');
-    if (c) c.textContent = segundosRestantes;
-    return;
-  }
-  _idleAvisoAberto = true;
-  const ov = document.createElement('div');
-  ov.id = 'idle-aviso-overlay';
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
-  ov.innerHTML = `
-    <div style="background:#fff;border-radius:10px;padding:26px 30px;max-width:400px;box-shadow:0 10px 40px rgba(0,0,0,.3);text-align:center;font-family:inherit;">
-      <div style="font-size:34px;margin-bottom:8px;">⏱️</div>
-      <h3 style="margin:0 0 8px;font-size:17px;color:#1a202c;">Sessão prestes a expirar</h3>
-      <p style="margin:0 0 18px;font-size:13px;color:#4a5568;line-height:1.5;">
-        Por inatividade, sua sessão será encerrada em
-        <strong id="idle-aviso-contador" style="color:#dc2626;">${segundosRestantes}</strong> segundos.
-      </p>
-      <button id="idle-aviso-continuar" class="btn-primary" style="width:100%;">Continuar conectado</button>
-    </div>`;
-  document.body.appendChild(ov);
-  document.getElementById('idle-aviso-continuar').addEventListener('click', () => {
-    _idleUltimaGrav = 0;        // força a gravação imediata, ignorando o throttle
-    idleRegistrarAtividade();
-    idleFecharAviso();
-  });
-}
-
-async function idleEncerrarSessao() {
-  clearInterval(_idleIntervalo);
-  idleFecharAviso();
-  try { localStorage.removeItem(INATIVIDADE_CHAVE); } catch (e) { /* noop */ }
-  await db.auth.signOut();
-  window.location.href = 'index.html?expirado=1';
-}
-
-function idleVerificar() {
-  const ocioso = Date.now() - idleLerUltimaAtividade();
-  if (ocioso >= INATIVIDADE_LIMITE_MS) { idleEncerrarSessao(); return; }
-  const faltando = INATIVIDADE_LIMITE_MS - ocioso;
-  if (faltando <= INATIVIDADE_AVISO_MS) idleMostrarAviso(Math.ceil(faltando / 1000));
-  else if (_idleAvisoAberto) idleFecharAviso();
-}
-
-// Chamado apenas em páginas autenticadas, após a sessão ser confirmada.
-function iniciarWatchdogInatividade() {
-  if (_idleIntervalo) return; // já iniciado
-  _idleUltimaGrav = 0;
-  idleRegistrarAtividade();
-  ['mousedown','keydown','touchstart','scroll','click','mousemove']
-    .forEach(ev => window.addEventListener(ev, idleRegistrarAtividade, { passive: true }));
-  // Volta de outra aba/minimizado → revalida imediatamente
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) idleVerificar(); });
-  _idleIntervalo = setInterval(idleVerificar, 5000);
-}
-
-// Executado após as definições acima: garante que as constantes do watchdog
-// já estejam inicializadas quando verificarSessaoGlobal() armar o temporizador.
-verificarSessaoGlobal();
 
 function toggleModoRecuperacao(ativar) {
   modoRecuperacao = ativar;
@@ -597,11 +497,6 @@ if ($('btn-salvar')) {
       instituicao: instId  ? $('eq-instituicao-id').selectedOptions[0].textContent : null,
       bloco:       blocoId ? $('eq-bloco-id').selectedOptions[0].textContent       : null,
       criticidade: calcularCriticidadeFluxograma(),
-      // Respostas da matriz de criticidade — persistidas para reidratar o formulário na edição
-      crit_interrupcao: $('crit-interrupcao')?.value || 'nao',
-      crit_seguranca:   $('crit-seguranca')?.value   || 'nao',
-      crit_operacao:    $('crit-operacao')?.value    || 'nao',
-      crit_reserva:     $('crit-reserva')?.value     || 'nao',
     };
     const extras = {};
     (EQ_CAMPOS_EXTRAS[cat] || []).forEach(id => {
@@ -677,14 +572,6 @@ async function carregarEquipamentoParaEdicao() {
     $('eq-potencia').value = eq.potencia;
   }
   if ($('eq-validade') && eq.validade) $('eq-validade').value = eq.validade;
-
-  // Reidrata a Matriz de Criticidade com as respostas salvas.
-  // Registros antigos (anteriores às colunas crit_*) caem no default 'nao'.
-  if ($('crit-interrupcao')) $('crit-interrupcao').value = eq.crit_interrupcao || 'nao';
-  if ($('crit-seguranca'))   $('crit-seguranca').value   = eq.crit_seguranca   || 'nao';
-  if ($('crit-operacao'))    $('crit-operacao').value    = eq.crit_operacao    || 'nao';
-  if ($('crit-reserva'))     $('crit-reserva').value     = eq.crit_reserva     || 'nao';
-  calcularCriticidadeFluxograma(); // atualiza o badge "Classe Apurada"
 
   // Preenche os campos técnicos extras (extras_tecnico JSONB)
   const extras = eq.extras_tecnico || {};
@@ -1973,6 +1860,213 @@ function montarChecklistEmBrancoHTML(categoria) {
   return html;
 }
 
+// ===================== CAPA DE SETOR — ORGANIZAÇÃO FÍSICA DOS LAUDOS PMOC =====================
+// Gera folhas de rosto padronizadas (A4 retrato) para arquivamento físico dos laudos PMOC,
+// uma capa por Setor, respeitando a hierarquia Instituição › Bloco › Setor.
+// Cada capa traz: identificação do setor, ano de referência, quadro-resumo por categoria,
+// índice de TAGs contidas no volume e quadro de controle documental / assinaturas.
+//
+// Fonte dos ativos: obterEquipamentosFiltrados() — mesma base usada pela tabela, XLS,
+// relatório geral e laudos em branco (mantém coerência com os filtros ativos na tela).
+
+const CAPA_CATEGORIA_NOME = {
+  AC:   'Ar Condicionado',
+  BEB:  'Bebedouro',
+  CLIM: 'Climatizador Evaporativo',
+  VEN:  'Ventilador / Exaustor',
+  OUT:  'Outros',
+};
+const CAPA_CATEGORIA_ORDEM = ['AC', 'BEB', 'CLIM', 'VEN', 'OUT'];
+
+// Agrupa a lista de ativos por Instituição › Bloco › Setor.
+// Retorna array ordenado alfabeticamente pela hierarquia completa.
+function _agruparAtivosPorSetor(items) {
+  const mapa = new Map();
+  items.forEach(eq => {
+    const instituicao = (eq.instituicao || '').trim() || 'Instituição não informada';
+    const bloco       = (eq.bloco       || '').trim() || 'Bloco não informado';
+    const setor       = (eq.setor       || '').trim() || 'Setor não informado';
+    const chave = `${instituicao}||${bloco}||${setor}`;
+    if (!mapa.has(chave)) mapa.set(chave, { instituicao, bloco, setor, ativos: [] });
+    mapa.get(chave).ativos.push(eq);
+  });
+
+  const grupos = Array.from(mapa.values());
+  grupos.sort((a, b) =>
+    a.instituicao.localeCompare(b.instituicao, 'pt-BR') ||
+    a.bloco.localeCompare(b.bloco, 'pt-BR') ||
+    a.setor.localeCompare(b.setor, 'pt-BR')
+  );
+  grupos.forEach(g => g.ativos.sort((a, b) => (a.tag || '').localeCompare(b.tag || '', 'pt-BR')));
+  return grupos;
+}
+
+// Quadro-resumo: contagem de ativos por categoria dentro do setor.
+function _capaResumoCategorias(ativos) {
+  const contagem = {};
+  ativos.forEach(eq => {
+    const cat = CAPA_CATEGORIA_ORDEM.includes(eq.categoria) ? eq.categoria : 'OUT';
+    contagem[cat] = (contagem[cat] || 0) + 1;
+  });
+
+  const linhas = CAPA_CATEGORIA_ORDEM
+    .filter(cat => contagem[cat])
+    .map(cat => `
+      <tr>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:11px;">${escapeHTML(CAPA_CATEGORIA_NOME[cat])}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:11px;text-align:center;font-weight:700;color:#1e3a5f;">${contagem[cat]}</td>
+      </tr>`).join('');
+
+  return `
+  <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;">
+    <thead>
+      <tr style="background:#1e3a5f;color:#fff;">
+        <th style="padding:6px 10px;text-align:left;font-size:10px;letter-spacing:.06em;text-transform:uppercase;">Categoria de Ativo</th>
+        <th style="padding:6px 10px;text-align:center;font-size:10px;letter-spacing:.06em;text-transform:uppercase;width:70px;">Qtd.</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${linhas}
+      <tr style="background:#f8fafc;">
+        <td style="padding:7px 10px;font-size:11px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:.05em;">Total do Setor</td>
+        <td style="padding:7px 10px;font-size:13px;font-weight:700;color:#1e3a5f;text-align:center;">${ativos.length}</td>
+      </tr>
+    </tbody>
+  </table>`;
+}
+
+// Índice de ativos do volume (chips de TAG). Limita a exibição para preservar a capa em 1 página.
+function _capaIndiceTags(ativos, limite = 72) {
+  const visiveis = ativos.slice(0, limite);
+  const restante = ativos.length - visiveis.length;
+
+  const chips = visiveis.map(eq => `
+    <span style="display:inline-block;border:1px solid #cbd5e0;border-radius:3px;
+                 padding:2px 6px;margin:0 3px 3px 0;font-size:8.5px;font-weight:600;
+                 color:#2d3748;background:#f8fafc;">${escapeHTML(eq.tag || '—')}</span>`).join('');
+
+  const nota = restante > 0
+    ? `<div style="font-size:8px;color:#a0aec0;margin-top:4px;font-style:italic;">
+         + ${restante} ativo${restante > 1 ? 's' : ''} não listado${restante > 1 ? 's' : ''} nesta capa — consultar o Relatório Geral de Ativos.
+       </div>`
+    : '';
+
+  return `<div style="line-height:1.6;">${chips}</div>${nota}`;
+}
+
+// Monta a capa (A4 retrato) de um setor.
+function montarCapaSetorHTML(grupo, ano, ultimoDaLista) {
+  const classeQ  = ultimoDaLista ? '' : ' laudo-pagebreak';
+  const emissao  = new Date().toLocaleDateString('pt-BR');
+  const codVolume = `PMOC-${ano}-${(grupo.bloco || 'XX').replace(/\s+/g, '').slice(0, 6).toUpperCase()}-${(grupo.setor || 'XX').replace(/\s+/g, '').slice(0, 8).toUpperCase()}`;
+
+  return `
+  <div class="laudo-wrapper${classeQ}" style="min-height:265mm;display:flex;flex-direction:column;">
+
+    <!-- FAIXA SUPERIOR -->
+    <div style="background:#1e3a5f;color:#fff;padding:14px 18px;display:flex;align-items:center;gap:14px;border-radius:5px 5px 0 0;">
+      <img src="${LOGO_ETIQUETA}" alt="Logo" style="height:34px;width:auto;display:block;filter:brightness(0) invert(1);">
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:700;letter-spacing:.04em;line-height:1.2;">Plano de Manutenção, Operação e Controle</div>
+        <div style="font-size:9px;opacity:.82;margin-top:2px;letter-spacing:.06em;text-transform:uppercase;">Dossiê de Laudos Técnicos — Arquivo Físico</div>
+      </div>
+      <div style="text-align:right;font-size:9px;opacity:.9;line-height:1.5;">
+        Exercício<br><span style="font-size:20px;font-weight:700;letter-spacing:.02em;">${escapeHTML(String(ano))}</span>
+      </div>
+    </div>
+
+    <!-- IDENTIFICAÇÃO DO SETOR (bloco de destaque) -->
+    <div style="border:1px solid #e2e8f0;border-top:none;padding:26px 18px;text-align:center;background:#fafbfc;">
+      <div style="font-size:9px;color:#718096;letter-spacing:.16em;text-transform:uppercase;margin-bottom:6px;">Setor</div>
+      <div style="font-size:30px;font-weight:700;color:#1e3a5f;line-height:1.15;word-break:break-word;">${escapeHTML(grupo.setor)}</div>
+      <div style="margin-top:12px;font-size:11px;color:#4a5568;font-weight:600;">
+        ${escapeHTML(grupo.instituicao)} &nbsp;›&nbsp; ${escapeHTML(grupo.bloco)}
+      </div>
+      <div style="margin-top:14px;display:inline-block;border:1px dashed #1e3a5f;border-radius:4px;padding:5px 14px;">
+        <span style="font-size:8px;color:#718096;letter-spacing:.1em;text-transform:uppercase;">Código do Volume</span><br>
+        <span style="font-size:11px;font-weight:700;color:#1e3a5f;letter-spacing:.04em;">${escapeHTML(codVolume)}</span>
+      </div>
+    </div>
+
+    <!-- RESUMO + CONTROLE DOCUMENTAL -->
+    <div style="border:1px solid #e2e8f0;border-top:none;padding:12px 18px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+        <div>
+          <div style="font-size:9px;font-weight:700;color:#1e3a5f;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #e2e8f0;">Composição do Volume</div>
+          ${_capaResumoCategorias(grupo.ativos)}
+        </div>
+        <div>
+          <div style="font-size:9px;font-weight:700;color:#1e3a5f;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #e2e8f0;">Controle de Arquivamento</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;">
+            <div><div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Volume nº</div><div style="border-bottom:1px solid #cbd5e0;min-height:17px;"></div></div>
+            <div><div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Total de folhas</div><div style="border-bottom:1px solid #cbd5e0;min-height:17px;"></div></div>
+            <div><div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Abertura do volume</div><div style="border-bottom:1px solid #cbd5e0;min-height:17px;"></div></div>
+            <div><div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Encerramento</div><div style="border-bottom:1px solid #cbd5e0;min-height:17px;"></div></div>
+            <div style="grid-column:1 / -1;"><div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Responsável Técnico (PMOC)</div><div style="border-bottom:1px solid #cbd5e0;min-height:17px;"></div></div>
+            <div><div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">CREA-MT nº</div><div style="border-bottom:1px solid #cbd5e0;min-height:17px;"></div></div>
+            <div><div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">ART nº</div><div style="border-bottom:1px solid #cbd5e0;min-height:17px;"></div></div>
+            <div style="grid-column:1 / -1;"><div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Fiscal / Preposto do Contrato</div><div style="border-bottom:1px solid #cbd5e0;min-height:17px;"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÍNDICE DE ATIVOS -->
+    <div style="border:1px solid #e2e8f0;border-top:none;padding:10px 18px;flex:1;">
+      <div style="font-size:9px;font-weight:700;color:#1e3a5f;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #e2e8f0;">
+        Índice de Ativos Contidos no Volume &nbsp;·&nbsp; ${grupo.ativos.length} TAG${grupo.ativos.length > 1 ? 's' : ''}
+      </div>
+      ${_capaIndiceTags(grupo.ativos)}
+    </div>
+
+    <!-- ASSINATURAS -->
+    <div style="border:1px solid #e2e8f0;border-top:none;padding:16px 18px 10px;">
+      <div style="display:flex;gap:26px;">
+        <div style="flex:1;text-align:center;">
+          <div style="height:26px;border-bottom:1px solid #2d3748;"></div>
+          <div style="font-size:8px;color:#4a5568;margin-top:3px;">Responsável Técnico — CREA / ART</div>
+        </div>
+        <div style="flex:1;text-align:center;">
+          <div style="height:26px;border-bottom:1px solid #2d3748;"></div>
+          <div style="font-size:8px;color:#4a5568;margin-top:3px;">Fiscal / Validador do Serviço</div>
+        </div>
+        <div style="flex:1;text-align:center;">
+          <div style="height:26px;border-bottom:1px solid #2d3748;"></div>
+          <div style="font-size:8px;color:#4a5568;margin-top:3px;">Responsável pelo Arquivamento</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RODAPÉ NORMATIVO -->
+    <div style="border:1px solid #e2e8f0;border-top:none;border-radius:0 0 5px 5px;padding:8px 18px;background:#f8fafc;">
+      <div style="font-size:7.5px;color:#718096;line-height:1.5;">
+        Documento elaborado em conformidade com a <strong>Portaria nº 3.523/98 – MS</strong>, <strong>ABNT NBR 16401</strong> e <strong>ABNT NBR 15220-3</strong>.
+        Este volume deve permanecer disponível para consulta da fiscalização e das autoridades sanitárias durante todo o período de vigência.
+      </div>
+      <div style="font-size:7.5px;color:#a0aec0;margin-top:4px;">
+        Capa gerada pelo Sistema de Gestão Univag em ${escapeHTML(emissao)} · ${escapeHTML(codVolume)}
+      </div>
+    </div>
+
+  </div>`;
+}
+
+// Emite, em um único documento de impressão (A4 retrato), uma capa por setor,
+// agrupando os ativos que passam pelos filtros ativos na tela de Gerenciamento de Ativos.
+function emitirCapasSetorPMOC() {
+  const items = obterEquipamentosFiltrados();
+  if (!items.length) { alert('Nenhum ativo encontrado para gerar capas de setor com os filtros atuais.'); return; }
+
+  const anoPadrao = new Date().getFullYear();
+  const entrada   = prompt('Ano de referência das capas PMOC:', String(anoPadrao));
+  if (entrada === null) return;                     // usuário cancelou
+  const ano = /^\d{4}$/.test(entrada.trim()) ? entrada.trim() : String(anoPadrao);
+
+  const grupos = _agruparAtivosPorSetor(items);
+  const html   = grupos.map((g, i) => montarCapaSetorHTML(g, ano, i === grupos.length - 1)).join('');
+  imprimir('area-capas-setor', html, 'retrato');
+}
+
 // ===================== LAUDO PMOC ANUAL AGRUPADO =====================
 // Gera um documento de planejamento anual por ativo, com:
 //  • Capa de identificação do ativo
@@ -3030,7 +3124,7 @@ async function renderizarGraficosDashboard() {
 // ===================== DASHBOARD — KPIs EXTRAS (Filtros a Vencer / PMOC Vencidos) =====================
 // ===================== DASHBOARD — FILTROS DE LOCALIZAÇÃO (cascata) =====================
 // Estado global do filtro aplicado ao Dashboard. Vazio = sem filtro (todos os locais).
-let _dashFiltro = { instituicaoId: '', blocoId: '', setorId: '', salaId: '' };
+let _dashFiltro = { instituicaoId: '', blocoId: '', setorId: '' };
 
 // Popula um <select> de Blocos com um rótulo "Todos" customizado (uso em filtros, não cascata de formulário).
 async function popularSelectBlocosComTodos(instituicaoId, selectId, labelTodos) {
@@ -3058,57 +3152,34 @@ async function popularSelectSetoresComTodos(blocoId, selectId, labelTodos) {
   sel.innerHTML = `<option value="">${labelTodos}</option>` + (data || []).map(s => `<option value="${s.id}">${escapeHTML(s.nome)}</option>`).join('');
 }
 
-// Popula um <select> de Salas com um rótulo "Todos" customizado (uso em filtros, não cascata de formulário).
-async function popularSelectSalasComTodos(setorId, selectId, labelTodos) {
-  const sel = $(selectId); if (!sel) return;
-  if (!setorId) {
-    sel.innerHTML = `<option value="">${labelTodos}</option>`;
-    sel.disabled = false;
-    return;
-  }
-  const { data } = await db.from('salas').select('id, nome').eq('setor_id', setorId).order('nome', { ascending: true });
-  sel.disabled = false;
-  sel.innerHTML = `<option value="">${labelTodos}</option>` + (data || []).map(s => `<option value="${s.id}">${escapeHTML(s.nome)}</option>`).join('');
-}
-
 async function inicializarFiltrosDashboard() {
   await popularSelectInstituicoes('dash-filtro-instituicao', true);
   await popularSelectBlocosComTodos('', 'dash-filtro-bloco', 'Todos os Blocos');
   await popularSelectSetoresComTodos('', 'dash-filtro-setor', 'Todos os Setores');
-  await popularSelectSalasComTodos('', 'dash-filtro-sala', 'Todas as Salas');
 }
 
 async function dashAoMudarInstituicao() {
   _dashFiltro.instituicaoId = $('dash-filtro-instituicao')?.value || '';
-  _dashFiltro.blocoId = ''; _dashFiltro.setorId = ''; _dashFiltro.salaId = '';
+  _dashFiltro.blocoId = ''; _dashFiltro.setorId = '';
   await popularSelectBlocosComTodos(_dashFiltro.instituicaoId, 'dash-filtro-bloco', 'Todos os Blocos');
   await popularSelectSetoresComTodos('', 'dash-filtro-setor', 'Todos os Setores');
-  await popularSelectSalasComTodos('', 'dash-filtro-sala', 'Todas as Salas');
   recarregarDashboardComFiltro();
 }
 
 async function dashAoMudarBloco() {
   _dashFiltro.blocoId = $('dash-filtro-bloco')?.value || '';
-  _dashFiltro.setorId = ''; _dashFiltro.salaId = '';
+  _dashFiltro.setorId = '';
   await popularSelectSetoresComTodos(_dashFiltro.blocoId, 'dash-filtro-setor', 'Todos os Setores');
-  await popularSelectSalasComTodos('', 'dash-filtro-sala', 'Todas as Salas');
   recarregarDashboardComFiltro();
 }
 
-async function dashAoMudarSetor() {
+function dashAoMudarSetor() {
   _dashFiltro.setorId = $('dash-filtro-setor')?.value || '';
-  _dashFiltro.salaId = '';
-  await popularSelectSalasComTodos(_dashFiltro.setorId, 'dash-filtro-sala', 'Todas as Salas');
-  recarregarDashboardComFiltro();
-}
-
-function dashAoMudarSala() {
-  _dashFiltro.salaId = $('dash-filtro-sala')?.value || '';
   recarregarDashboardComFiltro();
 }
 
 async function dashLimparFiltros() {
-  _dashFiltro = { instituicaoId: '', blocoId: '', setorId: '', salaId: '' };
+  _dashFiltro = { instituicaoId: '', blocoId: '', setorId: '' };
   if ($('dash-filtro-instituicao')) $('dash-filtro-instituicao').value = '';
   await inicializarFiltrosDashboard();
   recarregarDashboardComFiltro();
@@ -3117,7 +3188,6 @@ async function dashLimparFiltros() {
 // Retorna a query base de equipamentos já filtrada pela Instituição/Bloco/Setor
 // selecionados no Dashboard (cascata). Sem filtro selecionado, retorna a query sem .eq().
 function aplicarFiltroLocalizacaoQuery(query) {
-  if (_dashFiltro.salaId)        return query.eq('sala_id', _dashFiltro.salaId);
   if (_dashFiltro.setorId)       return query.eq('setor_id', _dashFiltro.setorId);
   if (_dashFiltro.blocoId)       return query.eq('bloco_id', _dashFiltro.blocoId);
   if (_dashFiltro.instituicaoId) return query.eq('instituicao_id', _dashFiltro.instituicaoId);
@@ -3154,9 +3224,7 @@ async function carregarKpiCargaTermica() {
   // Carga necessária: soma da carga_termica_btu das Salas, respeitando o filtro de localização.
   // Salas não têm instituicao_id/bloco_id diretos — resolve em etapas via setores/blocos.
   let querySalas = db.from('salas').select('carga_termica_btu, setor_id');
-  if (_dashFiltro.salaId) {
-    querySalas = querySalas.eq('id', _dashFiltro.salaId);
-  } else if (_dashFiltro.setorId) {
+  if (_dashFiltro.setorId) {
     querySalas = querySalas.eq('setor_id', _dashFiltro.setorId);
   } else if (_dashFiltro.blocoId) {
     const { data: setoresDoBloco } = await db.from('setores').select('id').eq('bloco_id', _dashFiltro.blocoId);
