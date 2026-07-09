@@ -497,6 +497,11 @@ if ($('btn-salvar')) {
       instituicao: instId  ? $('eq-instituicao-id').selectedOptions[0].textContent : null,
       bloco:       blocoId ? $('eq-bloco-id').selectedOptions[0].textContent       : null,
       criticidade: calcularCriticidadeFluxograma(),
+      // Respostas da matriz de criticidade — persistidas para reidratar o formulário na edição
+      crit_interrupcao: $('crit-interrupcao')?.value || 'nao',
+      crit_seguranca:   $('crit-seguranca')?.value   || 'nao',
+      crit_operacao:    $('crit-operacao')?.value    || 'nao',
+      crit_reserva:     $('crit-reserva')?.value     || 'nao',
     };
     const extras = {};
     (EQ_CAMPOS_EXTRAS[cat] || []).forEach(id => {
@@ -572,6 +577,14 @@ async function carregarEquipamentoParaEdicao() {
     $('eq-potencia').value = eq.potencia;
   }
   if ($('eq-validade') && eq.validade) $('eq-validade').value = eq.validade;
+
+  // Reidrata a Matriz de Criticidade com as respostas salvas.
+  // Registros antigos (anteriores às colunas crit_*) caem no default 'nao'.
+  if ($('crit-interrupcao')) $('crit-interrupcao').value = eq.crit_interrupcao || 'nao';
+  if ($('crit-seguranca'))   $('crit-seguranca').value   = eq.crit_seguranca   || 'nao';
+  if ($('crit-operacao'))    $('crit-operacao').value    = eq.crit_operacao    || 'nao';
+  if ($('crit-reserva'))     $('crit-reserva').value     = eq.crit_reserva     || 'nao';
+  calcularCriticidadeFluxograma(); // atualiza o badge "Classe Apurada"
 
   // Preenche os campos técnicos extras (extras_tecnico JSONB)
   const extras = eq.extras_tecnico || {};
