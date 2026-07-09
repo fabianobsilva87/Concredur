@@ -3708,3 +3708,30 @@ document.addEventListener('DOMContentLoaded', () => {
   const nomeEl = document.querySelector('.sidebar-header h3');
   if (nomeEl) nomeEl.remove();
 });
+
+// ===================== NAVEGAÇÃO — Central de Impressões =====================
+// Insere o item "🖨️ Central de Impressões" na sidebar de todas as páginas, logo após
+// "Programação PMOC", sem precisar editar o HTML de cada uma. Marca o item como ativo
+// quando a página corrente for impressoes.html.
+document.addEventListener('DOMContentLoaded', () => {
+  const nav = document.querySelector('.sidebar nav');
+  if (!nav || nav.querySelector('[data-nav="impressoes"]')) return;
+
+  const item = document.createElement('div');
+  item.className = 'nav-item';
+  item.dataset.nav = 'impressoes';
+  item.setAttribute('onclick', "location.href='impressoes.html'");
+  item.innerHTML = '<span>🖨️</span> Central de Impressões';
+  if (location.pathname.endsWith('impressoes.html')) {
+    item.classList.add('active');
+    nav.querySelectorAll('.nav-item.active').forEach(el => {
+      if (el !== item) el.classList.remove('active');
+    });
+  }
+
+  const ancora = Array.from(nav.querySelectorAll('.nav-item'))
+    .find(el => (el.getAttribute('onclick') || '').includes('programacao-pmoc.html'));
+
+  if (ancora) ancora.insertAdjacentElement('afterend', item);
+  else nav.appendChild(item);
+});
