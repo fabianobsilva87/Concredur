@@ -328,12 +328,20 @@ async function verificarSessaoGlobal() {
 
   if (ehPaginaLogin || ehPaginaPublica) {
     if ($('user-display-email')) $('user-display-email').textContent = '';
+    // Avisa o usuário que ele caiu por inatividade, e não por credencial inválida
+    if (ehPaginaLogin && new URLSearchParams(window.location.search).get('expirado') === '1') {
+      const m = $('mensagem');
+      if (m) m.textContent = '⏱️ Sua sessão foi encerrada por inatividade. Faça login novamente.';
+    }
     return;
   }
 
   // Verifica sessão — APENAS getUser(), sem depender da tabela profiles
   const { data: { user }, error } = await db.auth.getUser();
   if (!user || error) { window.location.href = 'index.html'; return; }
+
+  // Sessão válida → arma o watchdog de inatividade (30 min)
+  iniciarWatchdogInatividade();
 
   // Exibe email imediatamente — não bloqueia em profiles
   if ($('user-display-email')) $('user-display-email').textContent = user.email;
@@ -364,13 +372,105 @@ async function verificarSessaoGlobal() {
     console.warn('profiles sync:', e.message);
   }
 }
-verificarSessaoGlobal();
-
 if ($('btn-logout')) {
   $('btn-logout').addEventListener('click', async () => {
     if (confirm('Encerrar sessão?')) { await db.auth.signOut(); window.location.href = 'index.html'; }
   });
 }
+
+// ===================== WATCHDOG DE INATIVIDADE =====================
+// O Supabase mantém a sessão viva indefinidamente (persistSession + autoRefreshToken).
+// Este watchdog encerra a sessão após INATIVIDADE_LIMITE_MS sem interação do usuário.
+// A última atividade é compartilhada via localStorage, então usar QUALQUER aba do
+// sistema mantém todas as outras vivas (e o logout derruba todas juntas).
+const INATIVIDADE_LIMITE_MS = 30 * 60 * 1000; // 30 minutos
+const INATIVIDADE_AVISO_MS  = 60 * 1000;      // avisa 1 min antes de expirar
+const INATIVIDADE_CHAVE     = 'pmoc_ultima_atividade';
+
+let _idleIntervalo   = null;
+let _idleAvisoAberto = false;
+let _idleUltimaGrav  = 0;
+
+function idleRegistrarAtividade() {
+  const agora = Date.now();
+  // Grava no máximo 1x a cada 5s para não martelar o localStorage a cada mousemove
+  if (agora - _idleUltimaGrav < 5000) return;
+  _idleUltimaGrav = agora;
+  try { localStorage.setItem(INATIVIDADE_CHAVE, String(agora)); } catch (e) { /* modo privado */ }
+  if (_idleAvisoAberto) idleFecharAviso();
+}
+
+function idleLerUltimaAtividade() {
+  try {
+    const v = parseInt(localStorage.getItem(INATIVIDADE_CHAVE) || '0', 10);
+    return isNaN(v) ? Date.now() : v;
+  } catch (e) { return Date.now(); }
+}
+
+function idleFecharAviso() {
+  _idleAvisoAberto = false;
+  document.getElementById('idle-aviso-overlay')?.remove();
+}
+
+function idleMostrarAviso(segundosRestantes) {
+  if (_idleAvisoAberto) {
+    const c = document.getElementById('idle-aviso-contador');
+    if (c) c.textContent = segundosRestantes;
+    return;
+  }
+  _idleAvisoAberto = true;
+  const ov = document.createElement('div');
+  ov.id = 'idle-aviso-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
+  ov.innerHTML = `
+    <div style="background:#fff;border-radius:10px;padding:26px 30px;max-width:400px;box-shadow:0 10px 40px rgba(0,0,0,.3);text-align:center;font-family:inherit;">
+      <div style="font-size:34px;margin-bottom:8px;">⏱️</div>
+      <h3 style="margin:0 0 8px;font-size:17px;color:#1a202c;">Sessão prestes a expirar</h3>
+      <p style="margin:0 0 18px;font-size:13px;color:#4a5568;line-height:1.5;">
+        Por inatividade, sua sessão será encerrada em
+        <strong id="idle-aviso-contador" style="color:#dc2626;">${segundosRestantes}</strong> segundos.
+      </p>
+      <button id="idle-aviso-continuar" class="btn-primary" style="width:100%;">Continuar conectado</button>
+    </div>`;
+  document.body.appendChild(ov);
+  document.getElementById('idle-aviso-continuar').addEventListener('click', () => {
+    _idleUltimaGrav = 0;        // força a gravação imediata, ignorando o throttle
+    idleRegistrarAtividade();
+    idleFecharAviso();
+  });
+}
+
+async function idleEncerrarSessao() {
+  clearInterval(_idleIntervalo);
+  idleFecharAviso();
+  try { localStorage.removeItem(INATIVIDADE_CHAVE); } catch (e) { /* noop */ }
+  await db.auth.signOut();
+  window.location.href = 'index.html?expirado=1';
+}
+
+function idleVerificar() {
+  const ocioso = Date.now() - idleLerUltimaAtividade();
+  if (ocioso >= INATIVIDADE_LIMITE_MS) { idleEncerrarSessao(); return; }
+  const faltando = INATIVIDADE_LIMITE_MS - ocioso;
+  if (faltando <= INATIVIDADE_AVISO_MS) idleMostrarAviso(Math.ceil(faltando / 1000));
+  else if (_idleAvisoAberto) idleFecharAviso();
+}
+
+// Chamado apenas em páginas autenticadas, após a sessão ser confirmada.
+function iniciarWatchdogInatividade() {
+  if (_idleIntervalo) return; // já iniciado
+  _idleUltimaGrav = 0;
+  idleRegistrarAtividade();
+  ['mousedown','keydown','touchstart','scroll','click','mousemove']
+    .forEach(ev => window.addEventListener(ev, idleRegistrarAtividade, { passive: true }));
+  // Volta de outra aba/minimizado → revalida imediatamente
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) idleVerificar(); });
+  _idleIntervalo = setInterval(idleVerificar, 5000);
+}
+
+// Executado após as definições acima: garante que as constantes do watchdog
+// já estejam inicializadas quando verificarSessaoGlobal() armar o temporizador.
+verificarSessaoGlobal();
 
 function toggleModoRecuperacao(ativar) {
   modoRecuperacao = ativar;
