@@ -25,7 +25,7 @@
         <div class="nav-item" onclick="location.href='equipamentos.html'"><span>➕</span> Novo Ativo</div>
         <div class="nav-item" onclick="location.href='gerir-equipamentos.html'"><span>⚙️</span> Gerenciamento de Ativos</div>
         <div class="nav-item active" onclick="location.href='pmoc.html'"><span>📋</span> Formulário PMOC</div>
-        <div class="nav-item" onclick="location.href='programacao-pmoc.html'"><span>📅</span> Programação de Manutenções PMOC</div>
+        <div class="nav-item" onclick="location.href='programacao-pmoc.html'"><span>📅</span> Programação PMOC</div>
         <div class="nav-label">Manutenção</div>
         <div class="nav-item" onclick="location.href='os.html'"><span>🛠️</span> Ordens de Serviço</div>
         <div class="nav-label">Administração</div>
@@ -371,10 +371,40 @@
       }
     }
 
+    // Pré-seleciona o ativo no formulário PMOC a partir do qrcode_token vindo na URL
+    // (fluxo: técnico abre pmoc.html?token=<qrcode_token> a partir do QR Code do equipamento).
+    async function carregarAtivoViaTokenQRCode(token) {
+      if (!token) return;
+      try {
+        const { data: eq, error } = await db
+          .from('equipamentos')
+          .select('id, tag')
+          .eq('qrcode_token', token)
+          .maybeSingle();
+        if (error || !eq) {
+          console.warn('Token de QR Code não corresponde a nenhum ativo:', token);
+          return;
+        }
+        const sel = document.getElementById('pmoc-equipamento');
+        if (!sel) return;
+        // Garante que a opção exista mesmo se o select ainda não tiver populado
+        if (!Array.from(sel.options).some(o => o.value === String(eq.id))) {
+          const opt = document.createElement('option');
+          opt.value = eq.id;
+          opt.textContent = eq.tag || 'Ativo';
+          sel.appendChild(opt);
+        }
+        sel.value = eq.id;
+        if (typeof onEquipamentoSelecionado === 'function') onEquipamentoSelecionado();
+      } catch (e) {
+        console.warn('Falha ao carregar ativo via token QR Code:', e);
+      }
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
-      setTimeout(() => {
+      setTimeout(async () => {
         inicializarCanvasAssinatura();
-        atualizarSelectEquipamentos();
+        await atualizarSelectEquipamentos();
         atualizarSelectColaboradores();
         carregarHistoricoFichas();
         const p = new URLSearchParams(window.location.search).get('token');
