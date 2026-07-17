@@ -236,6 +236,41 @@
     }
     #prog-toast.show { opacity: 1; }
 
+    /* ── Retroativas & Projeção ── */
+    .prog-modal.retro-modal { max-width: 780px; }
+    .retro-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .retro-grid .full { grid-column: 1 / -1; }
+    .retro-aviso {
+      background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius);
+      padding: 9px 12px; font-size: 11.5px; color: #92400e; line-height: 1.5;
+    }
+    .retro-preview-wrap {
+      max-height: 280px; overflow: auto;
+      border: 1px solid var(--gray-200); border-radius: var(--radius);
+    }
+    .retro-preview { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+    .retro-preview th {
+      background: #1e3a5f; color: #fff; padding: 6px 8px; font-size: 10.5px;
+      text-align: left; position: sticky; top: 0; white-space: nowrap;
+    }
+    .retro-preview td { padding: 6px 8px; border-bottom: 1px solid var(--gray-200); vertical-align: top; }
+    .retro-datas { font-size: 10.5px; color: var(--gray-500); line-height: 1.6; }
+    .retro-pill-real { background: #d1fae5; color: #065f46; font-weight: 700; padding: 1px 6px; border-radius: 8px; font-size: 10px; white-space: nowrap; }
+    .retro-pill-est  { background: #fef3c7; color: #92400e; font-weight: 700; padding: 1px 6px; border-radius: 8px; font-size: 10px; white-space: nowrap; }
+    .retro-pill-fut  { background: #dbeafe; color: #1d4ed8; font-weight: 700; padding: 1px 6px; border-radius: 8px; font-size: 10px; white-space: nowrap; }
+    .retro-resumo {
+      background: #eef2ff; border: 1px solid #c7d2fe; border-radius: var(--radius);
+      padding: 8px 12px; font-size: 12px; color: #3730a3; font-weight: 600;
+    }
+    /* Histórico no modal de registro */
+    .hist-list { max-height: 150px; overflow: auto; border: 1px solid var(--gray-200); border-radius: var(--radius); }
+    .hist-item { display: flex; align-items: center; gap: 8px; padding: 5px 10px; font-size: 11.5px; border-bottom: 1px solid var(--gray-100); }
+    .hist-item:last-child { border-bottom: none; }
+    .hist-tec { color: var(--gray-400); flex: 1; font-size: 10.5px; }
+    .hist-badge { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 8px; white-space: nowrap; }
+    .hist-badge.real { background: #d1fae5; color: #065f46; }
+    .hist-badge.estimada { background: #fef3c7; color: #92400e; }
+
     /* ── Impressão via popup (mesma técnica do app.js) — não usa @media print ── */
   </style>
 </head>
@@ -274,6 +309,7 @@
     <div class="topbar no-print">
       <h2>📅 Programação de Manutenções PMOC</h2>
       <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;" id="toolbar-status">
+        <button class="btn-toolbar secondary" id="btn-retro" onclick="abrirModalRetro()">🕒 Retroativas &amp; Projeção</button>
         <button class="btn-toolbar success" id="btn-exportar" onclick="exportarXLS()">📊 Exportar XLS</button>
         <button class="btn-toolbar secondary" id="btn-imprimir" onclick="imprimirProgramacao()">🖨️ Imprimir</button>
         <button class="btn-toolbar primary" onclick="carregarProgramacao()">🔄 Atualizar</button>
@@ -461,11 +497,81 @@
       <div id="modal-proxima-info" style="font-size:12px; color:var(--gray-500); display:none;">
         ➜ Próxima manutenção calculada: <strong id="modal-proxima-dt"></strong> (em dias úteis)
       </div>
+      <div class="prog-modal-field" id="modal-hist-wrap" style="display:none;">
+        <label>📜 Histórico de execuções</label>
+        <div id="modal-hist-list" class="hist-list"></div>
+      </div>
     </div>
     <div class="prog-modal-footer">
       <button class="btn-modal-delete" id="btn-modal-delete" style="display:none;" onclick="excluirRegistro()">🗑️ Excluir registro</button>
       <button class="btn-modal-cancel" onclick="fecharModal()">Cancelar</button>
       <button class="btn-modal-save" onclick="salvarRegistro()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Retroativas & Projeção -->
+<div class="prog-modal-overlay" id="retro-overlay">
+  <div class="prog-modal retro-modal">
+    <div class="prog-modal-header">
+      <h3>🕒 Retroativas &amp; Projeção de Manutenções</h3>
+      <button class="prog-modal-close" onclick="fecharModalRetro()">✕</button>
+    </div>
+    <div class="prog-modal-body">
+      <div class="retro-aviso">
+        ⚠️ Informe a data da manutenção realizada <strong>neste mês</strong>. A partir dela o sistema
+        <strong>estima retroativamente</strong> as datas das manutenções anteriores (gravadas como
+        <em>estimadas</em>, para transparência) e <strong>projeta as próximas</strong> pelo ciclo em dias úteis.
+      </div>
+      <div class="retro-grid">
+        <div class="prog-modal-field full">
+          <label>Aplicar a</label>
+          <select id="retro-escopo"></select>
+        </div>
+        <div class="prog-modal-field">
+          <label>Frequência do plano (PMOC)</label>
+          <select id="retro-freq">
+            <option value="Mensal">Mensal</option>
+            <option value="Trimestral">Trimestral</option>
+            <option value="Semestral">Semestral</option>
+            <option value="Anual">Anual</option>
+          </select>
+        </div>
+        <div class="prog-modal-field">
+          <label>Data da manutenção deste mês *</label>
+          <input type="date" id="retro-data">
+        </div>
+        <div class="prog-modal-field">
+          <label>Gerar retroativas desde</label>
+          <input type="date" id="retro-desde">
+        </div>
+        <div class="prog-modal-field">
+          <label>Projetar futuras até</label>
+          <input type="date" id="retro-ate">
+        </div>
+        <div class="prog-modal-field full">
+          <label>Técnico responsável (opcional)</label>
+          <input type="text" id="retro-tecnico" placeholder="Nome do técnico executante">
+        </div>
+      </div>
+      <div id="retro-resumo" class="retro-resumo" style="display:none;"></div>
+      <div class="retro-preview-wrap" id="retro-preview-wrap" style="display:none;">
+        <table class="retro-preview">
+          <thead>
+            <tr>
+              <th>Periodicidade</th><th>Ciclo (DU)</th>
+              <th>Retroativas (estimadas)</th><th>Referência</th><th>Projeções futuras</th>
+            </tr>
+          </thead>
+          <tbody id="retro-preview-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="prog-modal-footer">
+      <button class="btn-modal-cancel" onclick="fecharModalRetro()">Cancelar</button>
+      <button class="btn-modal-cancel" onclick="retroExportarXLS()">📊 Exportar cronograma</button>
+      <button class="btn-modal-save" onclick="retroPreview()">🔍 Pré-visualizar</button>
+      <button class="btn-modal-save" id="btn-retro-salvar" onclick="retroSalvar()">💾 Salvar registros</button>
     </div>
   </div>
 </div>
@@ -701,6 +807,9 @@ function abrirModal(eqId, eqTag, periodoKey, periodoLabel) {
   atualizarModalProxima();
   $('modal-data').addEventListener('change', atualizarModalProxima);
   $('modal-overlay').classList.add('open');
+
+  // Histórico de execuções (assíncrono, não bloqueia a abertura)
+  carregarHistoricoModal(eqId, periodoKey);
 }
 
 function atualizarModalProxima() {
@@ -776,6 +885,20 @@ async function salvarRegistro() {
 
   if (error) { toast('❌ Erro: ' + error.message, true); return; }
 
+  // Alimenta o histórico de execuções (origem real). Não bloqueia o fluxo se
+  // a tabela historico_manutencoes ainda não existir (migração pendente).
+  try {
+    const { error: errHist } = await db.from('historico_manutencoes').upsert({
+      equipamento_id: eqId,
+      periodo:        periodoKey,
+      data_execucao:  data,
+      tecnico:        tecnico || null,
+      observacao:     obs     || null,
+      origem:         'real',
+    }, { onConflict: 'equipamento_id,periodo,data_execucao', ignoreDuplicates: true });
+    if (errHist) console.warn('Histórico não gravado:', errHist.message);
+  } catch (e) { console.warn('Histórico não gravado:', e); }
+
   if (!_programacoes[eqId]) _programacoes[eqId] = {};
   // Ao salvar manualmente, fonte passa a ser 'manual'
   _programacoes[eqId][periodoKey] = { data, tecnico, obs, fonte: 'manual' };
@@ -783,6 +906,263 @@ async function salvarRegistro() {
   fecharModal();
   renderTabela();
   toast('✅ Registro salvo com sucesso!');
+}
+
+// ── Histórico no modal de registro ────────────────────────────────────────
+async function carregarHistoricoModal(eqId, periodoKey) {
+  const wrap = $('modal-hist-wrap');
+  const list = $('modal-hist-list');
+  wrap.style.display = 'none';
+  list.innerHTML = '';
+  try {
+    const { data: hist, error } = await db
+      .from('historico_manutencoes')
+      .select('data_execucao, tecnico, origem')
+      .eq('equipamento_id', eqId)
+      .eq('periodo', periodoKey)
+      .order('data_execucao', { ascending: false })
+      .limit(30);
+    if (error || !hist || !hist.length) return;
+    // Garante que o modal ainda está no mesmo contexto (fetch assíncrono)
+    if (!_modalContext || _modalContext.eqId !== eqId || _modalContext.periodoKey !== periodoKey) return;
+    list.innerHTML = hist.map(h => `
+      <div class="hist-item">
+        <span>${fmtBR(h.data_execucao)}</span>
+        <span class="hist-tec">${esc(h.tecnico || '')}</span>
+        <span class="hist-badge ${h.origem}">${h.origem === 'real' ? '✓ Real' : '≈ Estimada'}</span>
+      </div>`).join('');
+    wrap.style.display = '';
+  } catch (e) { /* tabela ausente — segue sem histórico */ }
+}
+
+// ── Retroativas & Projeção ────────────────────────────────────────────────
+let _retroPlano = null;
+
+// Retrocede N dias úteis a partir de uma data ISO
+function subDiasUteis(dateStr, du) {
+  const d = new Date(dateStr + 'T00:00:00');
+  let count = 0;
+  while (count < du) {
+    d.setDate(d.getDate() - 1);
+    if (d.getDay() !== 0 && d.getDay() !== 6) count++;
+  }
+  return d.toISOString().split('T')[0];
+}
+
+// Datas retroativas estimadas: recua ciclo a ciclo até a data-limite
+function gerarRetroativas(refData, duCiclo, desdeData) {
+  const datas = [];
+  let d = refData, guard = 0;
+  while (guard++ < 400) {
+    d = subDiasUteis(d, duCiclo);
+    if (d < desdeData) break;
+    datas.push(d);
+  }
+  return datas.reverse();
+}
+
+// Projeções futuras: avança ciclo a ciclo até a data-limite
+function gerarFuturas(refData, duCiclo, ateData) {
+  const datas = [];
+  let d = refData, guard = 0;
+  while (guard++ < 400) {
+    d = addDiasUteis(d, duCiclo);
+    if (d > ateData) break;
+    datas.push(d);
+  }
+  return datas;
+}
+
+// Lista com os filtros de busca/categoria/bloco aplicados (sem filtro de status)
+function obterListaFiltrada() {
+  const busca = ($('f-busca')?.value || '').toLowerCase();
+  const cat   = $('f-cat')?.value   || '';
+  const bloco = ($('f-bloco')?.value || '').toLowerCase();
+  return _equipamentos.filter(eq => {
+    if (busca && !eq.tag.toLowerCase().includes(busca) && !(eq.produto||'').toLowerCase().includes(busca)) return false;
+    if (cat   && eq.categoria !== cat) return false;
+    if (bloco && !(eq.bloco||'').toLowerCase().includes(bloco)) return false;
+    return true;
+  });
+}
+
+function abrirModalRetro() {
+  const filtrados = obterListaFiltrada();
+  const sel = $('retro-escopo');
+  sel.innerHTML =
+    `<option value="__filtrados__">📋 Todos os equipamentos filtrados (${filtrados.length})</option>` +
+    filtrados.map(eq =>
+      `<option value="${eq.id}">${esc(eq.tag)} — ${esc(eq.produto || '')}</option>`).join('');
+
+  const ano = new Date().getFullYear();
+  $('retro-data').value  = hojeStr();
+  $('retro-desde').value = `${ano - 1}-01-01`;
+  $('retro-ate').value   = `${ano}-12-31`;
+  $('retro-tecnico').value = '';
+  $('retro-resumo').style.display = 'none';
+  $('retro-preview-wrap').style.display = 'none';
+  $('retro-preview-tbody').innerHTML = '';
+  _retroPlano = null;
+  $('retro-overlay').classList.add('open');
+}
+
+function fecharModalRetro() {
+  $('retro-overlay').classList.remove('open');
+  _retroPlano = null;
+}
+
+function retroPreview() {
+  const escopo  = $('retro-escopo').value;
+  const freq    = $('retro-freq').value;
+  const ref     = $('retro-data').value;
+  const desde   = $('retro-desde').value;
+  const ate     = $('retro-ate').value;
+  const tecnico = $('retro-tecnico').value.trim();
+
+  if (!ref)   { toast('⚠️ Informe a data da manutenção deste mês.', true); return; }
+  if (!desde) { toast('⚠️ Informe a data-limite das retroativas.', true); return; }
+  if (desde >= ref) { toast('⚠️ A data-limite retroativa deve ser anterior à referência.', true); return; }
+
+  const eqs = escopo === '__filtrados__'
+    ? obterListaFiltrada()
+    : _equipamentos.filter(e => e.id === escopo);
+
+  if (!eqs.length) { toast('⚠️ Nenhum equipamento no escopo selecionado.', true); return; }
+
+  const keys = FREQ_PARA_KEY[freq] || ['mensal'];
+  const porPeriodo = keys.map(k => {
+    const p = PERIODOS.find(pp => pp.key === k);
+    return {
+      key: k, label: p.label, duCiclo: p.duCiclo,
+      retro:   gerarRetroativas(ref, p.duCiclo, desde),
+      futuras: ate ? gerarFuturas(ref, p.duCiclo, ate) : [],
+    };
+  });
+
+  _retroPlano = { eqs, freq, ref, tecnico, porPeriodo };
+
+  const totalHist = eqs.length * porPeriodo.reduce((s, pp) => s + pp.retro.length + 1, 0);
+  $('retro-resumo').innerHTML =
+    `${eqs.length} equipamento(s) × frequência <strong>${freq}</strong> → ` +
+    `<strong>${totalHist}</strong> registros de histórico (estimadas + referência).`;
+  $('retro-resumo').style.display = '';
+
+  const fmtLista = (arr) => arr.length
+    ? `<div class="retro-datas">${arr.map(fmtBR).join(', ')}</div><span style="font-size:10px;color:var(--gray-400);">(${arr.length} data${arr.length > 1 ? 's' : ''})</span>`
+    : '<span style="font-size:10.5px;color:var(--gray-400);">—</span>';
+
+  $('retro-preview-tbody').innerHTML = porPeriodo.map(pp => `
+    <tr>
+      <td><strong>${pp.label}</strong></td>
+      <td>${pp.duCiclo}</td>
+      <td><span class="retro-pill-est">≈ Estimadas</span>${fmtLista(pp.retro)}</td>
+      <td><span class="retro-pill-real">✓ Real</span><div class="retro-datas">${fmtBR(_retroPlano.ref)}</div></td>
+      <td><span class="retro-pill-fut">➜ Projeção</span>${fmtLista(pp.futuras)}</td>
+    </tr>`).join('');
+  $('retro-preview-wrap').style.display = '';
+}
+
+async function retroSalvar() {
+  if (!_retroPlano) { toast('⚠️ Clique em Pré-visualizar antes de salvar.', true); return; }
+  const { eqs, ref, tecnico, porPeriodo } = _retroPlano;
+
+  // Monta linhas do histórico: retroativas estimadas + referência real
+  const rows = [];
+  eqs.forEach(eq => {
+    porPeriodo.forEach(pp => {
+      pp.retro.forEach(dt => rows.push({
+        equipamento_id: eq.id,
+        periodo:        pp.key,
+        data_execucao:  dt,
+        tecnico:        tecnico || null,
+        observacao:     `Data estimada retroativamente (referência ${fmtBR(ref)})`,
+        origem:         'estimada',
+      }));
+      rows.push({
+        equipamento_id: eq.id,
+        periodo:        pp.key,
+        data_execucao:  ref,
+        tecnico:        tecnico || null,
+        observacao:     null,
+        origem:         'real',
+      });
+    });
+  });
+
+  const btn = $('btn-retro-salvar');
+  btn.disabled = true;
+  btn.textContent = '⏳ Salvando...';
+  const restaurarBtn = () => { btn.disabled = false; btn.textContent = '💾 Salvar registros'; };
+
+  // 1. Histórico em lotes de 500 (duplicatas ignoradas pela unique constraint)
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await db
+      .from('historico_manutencoes')
+      .upsert(rows.slice(i, i + 500), { onConflict: 'equipamento_id,periodo,data_execucao', ignoreDuplicates: true });
+    if (error) {
+      const dica = /historico_manutencoes/.test(error.message)
+        ? ' Execute a migração SQL (migration_historico_manutencoes.sql) no Supabase.' : '';
+      toast('❌ Erro ao salvar histórico: ' + error.message + dica, true);
+      restaurarBtn();
+      return;
+    }
+  }
+
+  // 2. programacao_pmoc — a referência vira a "última data" de cada periodicidade
+  const progRows = [];
+  eqs.forEach(eq => porPeriodo.forEach(pp => progRows.push({
+    equipamento_id: eq.id,
+    periodo:        pp.key,
+    ultima_data:    ref,
+    tecnico:        tecnico || null,
+    observacao:     'Registro em lote (Retroativas & Projeção)',
+    atualizado_em:  new Date().toISOString(),
+  })));
+  for (let i = 0; i < progRows.length; i += 500) {
+    const { error } = await db
+      .from('programacao_pmoc')
+      .upsert(progRows.slice(i, i + 500), { onConflict: 'equipamento_id,periodo' });
+    if (error) {
+      toast('❌ Histórico salvo, mas falhou ao atualizar programação: ' + error.message, true);
+      restaurarBtn();
+      return;
+    }
+  }
+
+  // 3. Atualiza estado local
+  eqs.forEach(eq => {
+    if (!_programacoes[eq.id]) _programacoes[eq.id] = {};
+    porPeriodo.forEach(pp => {
+      _programacoes[eq.id][pp.key] = { data: ref, tecnico: tecnico || '', obs: '', fonte: 'manual' };
+    });
+  });
+
+  restaurarBtn();
+  fecharModalRetro();
+  renderTabela();
+  toast(`✅ ${rows.length} registros de histórico salvos para ${eqs.length} equipamento(s).`);
+}
+
+function retroExportarXLS() {
+  if (!_retroPlano) { toast('⚠️ Clique em Pré-visualizar antes de exportar.', true); return; }
+  const { eqs, freq, ref, porPeriodo } = _retroPlano;
+
+  const linhas = [['TAG', 'Produto', 'Local', 'Periodicidade', 'Data', 'Tipo']];
+  eqs.forEach(eq => {
+    const local = [eq.bloco, eq.setor, eq.sala].filter(Boolean).join(' › ');
+    porPeriodo.forEach(pp => {
+      pp.retro.forEach(dt   => linhas.push([eq.tag, eq.produto || '', local, pp.label, fmtBR(dt),  'Estimada (retroativa)']));
+      linhas.push([eq.tag, eq.produto || '', local, pp.label, fmtBR(ref), 'Referência (real)']);
+      pp.futuras.forEach(dt => linhas.push([eq.tag, eq.produto || '', local, pp.label, fmtBR(dt),  'Projeção futura']));
+    });
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(linhas);
+  ws['!cols'] = [{wch:14},{wch:24},{wch:30},{wch:12},{wch:12},{wch:22}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Cronograma');
+  XLSX.writeFile(wb, `cronograma_manutencoes_${freq.toLowerCase()}_${hojeStr()}.xlsx`);
+  toast('📊 Cronograma exportado.');
 }
 
 // ── Carrega equipamentos + fichas PMOC + programações manuais ─────────────
