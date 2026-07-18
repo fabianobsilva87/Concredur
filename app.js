@@ -2083,7 +2083,7 @@ function montarCapaOSSetorHTML(grupo, ano, ultimoDaLista) {
   <div class="laudo-wrapper${classeQ}" style="min-height:265mm;display:flex;flex-direction:column;">
 
     <!-- FAIXA SUPERIOR -->
-    <div style="background:#7c2d12;color:#fff;padding:14px 18px;display:flex;align-items:center;gap:14px;border-radius:5px 5px 0 0;">
+    <div style="background:#1e3a5f;color:#fff;padding:14px 18px;display:flex;align-items:center;gap:14px;border-radius:5px 5px 0 0;">
       <img src="${LOGO_ETIQUETA}" alt="Logo" style="height:34px;width:auto;display:block;filter:brightness(0) invert(1);">
       <div style="flex:1;">
         <div style="font-size:13px;font-weight:700;letter-spacing:.04em;line-height:1.2;">Ordens de Serviço</div>
@@ -2097,13 +2097,13 @@ function montarCapaOSSetorHTML(grupo, ano, ultimoDaLista) {
     <!-- IDENTIFICAÇÃO DO SETOR (bloco de destaque) -->
     <div style="border:1px solid #e2e8f0;border-top:none;padding:26px 18px;text-align:center;background:#fafbfc;">
       <div style="font-size:9px;color:#718096;letter-spacing:.16em;text-transform:uppercase;margin-bottom:6px;">Setor</div>
-      <div style="font-size:30px;font-weight:700;color:#7c2d12;line-height:1.15;word-break:break-word;">${escapeHTML(grupo.setor)}</div>
+      <div style="font-size:30px;font-weight:700;color:#1e3a5f;line-height:1.15;word-break:break-word;">${escapeHTML(grupo.setor)}</div>
       <div style="margin-top:12px;font-size:11px;color:#4a5568;font-weight:600;">
         ${escapeHTML(grupo.instituicao)} &nbsp;›&nbsp; ${escapeHTML(grupo.bloco)}
       </div>
-      <div style="margin-top:14px;display:inline-block;border:1px dashed #7c2d12;border-radius:4px;padding:5px 14px;">
+      <div style="margin-top:14px;display:inline-block;border:1px dashed #1e3a5f;border-radius:4px;padding:5px 14px;">
         <span style="font-size:8px;color:#718096;letter-spacing:.1em;text-transform:uppercase;">Código do Volume</span><br>
-        <span style="font-size:11px;font-weight:700;color:#7c2d12;letter-spacing:.04em;">${escapeHTML(codVolume)}</span>
+        <span style="font-size:11px;font-weight:700;color:#1e3a5f;letter-spacing:.04em;">${escapeHTML(codVolume)}</span>
       </div>
     </div>
 
@@ -2111,11 +2111,11 @@ function montarCapaOSSetorHTML(grupo, ano, ultimoDaLista) {
     <div style="border:1px solid #e2e8f0;border-top:none;padding:12px 18px;">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
         <div>
-          <div style="font-size:9px;font-weight:700;color:#7c2d12;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #e2e8f0;">Ativos do Setor</div>
+          <div style="font-size:9px;font-weight:700;color:#1e3a5f;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #e2e8f0;">Ativos do Setor</div>
           ${_capaResumoCategorias(grupo.ativos)}
         </div>
         <div>
-          <div style="font-size:9px;font-weight:700;color:#7c2d12;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #e2e8f0;">Controle de Arquivamento</div>
+          <div style="font-size:9px;font-weight:700;color:#1e3a5f;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #e2e8f0;">Controle de Arquivamento</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;">
             <div><div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Volume nº</div><div style="border-bottom:1px solid #cbd5e0;min-height:17px;"></div></div>
             <div><div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Total de folhas</div><div style="border-bottom:1px solid #cbd5e0;min-height:17px;"></div></div>
@@ -2132,7 +2132,7 @@ function montarCapaOSSetorHTML(grupo, ano, ultimoDaLista) {
 
     <!-- ÍNDICE DE ATIVOS -->
     <div style="border:1px solid #e2e8f0;border-top:none;padding:10px 18px;flex:1;">
-      <div style="font-size:9px;font-weight:700;color:#7c2d12;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #e2e8f0;">
+      <div style="font-size:9px;font-weight:700;color:#1e3a5f;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #e2e8f0;">
         Índice de Ativos do Setor &nbsp;·&nbsp; ${grupo.ativos.length} TAG${grupo.ativos.length > 1 ? 's' : ''}
       </div>
       ${_capaIndiceTags(grupo.ativos)}
