@@ -2067,6 +2067,129 @@ function emitirCapasSetorPMOC() {
   imprimir('area-capas-setor', html, 'retrato');
 }
 
+// ===================== CAPA DE SETOR — ORGANIZAÇÃO FÍSICA DE ORDENS DE SERVIÇO =====================
+// Capa genérica por Setor (mesmo padrão visual da capa PMOC), para uso como folha de rosto
+// de arquivamento físico de O.S. preenchidas manualmente. Não lista O.S. do banco — é uma
+// capa "em branco" por setor, servindo de separador/identificação do volume onde as O.S.
+// físicas daquele setor serão anexadas pelo técnico/fiscal.
+// Reaproveita _agruparAtivosPorSetor / _capaResumoCategorias / _capaIndiceTags para manter
+// a mesma hierarquia (Instituição › Bloco › Setor) e o mesmo índice de ativos da capa PMOC.
+function montarCapaOSSetorHTML(grupo, ano, ultimoDaLista) {
+  const classeQ  = ultimoDaLista ? '' : ' laudo-pagebreak';
+  const emissao  = new Date().toLocaleDateString('pt-BR');
+  const codVolume = `OS-${ano}-${(grupo.bloco || 'XX').replace(/\s+/g, '').slice(0, 6).toUpperCase()}-${(grupo.setor || 'XX').replace(/\s+/g, '').slice(0, 8).toUpperCase()}`;
+
+  return `
+  <div class="laudo-wrapper${classeQ}" style="min-height:265mm;display:flex;flex-direction:column;">
+
+    <!-- FAIXA SUPERIOR -->
+    <div style="background:#7c2d12;color:#fff;padding:14px 18px;display:flex;align-items:center;gap:14px;border-radius:5px 5px 0 0;">
+      <img src="${LOGO_ETIQUETA}" alt="Logo" style="height:34px;width:auto;display:block;filter:brightness(0) invert(1);">
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:700;letter-spacing:.04em;line-height:1.2;">Ordens de Serviço</div>
+        <div style="font-size:9px;opacity:.82;margin-top:2px;letter-spacing:.06em;text-transform:uppercase;">Dossiê de O.S. — Arquivo Físico</div>
+      </div>
+      <div style="text-align:right;font-size:9px;opacity:.9;line-height:1.5;">
+        Exercício<br><span style="font-size:20px;font-weight:700;letter-spacing:.02em;">${escapeHTML(String(ano))}</span>
+      </div>
+    </div>
+
+    <!-- IDENTIFICAÇÃO DO SETOR (bloco de destaque) -->
+    <div style="border:1px solid #e2e8f0;border-top:none;padding:26px 18px;text-align:center;background:#fafbfc;">
+      <div style="font-size:9px;color:#718096;letter-spacing:.16em;text-transform:uppercase;margin-bottom:6px;">Setor</div>
+      <div style="font-size:30px;font-weight:700;color:#7c2d12;line-height:1.15;word-break:break-word;">${escapeHTML(grupo.setor)}</div>
+      <div style="margin-top:12px;font-size:11px;color:#4a5568;font-weight:600;">
+        ${escapeHTML(grupo.instituicao)} &nbsp;›&nbsp; ${escapeHTML(grupo.bloco)}
+      </div>
+      <div style="margin-top:14px;display:inline-block;border:1px dashed #7c2d12;border-radius:4px;padding:5px 14px;">
+        <span style="font-size:8px;color:#718096;letter-spacing:.1em;text-transform:uppercase;">Código do Volume</span><br>
+        <span style="font-size:11px;font-weight:700;color:#7c2d12;letter-spacing:.04em;">${escapeHTML(codVolume)}</span>
+      </div>
+    </div>
+
+    <!-- RESUMO + CONTROLE DOCUMENTAL -->
+    <div style="border:1px solid #e2e8f0;border-top:none;padding:12px 18px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+        <div>
+          <div style="font-size:9px;font-weight:700;color:#7c2d12;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #e2e8f0;">Ativos do Setor</div>
+          ${_capaResumoCategorias(grupo.ativos)}
+        </div>
+        <div>
+          <div style="font-size:9px;font-weight:700;color:#7c2d12;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #e2e8f0;">Controle de Arquivamento</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;">
+            <div><div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Volume nº</div><div style="border-bottom:1px solid #cbd5e0;min-height:17px;"></div></div>
+            <div><div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Total de folhas</div><div style="border-bottom:1px solid #cbd5e0;min-height:17px;"></div></div>
+            <div><div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Abertura do volume</div><div style="border-bottom:1px solid #cbd5e0;min-height:17px;"></div></div>
+            <div><div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Encerramento</div><div style="border-bottom:1px solid #cbd5e0;min-height:17px;"></div></div>
+            <div style="grid-column:1 / -1;"><div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Responsável pela Manutenção / Encarregado</div><div style="border-bottom:1px solid #cbd5e0;min-height:17px;"></div></div>
+            <div><div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Registro / Matrícula</div><div style="border-bottom:1px solid #cbd5e0;min-height:17px;"></div></div>
+            <div><div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Nº do Contrato</div><div style="border-bottom:1px solid #cbd5e0;min-height:17px;"></div></div>
+            <div style="grid-column:1 / -1;"><div style="font-size:8px;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Fiscal / Preposto do Contrato</div><div style="border-bottom:1px solid #cbd5e0;min-height:17px;"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÍNDICE DE ATIVOS -->
+    <div style="border:1px solid #e2e8f0;border-top:none;padding:10px 18px;flex:1;">
+      <div style="font-size:9px;font-weight:700;color:#7c2d12;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #e2e8f0;">
+        Índice de Ativos do Setor &nbsp;·&nbsp; ${grupo.ativos.length} TAG${grupo.ativos.length > 1 ? 's' : ''}
+      </div>
+      ${_capaIndiceTags(grupo.ativos)}
+      <div style="margin-top:10px;font-size:8px;color:#a0aec0;font-style:italic;">
+        As Ordens de Serviço referentes aos ativos acima devem ser anexadas fisicamente a este volume, em ordem cronológica.
+      </div>
+    </div>
+
+    <!-- ASSINATURAS -->
+    <div style="border:1px solid #e2e8f0;border-top:none;padding:16px 18px 10px;">
+      <div style="display:flex;gap:26px;">
+        <div style="flex:1;text-align:center;">
+          <div style="height:26px;border-bottom:1px solid #2d3748;"></div>
+          <div style="font-size:8px;color:#4a5568;margin-top:3px;">Responsável pela Manutenção</div>
+        </div>
+        <div style="flex:1;text-align:center;">
+          <div style="height:26px;border-bottom:1px solid #2d3748;"></div>
+          <div style="font-size:8px;color:#4a5568;margin-top:3px;">Fiscal / Validador do Serviço</div>
+        </div>
+        <div style="flex:1;text-align:center;">
+          <div style="height:26px;border-bottom:1px solid #2d3748;"></div>
+          <div style="font-size:8px;color:#4a5568;margin-top:3px;">Responsável pelo Arquivamento</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RODAPÉ NORMATIVO -->
+    <div style="border:1px solid #e2e8f0;border-top:none;border-radius:0 0 5px 5px;padding:8px 18px;background:#f8fafc;">
+      <div style="font-size:7.5px;color:#718096;line-height:1.5;">
+        Volume de arquivamento físico das Ordens de Serviço do setor, em conformidade com a <strong>Portaria nº 3.523/98 – MS</strong>.
+        Este volume deve permanecer disponível para consulta da fiscalização e das autoridades sanitárias durante todo o período de vigência.
+      </div>
+      <div style="font-size:7.5px;color:#a0aec0;margin-top:4px;">
+        Capa gerada pelo Sistema de Gestão Univag em ${escapeHTML(emissao)} · ${escapeHTML(codVolume)}
+      </div>
+    </div>
+
+  </div>`;
+}
+
+// Emite, em um único documento de impressão (A4 retrato), uma capa genérica de O.S. por setor,
+// agrupando os ativos que passam pelos filtros ativos na tela de Gerenciamento de Ativos.
+// Mesma fonte e mesmos filtros da capa PMOC — mantém as duas central de impressões em sincronia.
+function emitirCapasSetorOS() {
+  const items = obterEquipamentosFiltrados();
+  if (!items.length) { alert('Nenhum ativo encontrado para gerar capas de setor com os filtros atuais.'); return; }
+
+  const anoPadrao = new Date().getFullYear();
+  const entrada   = prompt('Ano de referência das capas de O.S.:', String(anoPadrao));
+  if (entrada === null) return;                     // usuário cancelou
+  const ano = /^\d{4}$/.test(entrada.trim()) ? entrada.trim() : String(anoPadrao);
+
+  const grupos = _agruparAtivosPorSetor(items);
+  const html   = grupos.map((g, i) => montarCapaOSSetorHTML(g, ano, i === grupos.length - 1)).join('');
+  imprimir('area-capas-os-setor', html, 'retrato');
+}
+
 // ===================== LAUDO PMOC ANUAL AGRUPADO =====================
 // Gera um documento de planejamento anual por ativo, com:
 //  • Capa de identificação do ativo
