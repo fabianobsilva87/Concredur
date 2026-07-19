@@ -708,6 +708,11 @@ function emitirRelatorioGeralAtivos() {
 // Ex.: 0.30 = até 30% acima do necessário ainda é adequado. Ajuste conforme o padrão desejado.
 const TOLERANCIA_EXCEDENTE_CAPACIDADE = 0.30;
 
+// Percentual mínimo da carga necessária que já é considerado "Adequado".
+// A carga necessária assume ocupação máxima (pior caso); como as salas raramente
+// operam nesse pico, uma pequena folga abaixo de 100% ainda atende. Ex.: 0.96 = 96%.
+const RATIO_MIN_ADEQUADA = 0.96;
+
 // Converte um texto de potência ("12.000 BTU/h", "9000", "18.000 BTU/h") em número.
 // Mantém o ponto como separador de milhar (padrão brasileiro), como no dashboard/XLS.
 function parsePotenciaBTU(potencia) {
@@ -720,7 +725,7 @@ function classificarCapacidadeSala(necessaria, instalada) {
   if (!necessaria || necessaria <= 0) return { key: 'sem_carga', ordem: 4, label: 'Sem carga prevista', cls: '',        cor: '#718096' };
   if (!instalada  || instalada  <= 0) return { key: 'sem_clima', ordem: 0, label: 'Sem climatização',  cls: 'danger',  cor: '#991b1b' };
   const ratio = instalada / necessaria;
-  if (ratio < 1)                                   return { key: 'subdim',    ordem: 1, label: 'Subdimensionada', cls: 'danger',  cor: '#991b1b' };
+  if (ratio < RATIO_MIN_ADEQUADA)                  return { key: 'subdim',    ordem: 1, label: 'Subdimensionada', cls: 'danger',  cor: '#991b1b' };
   if (ratio > 1 + TOLERANCIA_EXCEDENTE_CAPACIDADE) return { key: 'excedente', ordem: 2, label: 'Excedente',       cls: 'warning', cor: '#92400e' };
   return { key: 'adequada', ordem: 3, label: 'Adequada', cls: 'success', cor: '#065f46' };
 }
@@ -846,8 +851,8 @@ async function emitirRelatorioDivergenciaCapacidade() {
       </table>
       <div style="margin-top:14px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:9px;color:#718096;line-height:1.6;">
         <strong>Critério de classificação:</strong>
-        <span style="color:#991b1b;font-weight:700;">Subdimensionada</span> = instalada abaixo da necessária ·
-        <span style="color:#065f46;font-weight:700;">Adequada</span> = de 100% até ${Math.round((1 + TOLERANCIA_EXCEDENTE_CAPACIDADE) * 100)}% da necessária ·
+        <span style="color:#991b1b;font-weight:700;">Subdimensionada</span> = instalada abaixo de ${Math.round(RATIO_MIN_ADEQUADA * 100)}% da necessária ·
+        <span style="color:#065f46;font-weight:700;">Adequada</span> = de ${Math.round(RATIO_MIN_ADEQUADA * 100)}% até ${Math.round((1 + TOLERANCIA_EXCEDENTE_CAPACIDADE) * 100)}% da necessária ·
         <span style="color:#92400e;font-weight:700;">Excedente</span> = acima de ${Math.round((1 + TOLERANCIA_EXCEDENTE_CAPACIDADE) * 100)}% ·
         <span style="color:#991b1b;font-weight:700;">Sem climatização</span> = há carga prevista, mas nenhum ativo de ar-condicionado ·
         <span style="color:#718096;font-weight:700;">Sem carga prevista</span> = sala sem carga térmica cadastrada (preencher área/parâmetros em Locais).
@@ -3569,9 +3574,13 @@ async function carregarKpiCargaTermica() {
       elBadge.textContent = 'Sem dados de carga prevista para o filtro atual';
       elBadge.style.color = '#a0aec0';
     } else {
-      const diffPct = Math.round(((cargaInstalada - cargaNecessaria) / cargaNecessaria) * 100);
-      if (diffPct >= 0) {
-        elBadge.textContent = `✓ Carga instalada ${diffPct}% acima da necessária`;
+      const ratio   = cargaInstalada / cargaNecessaria;
+      const diffPct = Math.round((ratio - 1) * 100); // positivo = acima, negativo = abaixo
+      if (ratio >= RATIO_MIN_ADEQUADA) {
+        // Dentro da folga adequada (>= 96% do necessário) — inclui pequenos déficits.
+        elBadge.textContent = diffPct >= 0
+          ? `✓ Carga instalada ${diffPct}% acima da necessária`
+          : `✓ Carga instalada ${Math.abs(diffPct)}% abaixo da necessária (dentro da folga adequada)`;
         elBadge.style.color = '#10b981';
       } else {
         elBadge.textContent = `⚠ Carga instalada ${Math.abs(diffPct)}% abaixo da necessária`;
