@@ -693,6 +693,174 @@ function emitirRelatorioGeralAtivos() {
   imprimir('area-relatorio-ativos', html, 'paisagem');
 }
 
+// ============================================================================
+// RELATÓRIO DE DIVERGÊNCIA DE CAPACIDADE (Carga Térmica × Capacidade Instalada)
+// ----------------------------------------------------------------------------
+// Compara, por Sala, a carga térmica prevista (salas.carga_termica_btu) com a
+// capacidade de refrigeração instalada (soma dos BTU/h dos ativos categoria 'AC'
+// vinculados à sala). Classifica cada ambiente em: Subdimensionada, Adequada,
+// Excedente, Sem climatização ou Sem carga prevista.
+// Respeita o filtro de Bloco da Central de Impressões (search-eq-bloco).
+// ============================================================================
+
+// Faixa de tolerância acima da carga necessária ainda considerada "Adequada".
+// Acima disso a sala é classificada como Excedente (superdimensionada).
+// Ex.: 0.30 = até 30% acima do necessário ainda é adequado. Ajuste conforme o padrão desejado.
+const TOLERANCIA_EXCEDENTE_CAPACIDADE = 0.30;
+
+// Converte um texto de potência ("12.000 BTU/h", "9000", "18.000 BTU/h") em número.
+// Mantém o ponto como separador de milhar (padrão brasileiro), como no dashboard/XLS.
+function parsePotenciaBTU(potencia) {
+  const n = parseFloat((potencia || '').toString().replace(/\s*BTU\/h/i, '').replace(/\./g, '').replace(',', '.'));
+  return isNaN(n) ? 0 : n;
+}
+
+// Classifica a sala comparando carga necessária × instalada.
+function classificarCapacidadeSala(necessaria, instalada) {
+  if (!necessaria || necessaria <= 0) return { key: 'sem_carga', ordem: 4, label: 'Sem carga prevista', cls: '',        cor: '#718096' };
+  if (!instalada  || instalada  <= 0) return { key: 'sem_clima', ordem: 0, label: 'Sem climatização',  cls: 'danger',  cor: '#991b1b' };
+  const ratio = instalada / necessaria;
+  if (ratio < 1)                                   return { key: 'subdim',    ordem: 1, label: 'Subdimensionada', cls: 'danger',  cor: '#991b1b' };
+  if (ratio > 1 + TOLERANCIA_EXCEDENTE_CAPACIDADE) return { key: 'excedente', ordem: 2, label: 'Excedente',       cls: 'warning', cor: '#92400e' };
+  return { key: 'adequada', ordem: 3, label: 'Adequada', cls: 'success', cor: '#065f46' };
+}
+
+async function emitirRelatorioDivergenciaCapacidade() {
+  // Filtro de Bloco (mesmo campo da Central de Impressões), aplicado por nome.
+  const inputBloco  = $('search-eq-bloco');
+  const filtroBloco = (inputBloco?.value || '').trim().toLowerCase();
+
+  // 1) Salas com carga térmica prevista + localização (setor / bloco / instituição)
+  const { data: salasRaw, error: errSalas } = await db.from('salas')
+    .select('id, nome, carga_termica_btu, area_m2, setores(nome, blocos(nome, instituicoes(nome)))')
+    .order('nome', { ascending: true });
+  if (errSalas) { alert('Não foi possível carregar as salas: ' + errSalas.message); return; }
+
+  let salas = salasRaw || [];
+  if (filtroBloco) {
+    salas = salas.filter(s => (s.setores?.blocos?.nome || '').toLowerCase().includes(filtroBloco));
+  }
+  if (!salas.length) { alert('Nenhuma sala encontrada para o escopo atual (verifique o filtro de Bloco).'); return; }
+
+  // 2) Capacidade instalada por sala: soma dos BTU/h dos ativos AC vinculados
+  const { data: eqsAC } = await db.from('equipamentos').select('sala_id, potencia').eq('categoria', 'AC');
+  const instaladaPorSala = {};
+  const qtdAcPorSala      = {};
+  (eqsAC || []).forEach(e => {
+    if (!e.sala_id) return;
+    instaladaPorSala[e.sala_id] = (instaladaPorSala[e.sala_id] || 0) + parsePotenciaBTU(e.potencia);
+    qtdAcPorSala[e.sala_id]     = (qtdAcPorSala[e.sala_id] || 0) + 1;
+  });
+
+  // 3) Monta as linhas com classificação e divergência
+  const linhas = salas.map(s => {
+    const necessaria = parseFloat(s.carga_termica_btu) || 0;
+    const instalada  = instaladaPorSala[s.id] || 0;
+    const qtdAc      = qtdAcPorSala[s.id] || 0;
+    const diff       = instalada - necessaria;
+    const ratioPct   = necessaria > 0 ? Math.round((instalada / necessaria) * 100) : null;
+    const cls        = classificarCapacidadeSala(necessaria, instalada);
+    return {
+      nome:  s.nome,
+      bloco: s.setores?.blocos?.nome || '—',
+      setor: s.setores?.nome || '—',
+      area:  s.area_m2, necessaria, instalada, qtdAc, diff, ratioPct, cls,
+    };
+  });
+
+  // Ordena: mais crítico primeiro (sem clima → subdim → excedente → adequada → sem carga),
+  // e, dentro de cada grupo, maior divergência absoluta no topo.
+  linhas.sort((a, b) => a.cls.ordem - b.cls.ordem || Math.abs(b.diff) - Math.abs(a.diff));
+
+  // 4) Resumo agregado
+  const resumo = { sem_clima: 0, subdim: 0, excedente: 0, adequada: 0, sem_carga: 0 };
+  let totalNecessaria = 0, totalInstalada = 0, totalDeficit = 0, totalExcedente = 0;
+  linhas.forEach(l => {
+    resumo[l.cls.key]++;
+    if (l.necessaria > 0) { totalNecessaria += l.necessaria; totalInstalada += l.instalada; }
+    if (l.cls.key === 'subdim' || l.cls.key === 'sem_clima') totalDeficit   += (l.necessaria - l.instalada);
+    if (l.cls.key === 'excedente')                           totalExcedente += (l.instalada - l.necessaria);
+  });
+
+  const fmt     = n => Math.round(n).toLocaleString('pt-BR');
+  const fmtArea = a => (a || a === 0) ? Number(a).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : '—';
+
+  const linhasHTML = linhas.map(l => {
+    const diffTxt = l.cls.key === 'sem_carga' ? '—' : `${l.diff >= 0 ? '+' : '−'}${fmt(Math.abs(l.diff))}`;
+    const pctTxt  = l.ratioPct === null ? '—' : `${l.ratioPct}%`;
+    return `<tr>
+      <td><strong>${escapeHTML(l.nome)}</strong></td>
+      <td>${escapeHTML(l.bloco)} <small style="color:#a0aec0;">/ ${escapeHTML(l.setor)}</small></td>
+      <td style="text-align:center;">${fmtArea(l.area)}</td>
+      <td style="text-align:right;">${l.necessaria > 0 ? fmt(l.necessaria) : '—'}</td>
+      <td style="text-align:right;">${fmt(l.instalada)}</td>
+      <td style="text-align:center;">${l.qtdAc}</td>
+      <td style="text-align:right;font-weight:700;color:${l.cls.cor};">${diffTxt}</td>
+      <td style="text-align:center;color:${l.cls.cor};font-weight:600;">${pctTxt}</td>
+      <td style="text-align:center;"><span class="tag-badge ${l.cls.cls}">${l.cls.label}</span></td>
+    </tr>`;
+  }).join('');
+
+  const escopoTxt = filtroBloco ? `Bloco contendo "${escapeHTML(inputBloco.value.trim())}"` : 'Todos os blocos';
+
+  const box = (cor, bg, valor, rotulo) =>
+    `<div style="flex:1;min-width:110px;background:${bg};border:1px solid ${cor}33;border-radius:6px;padding:8px 10px;text-align:center;">
+       <div style="font-size:18px;font-weight:800;color:${cor};line-height:1;">${valor}</div>
+       <div style="font-size:8px;font-weight:700;color:${cor};text-transform:uppercase;letter-spacing:.05em;margin-top:3px;">${rotulo}</div>
+     </div>`;
+
+  const html = `
+  <div class="laudo-wrapper relatorio-livre">
+    <div class="laudo-header">
+      <div style="display:flex;align-items:center;gap:14px;"><img src="${LOGO_ETIQUETA}" alt="Logo" style="height:40px;width:auto;display:block;"><div><h1 style="font-size:16px;">Relatório de Divergência de Capacidade</h1><p>Carga térmica prevista × capacidade de refrigeração instalada, por sala</p></div></div>
+      <div class="laudo-header-meta">
+        <strong>Salas avaliadas: ${linhas.length}</strong><br>
+        Escopo: ${escopoTxt}<br>
+        Emissão: ${new Date().toLocaleString('pt-BR')}
+      </div>
+    </div>
+    <div class="laudo-section">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+        ${box('#991b1b', '#fef2f2', resumo.sem_clima, 'Sem climatização')}
+        ${box('#991b1b', '#fef2f2', resumo.subdim,    'Subdimensionadas')}
+        ${box('#92400e', '#fffbeb', resumo.excedente, 'Excedentes')}
+        ${box('#065f46', '#f0fdf4', resumo.adequada,  'Adequadas')}
+        ${box('#4a5568', '#f8fafc', resumo.sem_carga, 'Sem carga prevista')}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        ${box('#1a56db', '#eff6ff', fmt(totalNecessaria) + '<span style="font-size:9px;"> BTU/h</span>', 'Necessária (total)')}
+        ${box('#1a56db', '#eff6ff', fmt(totalInstalada)  + '<span style="font-size:9px;"> BTU/h</span>', 'Instalada (total)')}
+        ${box('#991b1b', '#fef2f2', fmt(totalDeficit)    + '<span style="font-size:9px;"> BTU/h</span>', 'Déficit acumulado')}
+        ${box('#92400e', '#fffbeb', fmt(totalExcedente)  + '<span style="font-size:9px;"> BTU/h</span>', 'Excedente acumulado')}
+      </div>
+      <table class="laudo-checklist-table">
+        <thead>
+          <tr>
+            <th>Sala</th><th>Bloco / Setor</th><th style="text-align:center;">Área (m²)</th>
+            <th style="text-align:right;">Necessária (BTU/h)</th><th style="text-align:right;">Instalada (BTU/h)</th>
+            <th style="text-align:center;">Nº AC</th><th style="text-align:right;">Divergência</th>
+            <th style="text-align:center;">%</th><th style="text-align:center;">Situação</th>
+          </tr>
+        </thead>
+        <tbody>${linhasHTML}</tbody>
+      </table>
+      <div style="margin-top:14px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:9px;color:#718096;line-height:1.6;">
+        <strong>Critério de classificação:</strong>
+        <span style="color:#991b1b;font-weight:700;">Subdimensionada</span> = instalada abaixo da necessária ·
+        <span style="color:#065f46;font-weight:700;">Adequada</span> = de 100% até ${Math.round((1 + TOLERANCIA_EXCEDENTE_CAPACIDADE) * 100)}% da necessária ·
+        <span style="color:#92400e;font-weight:700;">Excedente</span> = acima de ${Math.round((1 + TOLERANCIA_EXCEDENTE_CAPACIDADE) * 100)}% ·
+        <span style="color:#991b1b;font-weight:700;">Sem climatização</span> = há carga prevista, mas nenhum ativo de ar-condicionado ·
+        <span style="color:#718096;font-weight:700;">Sem carga prevista</span> = sala sem carga térmica cadastrada (preencher área/parâmetros em Locais).
+        <br>Capacidade instalada = soma dos BTU/h dos ativos de categoria Ar-Condicionado (AC) vinculados à sala.
+        Carga necessária estimada conforme método prático NBR 16401 / NBR 15220-3 (referência climática Cuiabá-MT).
+        <br>Documento gerado pelo Sistema de Gestão Univag · ${new Date().toLocaleString('pt-BR')}
+      </div>
+    </div>
+  </div>`;
+
+  imprimir('area-relatorio-divergencia', html, 'paisagem');
+}
+
 const EQ_CATEGORIA_LABEL_PLANO = {
   AC:'Ar Condicionado', BEB:'Bebedouro',
   CLIM:'Climatizador Evaporativo', VEN:'Ventilador/Exaustor', OUT:'Outros',
