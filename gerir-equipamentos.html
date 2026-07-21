@@ -48,7 +48,7 @@
       <div class="section-content">
         <div class="card">
           <h3 class="card-title">Filtros Avançados de Busca</h3>
-          <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr;">
+          <div class="form-grid" style="grid-template-columns: 2fr 1fr;">
             <div class="form-group">
               <label>Filtro por TAG ou Nome do Ativo</label>
               <input type="text" id="search-eq-termo" placeholder="Buscar..." oninput="filtrarEquipamentos(0)">
@@ -62,10 +62,22 @@
                 <option value="Baixa">Classe Baixa (C)</option>
               </select>
             </div>
-            <div class="form-group">
-              <label>Filtro por Bloco</label>
-              <input type="text" id="search-eq-bloco" placeholder="Ex: Bloco B" oninput="filtrarEquipamentos(0)">
-            </div>
+          </div>
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid #edf2f7;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <span style="font-size:12px;font-weight:700;color:#4a5568;">📍 Filtrar por local:</span>
+            <select id="gerir-filtro-instituicao" class="form-input-style" style="font-size:12px;width:auto;min-width:170px;" onchange="gerirAoMudarInstituicao()">
+              <option value="">Todas as Instituições</option>
+            </select>
+            <select id="gerir-filtro-bloco" class="form-input-style" style="font-size:12px;width:auto;min-width:170px;" onchange="gerirAoMudarBloco()">
+              <option value="">Todos os Blocos</option>
+            </select>
+            <select id="gerir-filtro-setor" class="form-input-style" style="font-size:12px;width:auto;min-width:170px;" onchange="gerirAoMudarSetor()">
+              <option value="">Todos os Setores</option>
+            </select>
+            <select id="gerir-filtro-sala" class="form-input-style" style="font-size:12px;width:auto;min-width:170px;" onchange="gerirAoMudarSala()">
+              <option value="">Todas as Salas</option>
+            </select>
+            <button class="btn-refresh" style="font-size:12px;" onclick="gerirLimparFiltrosLocal()">✕ Limpar local</button>
           </div>
         </div>
 
@@ -105,7 +117,7 @@
   <script src="app.js"></script>
   <script>
     window.addEventListener('DOMContentLoaded', () => {
-      setTimeout(carregarEquipamentos, 400);
+      setTimeout(() => { carregarEquipamentos(); inicializarFiltrosGerir(); }, 400);
     });
   </script>
 </body>

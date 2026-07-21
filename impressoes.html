@@ -105,7 +105,7 @@
             <span class="impr-escopo filtro">Respeita filtros</span>. Ações marcadas como
             <span class="impr-escopo todos">Todos os ativos</span> ignoram os filtros e processam o inventário completo.
           </p>
-          <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr;">
+          <div class="form-grid" style="grid-template-columns: 2fr 1fr;">
             <div class="form-group">
               <label>Filtro por TAG ou Nome do Ativo</label>
               <input type="text" id="search-eq-termo" placeholder="Buscar..." oninput="atualizarEscopoImpressao()">
@@ -119,10 +119,21 @@
                 <option value="Baixa">Classe Baixa (C)</option>
               </select>
             </div>
-            <div class="form-group">
-              <label>Filtro por Bloco</label>
-              <input type="text" id="search-eq-bloco" placeholder="Ex: Bloco B" oninput="atualizarEscopoImpressao()">
-            </div>
+          </div>
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid #edf2f7;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <span style="font-size:12px;font-weight:700;color:#4a5568;">📍 Filtrar por local:</span>
+            <select id="gerir-filtro-instituicao" class="form-input-style" style="font-size:12px;width:auto;min-width:170px;" onchange="gerirAoMudarInstituicao()">
+              <option value="">Todas as Instituições</option>
+            </select>
+            <select id="gerir-filtro-bloco" class="form-input-style" style="font-size:12px;width:auto;min-width:170px;" onchange="gerirAoMudarBloco()">
+              <option value="">Todos os Blocos</option>
+            </select>
+            <select id="gerir-filtro-setor" class="form-input-style" style="font-size:12px;width:auto;min-width:170px;" onchange="gerirAoMudarSetor()">
+              <option value="">Todos os Setores</option>
+            </select>
+            <select id="gerir-filtro-sala" class="form-input-style" style="font-size:12px;width:auto;min-width:170px;" onchange="gerirAoMudarSala()">
+              <option value="">Todas as Salas</option>
+            </select>
           </div>
           <div class="impr-contador">
             <strong id="impr-qtd-filtrada">—</strong>
@@ -203,15 +214,6 @@
               <div class="impr-card-foot">
                 <span class="impr-escopo filtro">Respeita filtros</span>
                 <button class="impr-btn alt" onclick="acaoImpressao('exportarEquipamentosXLS')">Exportar</button>
-              </div>
-            </div>
-
-            <div class="impr-card">
-              <div class="impr-card-head"><span class="impr-card-icon">🌡️</span><span class="impr-card-title">Divergência de Capacidade</span></div>
-              <div class="impr-card-desc">Compara, por sala, a carga térmica prevista com a capacidade de refrigeração instalada (soma dos BTU/h dos ares-condicionados). Destaca salas subdimensionadas, excedentes e sem climatização, com resumo por situação. A4 paisagem.</div>
-              <div class="impr-card-foot">
-                <span class="impr-escopo filtro">Filtro de Bloco</span>
-                <button class="impr-btn alt" onclick="acaoImpressao('emitirRelatorioDivergenciaCapacidade')">Gerar</button>
               </div>
             </div>
 
@@ -316,16 +318,16 @@
     function limparFiltrosImpressao() {
       const termo = document.getElementById('search-eq-termo');
       const crit  = document.getElementById('search-eq-criticidade');
-      const bloco = document.getElementById('search-eq-bloco');
       if (termo) termo.value = '';
       if (crit)  crit.value  = '';
-      if (bloco) bloco.value = '';
+      if (typeof gerirLimparFiltrosLocal === 'function') gerirLimparFiltrosLocal();
       atualizarEscopoImpressao();
     }
 
     window.addEventListener('DOMContentLoaded', () => {
       setTimeout(async () => {
         if (typeof carregarEquipamentos === 'function') await carregarEquipamentos();
+        if (typeof inicializarFiltrosGerir === 'function') await inicializarFiltrosGerir();
         atualizarEscopoImpressao();
       }, 400);
     });

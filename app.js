@@ -596,11 +596,14 @@ async function carregarEquipamentos() {
 function obterEquipamentosFiltrados() {
   const termo = ($('search-eq-termo')?.value || '').toLowerCase();
   const crit  = $('search-eq-criticidade')?.value || '';
-  const bloco = ($('search-eq-bloco')?.value || '').toLowerCase();
+  const f = _gerirFiltroLocal || {};
   return globalEquipamentos.filter(e =>
-    (!termo || e.tag.toLowerCase().includes(termo) || (e.produto||'').toLowerCase().includes(termo)) &&
+    (!termo || (e.tag||'').toLowerCase().includes(termo) || (e.produto||'').toLowerCase().includes(termo)) &&
     (!crit  || (e.criticidade||'') === crit) &&
-    (!bloco || (e.bloco||'').toLowerCase().includes(bloco))
+    (!f.salaId        || String(e.sala_id)        === String(f.salaId)) &&
+    (!f.setorId       || String(e.setor_id)       === String(f.setorId)) &&
+    (!f.blocoId       || String(e.bloco_id)       === String(f.blocoId)) &&
+    (!f.instituicaoId || String(e.instituicao_id) === String(f.instituicaoId))
   );
 }
 
@@ -642,6 +645,62 @@ function filtrarEquipamentos(delta) {
 }
 function mudarPaginaEquipamento(d) { filtrarEquipamentos(d); }
 function alterarItensPorPagina(v) { itensPorPagina = parseInt(v) || 20; filtrarEquipamentos(0); }
+
+// ===================== GERIR EQUIPAMENTOS — FILTRO DE LOCALIZAÇÃO (cascata) =====================
+// Estado do filtro de local aplicado ao inventário. Vazio = sem filtro (todos os locais).
+// Reutiliza os populadores genéricos do dashboard (popularSelectBlocos/Setores/SalasComTodos).
+let _gerirFiltroLocal = { instituicaoId: '', blocoId: '', setorId: '', salaId: '' };
+
+// Reaplica o filtro nos consumidores da tela ativa. Em gerir-equipamentos repagina a
+// tabela; em impressoes.html atualiza o contador de escopo — cada guarda decide sozinha.
+function _gerirAplicarFiltro() {
+  if (typeof filtrarEquipamentos === 'function') filtrarEquipamentos(0);
+  if (typeof atualizarEscopoImpressao === 'function') atualizarEscopoImpressao();
+}
+
+async function inicializarFiltrosGerir() {
+  if (!$('gerir-filtro-instituicao')) return;
+  await popularSelectInstituicoes('gerir-filtro-instituicao', true);
+  await popularSelectBlocosComTodos('', 'gerir-filtro-bloco', 'Todos os Blocos');
+  await popularSelectSetoresComTodos('', 'gerir-filtro-setor', 'Todos os Setores');
+  await popularSelectSalasComTodos('', 'gerir-filtro-sala', 'Todas as Salas');
+}
+
+async function gerirAoMudarInstituicao() {
+  _gerirFiltroLocal.instituicaoId = $('gerir-filtro-instituicao')?.value || '';
+  _gerirFiltroLocal.blocoId = ''; _gerirFiltroLocal.setorId = ''; _gerirFiltroLocal.salaId = '';
+  await popularSelectBlocosComTodos(_gerirFiltroLocal.instituicaoId, 'gerir-filtro-bloco', 'Todos os Blocos');
+  await popularSelectSetoresComTodos('', 'gerir-filtro-setor', 'Todos os Setores');
+  await popularSelectSalasComTodos('', 'gerir-filtro-sala', 'Todas as Salas');
+  _gerirAplicarFiltro();
+}
+
+async function gerirAoMudarBloco() {
+  _gerirFiltroLocal.blocoId = $('gerir-filtro-bloco')?.value || '';
+  _gerirFiltroLocal.setorId = ''; _gerirFiltroLocal.salaId = '';
+  await popularSelectSetoresComTodos(_gerirFiltroLocal.blocoId, 'gerir-filtro-setor', 'Todos os Setores');
+  await popularSelectSalasComTodos('', 'gerir-filtro-sala', 'Todas as Salas');
+  _gerirAplicarFiltro();
+}
+
+async function gerirAoMudarSetor() {
+  _gerirFiltroLocal.setorId = $('gerir-filtro-setor')?.value || '';
+  _gerirFiltroLocal.salaId = '';
+  await popularSelectSalasComTodos(_gerirFiltroLocal.setorId, 'gerir-filtro-sala', 'Todas as Salas');
+  _gerirAplicarFiltro();
+}
+
+function gerirAoMudarSala() {
+  _gerirFiltroLocal.salaId = $('gerir-filtro-sala')?.value || '';
+  _gerirAplicarFiltro();
+}
+
+async function gerirLimparFiltrosLocal() {
+  _gerirFiltroLocal = { instituicaoId: '', blocoId: '', setorId: '', salaId: '' };
+  if ($('gerir-filtro-instituicao')) $('gerir-filtro-instituicao').value = '';
+  await inicializarFiltrosGerir();
+  _gerirAplicarFiltro();
+}
 
 // Exporta os ativos (respeitando os filtros aplicados na tela) para um arquivo .xlsx
 // Emite um relatório geral (impressão/PDF), em formato paisagem, com todos os ativos
@@ -1302,12 +1361,6 @@ const FATOR_COBERTURA = {
   telhado:       1.10, // cobertura exposta diretamente ao telhado — maior ganho por radiação
 };
 
-// Ganho térmico pelas janelas (envidraçamento). O vidro transmite muito mais calor que a
-// alvenaria, sendo a principal via de ganho solar. Valor prático para vidro simples ~700 BTU/m².
-// Quando a área de janelas não é informada, estima-se a partir da quantidade × área padrão.
-const BTU_JANELA_M2       = 700;  // BTU/h por m² de vidro (método prático, vidro simples)
-const AREA_JANELA_PADRAO_M2 = 1.2; // área média assumida por janela quando a área total não é informada
-
 // Calcula a carga térmica estimada (BTU/h) de uma Sala, usando o método prático
 // baseado em NBR 16401 / ASHRAE (referência conceitual; cálculo simplificado por
 // ausência de dados climáticos horários completos por cidade):
@@ -1317,8 +1370,7 @@ const AREA_JANELA_PADRAO_M2 = 1.2; // área média assumida por janela quando a 
 //   × Fator solar: sem incidência = 1,00 | sol da manhã = 1,10 | sol da tarde = 1,20
 //   × Fator cobertura: entre andares = 0,95 | laje = 1,00 | telhado exposto = 1,10
 //   × Fator climático regional: Cuiabá-MT (referência absoluta) = 1,00
-//   + Ganho pelas janelas: área de vidro × 700 BTU/m² (estimada por quantidade quando a área não é informada)
-function calcularCargaTermicaBTU({ area_m2, pessoas_previstas, equip_watts, incidencia_solar, btu_m2_base, cobertura, num_janelas, area_janelas_m2 }) {
+function calcularCargaTermicaBTU({ area_m2, pessoas_previstas, equip_watts, incidencia_solar, btu_m2_base, cobertura }) {
   const area     = parseFloat(area_m2) || 0;
   const pessoas  = parseInt(pessoas_previstas) || 0;
   const watts    = parseFloat(equip_watts) || 0;
@@ -1328,96 +1380,12 @@ function calcularCargaTermicaBTU({ area_m2, pessoas_previstas, equip_watts, inci
   const fatorCobertura = FATOR_COBERTURA[cobertura] || 1.00;
   const fatorClimatico = FATOR_CLIMATICO_REGIAO[CIDADE_REFERENCIA_PADRAO];
 
-  // Área de janelas: usa a área informada; se ausente, estima pela quantidade × área padrão.
-  const qtdJanelas = parseInt(num_janelas) || 0;
-  let areaJanelas  = parseFloat(area_janelas_m2) || 0;
-  if (areaJanelas <= 0 && qtdJanelas > 0) areaJanelas = qtdJanelas * AREA_JANELA_PADRAO_M2;
-
   const btuBase    = area * baseM2;
   const btuPessoas = pessoas * 600;
   const btuEquip   = watts * 3.41;
-  const btuJanelas = areaJanelas * BTU_JANELA_M2;
 
-  const total = (btuBase + btuPessoas + btuEquip + btuJanelas) * fatorSolar * fatorCobertura * fatorClimatico;
+  const total = (btuBase + btuPessoas + btuEquip) * fatorSolar * fatorCobertura * fatorClimatico;
   return Math.round(total);
-}
-
-// ----- Lista de equipamentos por Sala (carga interna com fator de uso) -----
-// Cada item: { nome, potencia, quantidade, fator_uso }. A carga efetiva de um item é
-// potencia × quantidade × fator_uso, e a soma alimenta o campo equip_watts do cálculo de BTU.
-let _salaEquipCarga = [];
-
-// Parsing defensivo: a coluna equipamentos_carga é jsonb, mas normaliza também string/valores vazios.
-function parseEquipCarga(raw) {
-  if (Array.isArray(raw)) return raw;
-  if (!raw) return [];
-  if (typeof raw === 'string') {
-    try { const p = JSON.parse(raw); return Array.isArray(p) ? p : []; } catch { return []; }
-  }
-  return [];
-}
-
-// Carga efetiva de um único item (W)
-function wattsEfetivosItem(it) {
-  const pot = parseFloat(it?.potencia) || 0;
-  const qtd = parseInt(it?.quantidade) || 0;
-  let fator = parseFloat(it?.fator_uso);
-  if (!isFinite(fator)) fator = 1;
-  fator = Math.max(0, Math.min(1, fator)); // limita entre 0 e 1
-  return pot * qtd * fator;
-}
-
-// Soma da carga interna efetiva de todos os itens; atualiza o hidden equip_watts e o total exibido.
-function calcularWattsEfetivosSala() {
-  const total = _salaEquipCarga.reduce((s, it) => s + wattsEfetivosItem(it), 0);
-  const hidden = $('sala-equip-watts'); if (hidden) hidden.value = Math.round(total);
-  const lbl = $('sala-equip-total'); if (lbl) lbl.textContent = `${Math.round(total).toLocaleString('pt-BR')} W`;
-  return total;
-}
-
-// Renderiza as linhas da lista de equipamentos no formulário de Sala.
-function renderSalaEquipCarga() {
-  const tbody = $('tbody-sala-equip'); if (!tbody) return;
-  if (!_salaEquipCarga.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="td-loading">Nenhum equipamento informado.</td></tr>';
-    calcularWattsEfetivosSala();
-    return;
-  }
-  tbody.innerHTML = _salaEquipCarga.map((it, i) => `
-    <tr>
-      <td><input type="text" value="${escapeHTML(it.nome || '')}" placeholder="Ex: Computador" style="width:100%;" oninput="atualizarSalaEquipLinha(${i},'nome',this.value)"></td>
-      <td><input type="number" step="1" min="0" value="${it.potencia ?? ''}" placeholder="Ex: 200" style="width:100%;" oninput="atualizarSalaEquipLinha(${i},'potencia',this.value)"></td>
-      <td><input type="number" step="1" min="0" value="${it.quantidade ?? 1}" style="width:100%;" oninput="atualizarSalaEquipLinha(${i},'quantidade',this.value)"></td>
-      <td><input type="number" step="0.05" min="0" max="1" value="${it.fator_uso ?? 1}" style="width:100%;" oninput="atualizarSalaEquipLinha(${i},'fator_uso',this.value)"></td>
-      <td style="text-align:right;font-weight:600;color:#0369a1;">${Math.round(wattsEfetivosItem(it)).toLocaleString('pt-BR')}</td>
-      <td style="text-align:center;"><button type="button" class="btn-excluir" onclick="removerSalaEquipLinha(${i})">✕</button></td>
-    </tr>`).join('');
-  calcularWattsEfetivosSala();
-}
-
-function adicionarSalaEquipLinha() {
-  _salaEquipCarga.push({ nome: '', potencia: '', quantidade: 1, fator_uso: 1 });
-  renderSalaEquipCarga();
-}
-
-function removerSalaEquipLinha(idx) {
-  _salaEquipCarga.splice(idx, 1);
-  renderSalaEquipCarga();
-  atualizarPreviaCargaTermicaSala();
-}
-
-// Atualiza um campo de um item sem re-renderizar toda a tabela (preserva o foco no input),
-// recalculando apenas o efetivo da linha, o total e a prévia de carga térmica.
-function atualizarSalaEquipLinha(idx, campo, valor) {
-  if (!_salaEquipCarga[idx]) return;
-  _salaEquipCarga[idx][campo] = valor;
-  // Atualiza a célula "Efetivo" da própria linha sem recriar os inputs
-  const tbody = $('tbody-sala-equip');
-  const linha = tbody?.querySelectorAll('tr')[idx];
-  const cel = linha?.children?.[4];
-  if (cel) cel.textContent = Math.round(wattsEfetivosItem(_salaEquipCarga[idx])).toLocaleString('pt-BR');
-  calcularWattsEfetivosSala();
-  atualizarPreviaCargaTermicaSala();
 }
 
 async function carregarSalas() {
@@ -1430,15 +1398,8 @@ async function carregarSalas() {
   _salasCache = salas || [];
   const countMap = {};
   (eqs || []).forEach(e => { if (e.sala_id) countMap[e.sala_id] = (countMap[e.sala_id] || 0) + 1; });
-  tbody.innerHTML = _salasCache.length ? _salasCache.map(s => {
-    const nJan = parseInt(s.num_janelas) || 0;
-    const nEquip = parseEquipCarga(s.equipamentos_carga).length;
-    const infos = [];
-    if (nJan > 0)   infos.push(`🪟 ${nJan} janela${nJan > 1 ? 's' : ''}`);
-    if (nEquip > 0) infos.push(`💡 ${nEquip} equip.`);
-    const sub = infos.length ? `<br><small style="color:#a0aec0;">${infos.join(' · ')}</small>` : '';
-    return `<tr>
-      <td><strong>${escapeHTML(s.nome)}</strong>${sub}</td>
+  tbody.innerHTML = _salasCache.length ? _salasCache.map(s => `<tr>
+      <td><strong>${escapeHTML(s.nome)}</strong></td>
       <td>${escapeHTML(s.setores?.nome)} <span style="color:#a0aec0;">(${escapeHTML(s.setores?.blocos?.nome)})</span></td>
       <td style="text-align:center;">${s.carga_termica_btu ? `<span class="tag-badge">${Number(s.carga_termica_btu).toLocaleString('pt-BR')} BTU/h</span>` : '<span style="color:#a0aec0;">—</span>'}</td>
       <td style="text-align:center;"><span class="tag-badge">${countMap[s.id] || 0}</span></td>
@@ -1446,8 +1407,7 @@ async function carregarSalas() {
         <button class="btn-secondary" style="padding:3px 10px;font-size:11px;" onclick="editarSala('${s.id}')">✏️ Editar</button>
         <button class="btn-excluir" onclick="excluirSala('${s.id}')">✕</button>
       </td>
-    </tr>`;
-  }).join('') : '<tr><td colspan="5" class="td-loading">Sem registros.</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="5" class="td-loading">Sem registros.</td></tr>';
 }
 
 function editarSala(id) {
@@ -1457,19 +1417,10 @@ function editarSala(id) {
   $('sala-nome').value = s.nome || '';
   if ($('sala-area'))      $('sala-area').value      = s.area_m2 ?? '';
   if ($('sala-pessoas'))   $('sala-pessoas').value    = s.pessoas_previstas ?? 0;
+  if ($('sala-equip-watts')) $('sala-equip-watts').value = s.equip_watts ?? 0;
   if ($('sala-incidencia-solar')) $('sala-incidencia-solar').value = s.incidencia_solar || 'sem';
   if ($('sala-cobertura')) $('sala-cobertura').value = s.cobertura || 'laje';
   if ($('sala-btu-m2-base')) $('sala-btu-m2-base').value = s.btu_m2_base ?? 600;
-  if ($('sala-num-janelas')) $('sala-num-janelas').value = s.num_janelas ?? 0;
-  if ($('sala-area-janelas')) $('sala-area-janelas').value = s.area_janelas_m2 ?? 0;
-
-  // Lista de equipamentos: usa equipamentos_carga se existir; caso contrário, migra o valor
-  // antigo de equip_watts para um único item genérico (compatibilidade retroativa).
-  _salaEquipCarga = parseEquipCarga(s.equipamentos_carga);
-  if (!_salaEquipCarga.length && (parseFloat(s.equip_watts) || 0) > 0) {
-    _salaEquipCarga = [{ nome: 'Equipamentos diversos', potencia: parseFloat(s.equip_watts), quantidade: 1, fator_uso: 1 }];
-  }
-  renderSalaEquipCarga();
   atualizarPreviaCargaTermicaSala();
   $('btn-salvar-sala').textContent = '💾 Atualizar Sala';
   $('btn-cancelar-sala').style.display = 'inline-flex';
@@ -1486,10 +1437,6 @@ function resetarFormSala() {
   if ($('sala-incidencia-solar')) $('sala-incidencia-solar').value = 'sem';
   if ($('sala-cobertura')) $('sala-cobertura').value = 'laje';
   if ($('sala-btu-m2-base')) $('sala-btu-m2-base').value = 600;
-  if ($('sala-num-janelas')) $('sala-num-janelas').value = 0;
-  if ($('sala-area-janelas')) $('sala-area-janelas').value = 0;
-  _salaEquipCarga = [];
-  renderSalaEquipCarga();
   atualizarPreviaCargaTermicaSala();
   $('btn-salvar-sala').textContent = '💾 Salvar Sala';
   $('btn-cancelar-sala').style.display = 'none';
@@ -1505,8 +1452,6 @@ function atualizarPreviaCargaTermicaSala() {
     incidencia_solar:  $('sala-incidencia-solar')?.value,
     btu_m2_base:        $('sala-btu-m2-base')?.value,
     cobertura:          $('sala-cobertura')?.value,
-    num_janelas:        $('sala-num-janelas')?.value,
-    area_janelas_m2:    $('sala-area-janelas')?.value,
   });
   el.textContent = btu > 0 ? `${btu.toLocaleString('pt-BR')} BTU/h` : '—';
 }
@@ -1526,25 +1471,12 @@ if ($('btn-salvar-sala')) {
     msgForm('msg-sala', 'Salvando...', 'blue');
     const area_m2           = $('sala-area')?.value ? parseFloat($('sala-area').value) : null;
     const pessoas_previstas = parseInt($('sala-pessoas')?.value) || 0;
+    const equip_watts       = parseFloat($('sala-equip-watts')?.value) || 0;
     const incidencia_solar  = $('sala-incidencia-solar')?.value || 'sem';
     const cobertura          = $('sala-cobertura')?.value || 'laje';
     const btu_m2_base       = parseFloat($('sala-btu-m2-base')?.value) || 600;
-    const num_janelas       = parseInt($('sala-num-janelas')?.value) || 0;
-    const area_janelas_m2   = parseFloat($('sala-area-janelas')?.value) || 0;
-
-    // Normaliza a lista de equipamentos e recalcula a carga interna efetiva (equip_watts).
-    const equipamentos_carga = _salaEquipCarga
-      .map(it => ({
-        nome:       (it.nome || '').trim(),
-        potencia:   parseFloat(it.potencia) || 0,
-        quantidade: parseInt(it.quantidade) || 0,
-        fator_uso:  Math.max(0, Math.min(1, isFinite(parseFloat(it.fator_uso)) ? parseFloat(it.fator_uso) : 1)),
-      }))
-      .filter(it => it.potencia > 0 && it.quantidade > 0);
-    const equip_watts = Math.round(equipamentos_carga.reduce((s, it) => s + wattsEfetivosItem(it), 0));
-
-    const carga_termica_btu = calcularCargaTermicaBTU({ area_m2, pessoas_previstas, equip_watts, incidencia_solar, btu_m2_base, cobertura, num_janelas, area_janelas_m2 });
-    const payload = { setor_id, nome, area_m2, pessoas_previstas, equip_watts, incidencia_solar, cobertura, btu_m2_base, num_janelas, area_janelas_m2, equipamentos_carga, carga_termica_btu };
+    const carga_termica_btu = calcularCargaTermicaBTU({ area_m2, pessoas_previstas, equip_watts, incidencia_solar, btu_m2_base, cobertura });
+    const payload = { setor_id, nome, area_m2, pessoas_previstas, equip_watts, incidencia_solar, cobertura, btu_m2_base, carga_termica_btu };
     const idEd = $('sala-id-edicao')?.value;
     const { error } = idEd
       ? await db.from('salas').update(payload).eq('id', idEd)
