@@ -759,6 +759,17 @@ async function emitirRelatorioAdequacaoSalas() {
     return { s, prevista, instalada, nAC, pct, status, cls, ordem, local, saldo: instalada - prevista };
   }).sort((a, b) => a.ordem - b.ordem || a.pct - b.pct);
 
+  // Acumulados (totais gerais) exibidos no cabeçalho e no rodapé da tabela.
+  const totPrevista  = dados.reduce((a, d) => a + d.prevista, 0);
+  const totInstalada = dados.reduce((a, d) => a + d.instalada, 0);
+  const totACs       = dados.reduce((a, d) => a + d.nAC, 0);
+  const totArea      = dados.reduce((a, d) => a + (parseFloat(d.s.area_m2) || 0), 0);
+  const totSaldo     = totInstalada - totPrevista;
+  const pctGlobal    = totPrevista > 0 ? (totInstalada / totPrevista) * 100 : 0;
+  const sinalSaldo   = totSaldo >= 0 ? '+' : '−';
+  const corSaldoHdr  = totSaldo < 0 ? '#fecaca' : '#bbf7d0'; // tons claros, legíveis sobre o azul do cabeçalho
+  const corSaldoFoot = totSaldo < 0 ? '#dc2626' : '#059669';
+
   const linhas = dados.map(d => {
     const temAC    = d.instalada > 0;
     const saldoTxt = temAC ? `${d.saldo >= 0 ? '+' : '−'}${Math.abs(d.saldo).toLocaleString('pt-BR')}` : '—';
@@ -793,9 +804,11 @@ async function emitirRelatorioAdequacaoSalas() {
     <div class="laudo-header">
       <div style="display:flex;align-items:center;gap:14px;"><img src="${LOGO_ETIQUETA}" alt="Logo" style="height:40px;width:auto;display:block;"><div><h1 style="font-size:16px;">Adequação da Carga Térmica por Sala</h1><p>Carga prevista × capacidade de climatização instalada (ar-condicionado)</p></div></div>
       <div class="laudo-header-meta">
-        <strong>Salas avaliadas: ${dados.length}</strong><br>
-        Data de Emissão: ${new Date().toLocaleDateString('pt-BR')}<br>
-        Emitido às ${new Date().toLocaleTimeString('pt-BR')}
+        <strong>Salas avaliadas: ${dados.length}</strong> · ${totACs} ar-condicionado(s)<br>
+        Carga prevista total: <strong>${totPrevista.toLocaleString('pt-BR')} BTU/h</strong><br>
+        Capacidade instalada: <strong>${totInstalada.toLocaleString('pt-BR')} BTU/h</strong><br>
+        Saldo acumulado: <strong style="color:${corSaldoHdr};">${sinalSaldo}${Math.abs(totSaldo).toLocaleString('pt-BR')} BTU/h (${pctGlobal.toFixed(0)}%)</strong><br>
+        Emitido em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}
       </div>
     </div>
     <div class="laudo-section">
@@ -814,6 +827,19 @@ async function emitirRelatorioAdequacaoSalas() {
           </tr>
         </thead>
         <tbody>${linhas}</tbody>
+        <tfoot>
+          <tr style="font-weight:700;background:#eef2f7;">
+            <td>ACUMULADO</td>
+            <td style="text-align:right;color:#718096;">${dados.length} sala(s)</td>
+            <td style="text-align:right;">${totArea > 0 ? totArea.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : '—'}</td>
+            <td style="text-align:right;">${totPrevista.toLocaleString('pt-BR')}</td>
+            <td style="text-align:right;">${totInstalada.toLocaleString('pt-BR')}</td>
+            <td style="text-align:center;">${totACs}</td>
+            <td style="text-align:right;color:${corSaldoFoot};">${sinalSaldo}${Math.abs(totSaldo).toLocaleString('pt-BR')}</td>
+            <td style="text-align:center;">${pctGlobal.toFixed(0)}%</td>
+            <td></td>
+          </tr>
+        </tfoot>
       </table>
       <div style="margin-top:12px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:9px;color:#718096;line-height:1.6;">
         <strong>Critério (intervalos definidos: ${minPct}% a ${maxPct}% da carga prevista):</strong>
