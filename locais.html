@@ -191,7 +191,7 @@
           </div>
 
           <h4 style="font-size:13px;font-weight:700;color:#4a5568;margin:18px 0 4px;">🌡️ Carga Térmica Prevista (BTU/h)</h4>
-          <p style="font-size:11px;color:#a0aec0;margin:0 0 12px;">Estimativa baseada em método prático NBR 16401 / ASHRAE: 600 BTU/m² (base) + 600 BTU/pessoa + 3,41 BTU/Watt de equipamentos + ganho pelas janelas (~700 BTU/m² de vidro), ajustado por incidência solar e cobertura.</p>
+          <p style="font-size:11px;color:#a0aec0;margin:0 0 12px;">Estimativa baseada em método prático NBR 16401 / ASHRAE: envoltória 600 BTU/m² (ajustada por incidência solar e cobertura) + 600 BTU/pessoa + 3,41 BTU/Watt de equipamentos (ganhos internos não dependem do sol) + janelas com coeficiente próprio conforme exposição solar (sombra 165 · manhã 450 · tarde 700 BTU/m²).</p>
           <div class="form-grid">
             <div class="form-group">
               <label>Área (m²)</label>
@@ -210,7 +210,15 @@
               <input type="number" step="0.01" min="0" id="sala-area-janelas" value="0" placeholder="Ex: 2.4" oninput="atualizarPreviaCargaTermicaSala()">
             </div>
             <div class="form-group">
-              <label>Incidência Solar</label>
+              <label>Exposição solar das janelas</label>
+              <select id="sala-incidencia-janelas" class="form-input-style" onchange="atualizarPreviaCargaTermicaSala()">
+                <option value="sem">À sombra / sem sol direto</option>
+                <option value="manha">Sol da manhã (leste)</option>
+                <option value="tarde">Sol da tarde (oeste)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Incidência Solar <small style="color:#a0aec0;font-weight:400;">(paredes/cobertura)</small></label>
               <select id="sala-incidencia-solar" class="form-input-style" onchange="atualizarPreviaCargaTermicaSala()">
                 <option value="sem">Sem incidência direta</option>
                 <option value="manha">Sol da manhã</option>
