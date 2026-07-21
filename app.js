@@ -693,179 +693,6 @@ function emitirRelatorioGeralAtivos() {
   imprimir('area-relatorio-ativos', html, 'paisagem');
 }
 
-// ============================================================================
-// RELATÓRIO DE DIVERGÊNCIA DE CAPACIDADE (Carga Térmica × Capacidade Instalada)
-// ----------------------------------------------------------------------------
-// Compara, por Sala, a carga térmica prevista (salas.carga_termica_btu) com a
-// capacidade de refrigeração instalada (soma dos BTU/h dos ativos categoria 'AC'
-// vinculados à sala). Classifica cada ambiente em: Subdimensionada, Adequada,
-// Excedente, Sem climatização ou Sem carga prevista.
-// Respeita o filtro de Bloco da Central de Impressões (search-eq-bloco).
-// ============================================================================
-
-// Faixa de tolerância acima da carga necessária ainda considerada "Adequada".
-// Acima disso a sala é classificada como Excedente (superdimensionada).
-// Ex.: 0.30 = até 30% acima do necessário ainda é adequado. Ajuste conforme o padrão desejado.
-const TOLERANCIA_EXCEDENTE_CAPACIDADE = 0.30;
-
-// Percentual mínimo da carga necessária que já é considerado "Adequado".
-// A carga necessária assume ocupação máxima (pior caso); como as salas raramente
-// operam nesse pico, uma pequena folga abaixo de 100% ainda atende. Ex.: 0.96 = 96%.
-const RATIO_MIN_ADEQUADA = 0.96;
-
-// Converte um texto de potência ("12.000 BTU/h", "9000", "18.000 BTU/h") em número.
-// Mantém o ponto como separador de milhar (padrão brasileiro), como no dashboard/XLS.
-function parsePotenciaBTU(potencia) {
-  const n = parseFloat((potencia || '').toString().replace(/\s*BTU\/h/i, '').replace(/\./g, '').replace(',', '.'));
-  return isNaN(n) ? 0 : n;
-}
-
-// Classifica a sala comparando carga necessária × instalada.
-function classificarCapacidadeSala(necessaria, instalada) {
-  if (!necessaria || necessaria <= 0) return { key: 'sem_carga', ordem: 4, label: 'Sem carga prevista', cls: '',        cor: '#718096' };
-  if (!instalada  || instalada  <= 0) return { key: 'sem_clima', ordem: 0, label: 'Sem climatização',  cls: 'danger',  cor: '#991b1b' };
-  const ratio = instalada / necessaria;
-  if (ratio < RATIO_MIN_ADEQUADA)                  return { key: 'subdim',    ordem: 1, label: 'Subdimensionada', cls: 'danger',  cor: '#991b1b' };
-  if (ratio > 1 + TOLERANCIA_EXCEDENTE_CAPACIDADE) return { key: 'excedente', ordem: 2, label: 'Excedente',       cls: 'warning', cor: '#92400e' };
-  return { key: 'adequada', ordem: 3, label: 'Adequada', cls: 'success', cor: '#065f46' };
-}
-
-async function emitirRelatorioDivergenciaCapacidade() {
-  // Filtro de Bloco (mesmo campo da Central de Impressões), aplicado por nome.
-  const inputBloco  = $('search-eq-bloco');
-  const filtroBloco = (inputBloco?.value || '').trim().toLowerCase();
-
-  // 1) Salas com carga térmica prevista + localização (setor / bloco / instituição)
-  const { data: salasRaw, error: errSalas } = await db.from('salas')
-    .select('id, nome, carga_termica_btu, area_m2, setores(nome, blocos(nome, instituicoes(nome)))')
-    .order('nome', { ascending: true });
-  if (errSalas) { alert('Não foi possível carregar as salas: ' + errSalas.message); return; }
-
-  let salas = salasRaw || [];
-  if (filtroBloco) {
-    salas = salas.filter(s => (s.setores?.blocos?.nome || '').toLowerCase().includes(filtroBloco));
-  }
-  if (!salas.length) { alert('Nenhuma sala encontrada para o escopo atual (verifique o filtro de Bloco).'); return; }
-
-  // 2) Capacidade instalada por sala: soma dos BTU/h dos ativos AC vinculados
-  const { data: eqsAC } = await db.from('equipamentos').select('sala_id, potencia').eq('categoria', 'AC');
-  const instaladaPorSala = {};
-  const qtdAcPorSala      = {};
-  (eqsAC || []).forEach(e => {
-    if (!e.sala_id) return;
-    instaladaPorSala[e.sala_id] = (instaladaPorSala[e.sala_id] || 0) + parsePotenciaBTU(e.potencia);
-    qtdAcPorSala[e.sala_id]     = (qtdAcPorSala[e.sala_id] || 0) + 1;
-  });
-
-  // 3) Monta as linhas com classificação e divergência
-  const linhas = salas.map(s => {
-    const necessaria = parseFloat(s.carga_termica_btu) || 0;
-    const instalada  = instaladaPorSala[s.id] || 0;
-    const qtdAc      = qtdAcPorSala[s.id] || 0;
-    const diff       = instalada - necessaria;
-    const ratioPct   = necessaria > 0 ? Math.round((instalada / necessaria) * 100) : null;
-    const cls        = classificarCapacidadeSala(necessaria, instalada);
-    return {
-      nome:  s.nome,
-      bloco: s.setores?.blocos?.nome || '—',
-      setor: s.setores?.nome || '—',
-      area:  s.area_m2, necessaria, instalada, qtdAc, diff, ratioPct, cls,
-    };
-  });
-
-  // Ordena: mais crítico primeiro (sem clima → subdim → excedente → adequada → sem carga),
-  // e, dentro de cada grupo, maior divergência absoluta no topo.
-  linhas.sort((a, b) => a.cls.ordem - b.cls.ordem || Math.abs(b.diff) - Math.abs(a.diff));
-
-  // 4) Resumo agregado
-  const resumo = { sem_clima: 0, subdim: 0, excedente: 0, adequada: 0, sem_carga: 0 };
-  let totalNecessaria = 0, totalInstalada = 0, totalDeficit = 0, totalExcedente = 0;
-  linhas.forEach(l => {
-    resumo[l.cls.key]++;
-    if (l.necessaria > 0) { totalNecessaria += l.necessaria; totalInstalada += l.instalada; }
-    if (l.cls.key === 'subdim' || l.cls.key === 'sem_clima') totalDeficit   += (l.necessaria - l.instalada);
-    if (l.cls.key === 'excedente')                           totalExcedente += (l.instalada - l.necessaria);
-  });
-
-  const fmt     = n => Math.round(n).toLocaleString('pt-BR');
-  const fmtArea = a => (a || a === 0) ? Number(a).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : '—';
-
-  const linhasHTML = linhas.map(l => {
-    const diffTxt = l.cls.key === 'sem_carga' ? '—' : `${l.diff >= 0 ? '+' : '−'}${fmt(Math.abs(l.diff))}`;
-    const pctTxt  = l.ratioPct === null ? '—' : `${l.ratioPct}%`;
-    return `<tr>
-      <td><strong>${escapeHTML(l.nome)}</strong></td>
-      <td>${escapeHTML(l.bloco)} <small style="color:#a0aec0;">/ ${escapeHTML(l.setor)}</small></td>
-      <td style="text-align:center;">${fmtArea(l.area)}</td>
-      <td style="text-align:right;">${l.necessaria > 0 ? fmt(l.necessaria) : '—'}</td>
-      <td style="text-align:right;">${fmt(l.instalada)}</td>
-      <td style="text-align:center;">${l.qtdAc}</td>
-      <td style="text-align:right;font-weight:700;color:${l.cls.cor};">${diffTxt}</td>
-      <td style="text-align:center;color:${l.cls.cor};font-weight:600;">${pctTxt}</td>
-      <td style="text-align:center;"><span class="tag-badge ${l.cls.cls}">${l.cls.label}</span></td>
-    </tr>`;
-  }).join('');
-
-  const escopoTxt = filtroBloco ? `Bloco contendo "${escapeHTML(inputBloco.value.trim())}"` : 'Todos os blocos';
-
-  const box = (cor, bg, valor, rotulo) =>
-    `<div style="flex:1;min-width:110px;background:${bg};border:1px solid ${cor}33;border-radius:6px;padding:8px 10px;text-align:center;">
-       <div style="font-size:18px;font-weight:800;color:${cor};line-height:1;">${valor}</div>
-       <div style="font-size:8px;font-weight:700;color:${cor};text-transform:uppercase;letter-spacing:.05em;margin-top:3px;">${rotulo}</div>
-     </div>`;
-
-  const html = `
-  <div class="laudo-wrapper relatorio-livre">
-    <div class="laudo-header">
-      <div style="display:flex;align-items:center;gap:14px;"><img src="${LOGO_ETIQUETA}" alt="Logo" style="height:40px;width:auto;display:block;"><div><h1 style="font-size:16px;">Relatório de Divergência de Capacidade</h1><p>Carga térmica prevista × capacidade de refrigeração instalada, por sala</p></div></div>
-      <div class="laudo-header-meta">
-        <strong>Salas avaliadas: ${linhas.length}</strong><br>
-        Escopo: ${escopoTxt}<br>
-        Emissão: ${new Date().toLocaleString('pt-BR')}
-      </div>
-    </div>
-    <div class="laudo-section">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-        ${box('#991b1b', '#fef2f2', resumo.sem_clima, 'Sem climatização')}
-        ${box('#991b1b', '#fef2f2', resumo.subdim,    'Subdimensionadas')}
-        ${box('#92400e', '#fffbeb', resumo.excedente, 'Excedentes')}
-        ${box('#065f46', '#f0fdf4', resumo.adequada,  'Adequadas')}
-        ${box('#4a5568', '#f8fafc', resumo.sem_carga, 'Sem carga prevista')}
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
-        ${box('#1a56db', '#eff6ff', fmt(totalNecessaria) + '<span style="font-size:9px;"> BTU/h</span>', 'Necessária (total)')}
-        ${box('#1a56db', '#eff6ff', fmt(totalInstalada)  + '<span style="font-size:9px;"> BTU/h</span>', 'Instalada (total)')}
-        ${box('#991b1b', '#fef2f2', fmt(totalDeficit)    + '<span style="font-size:9px;"> BTU/h</span>', 'Déficit acumulado')}
-        ${box('#92400e', '#fffbeb', fmt(totalExcedente)  + '<span style="font-size:9px;"> BTU/h</span>', 'Excedente acumulado')}
-      </div>
-      <table class="laudo-checklist-table">
-        <thead>
-          <tr>
-            <th>Sala</th><th>Bloco / Setor</th><th style="text-align:center;">Área (m²)</th>
-            <th style="text-align:right;">Necessária (BTU/h)</th><th style="text-align:right;">Instalada (BTU/h)</th>
-            <th style="text-align:center;">Nº AC</th><th style="text-align:right;">Divergência</th>
-            <th style="text-align:center;">%</th><th style="text-align:center;">Situação</th>
-          </tr>
-        </thead>
-        <tbody>${linhasHTML}</tbody>
-      </table>
-      <div style="margin-top:14px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:9px;color:#718096;line-height:1.6;">
-        <strong>Critério de classificação:</strong>
-        <span style="color:#991b1b;font-weight:700;">Subdimensionada</span> = instalada abaixo de ${Math.round(RATIO_MIN_ADEQUADA * 100)}% da necessária ·
-        <span style="color:#065f46;font-weight:700;">Adequada</span> = de ${Math.round(RATIO_MIN_ADEQUADA * 100)}% até ${Math.round((1 + TOLERANCIA_EXCEDENTE_CAPACIDADE) * 100)}% da necessária ·
-        <span style="color:#92400e;font-weight:700;">Excedente</span> = acima de ${Math.round((1 + TOLERANCIA_EXCEDENTE_CAPACIDADE) * 100)}% ·
-        <span style="color:#991b1b;font-weight:700;">Sem climatização</span> = há carga prevista, mas nenhum ativo de ar-condicionado ·
-        <span style="color:#718096;font-weight:700;">Sem carga prevista</span> = sala sem carga térmica cadastrada (preencher área/parâmetros em Locais).
-        <br>Capacidade instalada = soma dos BTU/h dos ativos de categoria Ar-Condicionado (AC) vinculados à sala.
-        Carga necessária estimada conforme método prático NBR 16401 / NBR 15220-3 (referência climática Cuiabá-MT).
-        <br>Documento gerado pelo Sistema de Gestão Univag · ${new Date().toLocaleString('pt-BR')}
-      </div>
-    </div>
-  </div>`;
-
-  imprimir('area-relatorio-divergencia', html, 'paisagem');
-}
-
 const EQ_CATEGORIA_LABEL_PLANO = {
   AC:'Ar Condicionado', BEB:'Bebedouro',
   CLIM:'Climatizador Evaporativo', VEN:'Ventilador/Exaustor', OUT:'Outros',
@@ -1475,6 +1302,12 @@ const FATOR_COBERTURA = {
   telhado:       1.10, // cobertura exposta diretamente ao telhado — maior ganho por radiação
 };
 
+// Ganho térmico pelas janelas (envidraçamento). O vidro transmite muito mais calor que a
+// alvenaria, sendo a principal via de ganho solar. Valor prático para vidro simples ~700 BTU/m².
+// Quando a área de janelas não é informada, estima-se a partir da quantidade × área padrão.
+const BTU_JANELA_M2       = 700;  // BTU/h por m² de vidro (método prático, vidro simples)
+const AREA_JANELA_PADRAO_M2 = 1.2; // área média assumida por janela quando a área total não é informada
+
 // Calcula a carga térmica estimada (BTU/h) de uma Sala, usando o método prático
 // baseado em NBR 16401 / ASHRAE (referência conceitual; cálculo simplificado por
 // ausência de dados climáticos horários completos por cidade):
@@ -1484,7 +1317,8 @@ const FATOR_COBERTURA = {
 //   × Fator solar: sem incidência = 1,00 | sol da manhã = 1,10 | sol da tarde = 1,20
 //   × Fator cobertura: entre andares = 0,95 | laje = 1,00 | telhado exposto = 1,10
 //   × Fator climático regional: Cuiabá-MT (referência absoluta) = 1,00
-function calcularCargaTermicaBTU({ area_m2, pessoas_previstas, equip_watts, incidencia_solar, btu_m2_base, cobertura }) {
+//   + Ganho pelas janelas: área de vidro × 700 BTU/m² (estimada por quantidade quando a área não é informada)
+function calcularCargaTermicaBTU({ area_m2, pessoas_previstas, equip_watts, incidencia_solar, btu_m2_base, cobertura, num_janelas, area_janelas_m2 }) {
   const area     = parseFloat(area_m2) || 0;
   const pessoas  = parseInt(pessoas_previstas) || 0;
   const watts    = parseFloat(equip_watts) || 0;
@@ -1494,12 +1328,96 @@ function calcularCargaTermicaBTU({ area_m2, pessoas_previstas, equip_watts, inci
   const fatorCobertura = FATOR_COBERTURA[cobertura] || 1.00;
   const fatorClimatico = FATOR_CLIMATICO_REGIAO[CIDADE_REFERENCIA_PADRAO];
 
+  // Área de janelas: usa a área informada; se ausente, estima pela quantidade × área padrão.
+  const qtdJanelas = parseInt(num_janelas) || 0;
+  let areaJanelas  = parseFloat(area_janelas_m2) || 0;
+  if (areaJanelas <= 0 && qtdJanelas > 0) areaJanelas = qtdJanelas * AREA_JANELA_PADRAO_M2;
+
   const btuBase    = area * baseM2;
   const btuPessoas = pessoas * 600;
   const btuEquip   = watts * 3.41;
+  const btuJanelas = areaJanelas * BTU_JANELA_M2;
 
-  const total = (btuBase + btuPessoas + btuEquip) * fatorSolar * fatorCobertura * fatorClimatico;
+  const total = (btuBase + btuPessoas + btuEquip + btuJanelas) * fatorSolar * fatorCobertura * fatorClimatico;
   return Math.round(total);
+}
+
+// ----- Lista de equipamentos por Sala (carga interna com fator de uso) -----
+// Cada item: { nome, potencia, quantidade, fator_uso }. A carga efetiva de um item é
+// potencia × quantidade × fator_uso, e a soma alimenta o campo equip_watts do cálculo de BTU.
+let _salaEquipCarga = [];
+
+// Parsing defensivo: a coluna equipamentos_carga é jsonb, mas normaliza também string/valores vazios.
+function parseEquipCarga(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (!raw) return [];
+  if (typeof raw === 'string') {
+    try { const p = JSON.parse(raw); return Array.isArray(p) ? p : []; } catch { return []; }
+  }
+  return [];
+}
+
+// Carga efetiva de um único item (W)
+function wattsEfetivosItem(it) {
+  const pot = parseFloat(it?.potencia) || 0;
+  const qtd = parseInt(it?.quantidade) || 0;
+  let fator = parseFloat(it?.fator_uso);
+  if (!isFinite(fator)) fator = 1;
+  fator = Math.max(0, Math.min(1, fator)); // limita entre 0 e 1
+  return pot * qtd * fator;
+}
+
+// Soma da carga interna efetiva de todos os itens; atualiza o hidden equip_watts e o total exibido.
+function calcularWattsEfetivosSala() {
+  const total = _salaEquipCarga.reduce((s, it) => s + wattsEfetivosItem(it), 0);
+  const hidden = $('sala-equip-watts'); if (hidden) hidden.value = Math.round(total);
+  const lbl = $('sala-equip-total'); if (lbl) lbl.textContent = `${Math.round(total).toLocaleString('pt-BR')} W`;
+  return total;
+}
+
+// Renderiza as linhas da lista de equipamentos no formulário de Sala.
+function renderSalaEquipCarga() {
+  const tbody = $('tbody-sala-equip'); if (!tbody) return;
+  if (!_salaEquipCarga.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="td-loading">Nenhum equipamento informado.</td></tr>';
+    calcularWattsEfetivosSala();
+    return;
+  }
+  tbody.innerHTML = _salaEquipCarga.map((it, i) => `
+    <tr>
+      <td><input type="text" value="${escapeHTML(it.nome || '')}" placeholder="Ex: Computador" style="width:100%;" oninput="atualizarSalaEquipLinha(${i},'nome',this.value)"></td>
+      <td><input type="number" step="1" min="0" value="${it.potencia ?? ''}" placeholder="Ex: 200" style="width:100%;" oninput="atualizarSalaEquipLinha(${i},'potencia',this.value)"></td>
+      <td><input type="number" step="1" min="0" value="${it.quantidade ?? 1}" style="width:100%;" oninput="atualizarSalaEquipLinha(${i},'quantidade',this.value)"></td>
+      <td><input type="number" step="0.05" min="0" max="1" value="${it.fator_uso ?? 1}" style="width:100%;" oninput="atualizarSalaEquipLinha(${i},'fator_uso',this.value)"></td>
+      <td style="text-align:right;font-weight:600;color:#0369a1;">${Math.round(wattsEfetivosItem(it)).toLocaleString('pt-BR')}</td>
+      <td style="text-align:center;"><button type="button" class="btn-excluir" onclick="removerSalaEquipLinha(${i})">✕</button></td>
+    </tr>`).join('');
+  calcularWattsEfetivosSala();
+}
+
+function adicionarSalaEquipLinha() {
+  _salaEquipCarga.push({ nome: '', potencia: '', quantidade: 1, fator_uso: 1 });
+  renderSalaEquipCarga();
+}
+
+function removerSalaEquipLinha(idx) {
+  _salaEquipCarga.splice(idx, 1);
+  renderSalaEquipCarga();
+  atualizarPreviaCargaTermicaSala();
+}
+
+// Atualiza um campo de um item sem re-renderizar toda a tabela (preserva o foco no input),
+// recalculando apenas o efetivo da linha, o total e a prévia de carga térmica.
+function atualizarSalaEquipLinha(idx, campo, valor) {
+  if (!_salaEquipCarga[idx]) return;
+  _salaEquipCarga[idx][campo] = valor;
+  // Atualiza a célula "Efetivo" da própria linha sem recriar os inputs
+  const tbody = $('tbody-sala-equip');
+  const linha = tbody?.querySelectorAll('tr')[idx];
+  const cel = linha?.children?.[4];
+  if (cel) cel.textContent = Math.round(wattsEfetivosItem(_salaEquipCarga[idx])).toLocaleString('pt-BR');
+  calcularWattsEfetivosSala();
+  atualizarPreviaCargaTermicaSala();
 }
 
 async function carregarSalas() {
@@ -1512,8 +1430,15 @@ async function carregarSalas() {
   _salasCache = salas || [];
   const countMap = {};
   (eqs || []).forEach(e => { if (e.sala_id) countMap[e.sala_id] = (countMap[e.sala_id] || 0) + 1; });
-  tbody.innerHTML = _salasCache.length ? _salasCache.map(s => `<tr>
-      <td><strong>${escapeHTML(s.nome)}</strong></td>
+  tbody.innerHTML = _salasCache.length ? _salasCache.map(s => {
+    const nJan = parseInt(s.num_janelas) || 0;
+    const nEquip = parseEquipCarga(s.equipamentos_carga).length;
+    const infos = [];
+    if (nJan > 0)   infos.push(`🪟 ${nJan} janela${nJan > 1 ? 's' : ''}`);
+    if (nEquip > 0) infos.push(`💡 ${nEquip} equip.`);
+    const sub = infos.length ? `<br><small style="color:#a0aec0;">${infos.join(' · ')}</small>` : '';
+    return `<tr>
+      <td><strong>${escapeHTML(s.nome)}</strong>${sub}</td>
       <td>${escapeHTML(s.setores?.nome)} <span style="color:#a0aec0;">(${escapeHTML(s.setores?.blocos?.nome)})</span></td>
       <td style="text-align:center;">${s.carga_termica_btu ? `<span class="tag-badge">${Number(s.carga_termica_btu).toLocaleString('pt-BR')} BTU/h</span>` : '<span style="color:#a0aec0;">—</span>'}</td>
       <td style="text-align:center;"><span class="tag-badge">${countMap[s.id] || 0}</span></td>
@@ -1521,7 +1446,8 @@ async function carregarSalas() {
         <button class="btn-secondary" style="padding:3px 10px;font-size:11px;" onclick="editarSala('${s.id}')">✏️ Editar</button>
         <button class="btn-excluir" onclick="excluirSala('${s.id}')">✕</button>
       </td>
-    </tr>`).join('') : '<tr><td colspan="5" class="td-loading">Sem registros.</td></tr>';
+    </tr>`;
+  }).join('') : '<tr><td colspan="5" class="td-loading">Sem registros.</td></tr>';
 }
 
 function editarSala(id) {
@@ -1531,10 +1457,19 @@ function editarSala(id) {
   $('sala-nome').value = s.nome || '';
   if ($('sala-area'))      $('sala-area').value      = s.area_m2 ?? '';
   if ($('sala-pessoas'))   $('sala-pessoas').value    = s.pessoas_previstas ?? 0;
-  if ($('sala-equip-watts')) $('sala-equip-watts').value = s.equip_watts ?? 0;
   if ($('sala-incidencia-solar')) $('sala-incidencia-solar').value = s.incidencia_solar || 'sem';
   if ($('sala-cobertura')) $('sala-cobertura').value = s.cobertura || 'laje';
   if ($('sala-btu-m2-base')) $('sala-btu-m2-base').value = s.btu_m2_base ?? 600;
+  if ($('sala-num-janelas')) $('sala-num-janelas').value = s.num_janelas ?? 0;
+  if ($('sala-area-janelas')) $('sala-area-janelas').value = s.area_janelas_m2 ?? 0;
+
+  // Lista de equipamentos: usa equipamentos_carga se existir; caso contrário, migra o valor
+  // antigo de equip_watts para um único item genérico (compatibilidade retroativa).
+  _salaEquipCarga = parseEquipCarga(s.equipamentos_carga);
+  if (!_salaEquipCarga.length && (parseFloat(s.equip_watts) || 0) > 0) {
+    _salaEquipCarga = [{ nome: 'Equipamentos diversos', potencia: parseFloat(s.equip_watts), quantidade: 1, fator_uso: 1 }];
+  }
+  renderSalaEquipCarga();
   atualizarPreviaCargaTermicaSala();
   $('btn-salvar-sala').textContent = '💾 Atualizar Sala';
   $('btn-cancelar-sala').style.display = 'inline-flex';
@@ -1551,6 +1486,10 @@ function resetarFormSala() {
   if ($('sala-incidencia-solar')) $('sala-incidencia-solar').value = 'sem';
   if ($('sala-cobertura')) $('sala-cobertura').value = 'laje';
   if ($('sala-btu-m2-base')) $('sala-btu-m2-base').value = 600;
+  if ($('sala-num-janelas')) $('sala-num-janelas').value = 0;
+  if ($('sala-area-janelas')) $('sala-area-janelas').value = 0;
+  _salaEquipCarga = [];
+  renderSalaEquipCarga();
   atualizarPreviaCargaTermicaSala();
   $('btn-salvar-sala').textContent = '💾 Salvar Sala';
   $('btn-cancelar-sala').style.display = 'none';
@@ -1566,6 +1505,8 @@ function atualizarPreviaCargaTermicaSala() {
     incidencia_solar:  $('sala-incidencia-solar')?.value,
     btu_m2_base:        $('sala-btu-m2-base')?.value,
     cobertura:          $('sala-cobertura')?.value,
+    num_janelas:        $('sala-num-janelas')?.value,
+    area_janelas_m2:    $('sala-area-janelas')?.value,
   });
   el.textContent = btu > 0 ? `${btu.toLocaleString('pt-BR')} BTU/h` : '—';
 }
@@ -1585,12 +1526,25 @@ if ($('btn-salvar-sala')) {
     msgForm('msg-sala', 'Salvando...', 'blue');
     const area_m2           = $('sala-area')?.value ? parseFloat($('sala-area').value) : null;
     const pessoas_previstas = parseInt($('sala-pessoas')?.value) || 0;
-    const equip_watts       = parseFloat($('sala-equip-watts')?.value) || 0;
     const incidencia_solar  = $('sala-incidencia-solar')?.value || 'sem';
     const cobertura          = $('sala-cobertura')?.value || 'laje';
     const btu_m2_base       = parseFloat($('sala-btu-m2-base')?.value) || 600;
-    const carga_termica_btu = calcularCargaTermicaBTU({ area_m2, pessoas_previstas, equip_watts, incidencia_solar, btu_m2_base, cobertura });
-    const payload = { setor_id, nome, area_m2, pessoas_previstas, equip_watts, incidencia_solar, cobertura, btu_m2_base, carga_termica_btu };
+    const num_janelas       = parseInt($('sala-num-janelas')?.value) || 0;
+    const area_janelas_m2   = parseFloat($('sala-area-janelas')?.value) || 0;
+
+    // Normaliza a lista de equipamentos e recalcula a carga interna efetiva (equip_watts).
+    const equipamentos_carga = _salaEquipCarga
+      .map(it => ({
+        nome:       (it.nome || '').trim(),
+        potencia:   parseFloat(it.potencia) || 0,
+        quantidade: parseInt(it.quantidade) || 0,
+        fator_uso:  Math.max(0, Math.min(1, isFinite(parseFloat(it.fator_uso)) ? parseFloat(it.fator_uso) : 1)),
+      }))
+      .filter(it => it.potencia > 0 && it.quantidade > 0);
+    const equip_watts = Math.round(equipamentos_carga.reduce((s, it) => s + wattsEfetivosItem(it), 0));
+
+    const carga_termica_btu = calcularCargaTermicaBTU({ area_m2, pessoas_previstas, equip_watts, incidencia_solar, btu_m2_base, cobertura, num_janelas, area_janelas_m2 });
+    const payload = { setor_id, nome, area_m2, pessoas_previstas, equip_watts, incidencia_solar, cobertura, btu_m2_base, num_janelas, area_janelas_m2, equipamentos_carga, carga_termica_btu };
     const idEd = $('sala-id-edicao')?.value;
     const { error } = idEd
       ? await db.from('salas').update(payload).eq('id', idEd)
@@ -3574,13 +3528,9 @@ async function carregarKpiCargaTermica() {
       elBadge.textContent = 'Sem dados de carga prevista para o filtro atual';
       elBadge.style.color = '#a0aec0';
     } else {
-      const ratio   = cargaInstalada / cargaNecessaria;
-      const diffPct = Math.round((ratio - 1) * 100); // positivo = acima, negativo = abaixo
-      if (ratio >= RATIO_MIN_ADEQUADA) {
-        // Dentro da folga adequada (>= 96% do necessário) — inclui pequenos déficits.
-        elBadge.textContent = diffPct >= 0
-          ? `✓ Carga instalada ${diffPct}% acima da necessária`
-          : `✓ Carga instalada ${Math.abs(diffPct)}% abaixo da necessária (dentro da folga adequada)`;
+      const diffPct = Math.round(((cargaInstalada - cargaNecessaria) / cargaNecessaria) * 100);
+      if (diffPct >= 0) {
+        elBadge.textContent = `✓ Carga instalada ${diffPct}% acima da necessária`;
         elBadge.style.color = '#10b981';
       } else {
         elBadge.textContent = `⚠ Carga instalada ${Math.abs(diffPct)}% abaixo da necessária`;
