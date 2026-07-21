@@ -693,6 +693,143 @@ function emitirRelatorioGeralAtivos() {
   imprimir('area-relatorio-ativos', html, 'paisagem');
 }
 
+// Converte a capacidade textual do ativo (ex.: "12.000 BTU/h", "9000", "80.000 BTU/h") no
+// valor numérico em BTU/h. O ponto é separador de milhar (padrão brasileiro) e é removido.
+function parseCapacidadeBTU(str) {
+  const n = parseFloat((str || '').replace(/\s*BTU\/h/i, '').replace(/\./g, '').replace(',', '.'));
+  return isNaN(n) ? 0 : n;
+}
+
+// Relatório de Adequação da Carga Térmica por Sala (impressão/PDF, A4 paisagem).
+// Compara a carga térmica prevista de cada sala (carga_termica_btu, calculada em Locais → Salas)
+// com a capacidade de climatização instalada — soma da capacidade (BTU/h) dos aparelhos de
+// ar-condicionado (categoria AC) vinculados à sala — e classifica cada sala em:
+// Adequada, Subdimensionada, Superdimensionada ou Sem climatização.
+async function emitirRelatorioAdequacaoSalas() {
+  let salas, eqs;
+  try {
+    const rSalas = await db.from('salas')
+      .select('*, setores(nome, blocos(nome, instituicoes(nome)))')
+      .order('nome', { ascending: true });
+    if (rSalas.error) throw rSalas.error;
+    salas = rSalas.data || [];
+    const rEq = await db.from('equipamentos').select('sala_id, categoria, potencia');
+    if (rEq.error) throw rEq.error;
+    eqs = rEq.data || [];
+  } catch (err) {
+    alert('Erro ao carregar dados do relatório: ' + (err.message || err));
+    return;
+  }
+
+  const listaSalas = salas.filter(s => (parseFloat(s.carga_termica_btu) || 0) > 0);
+  if (!listaSalas.length) {
+    alert('Nenhuma sala com carga térmica prevista foi encontrada.\n\nInforme a área e os parâmetros das salas em Locais → Salas para que a carga seja calculada.');
+    return;
+  }
+
+  // Capacidade instalada (BTU/h) e nº de ACs por sala — considera apenas categoria AC.
+  const capMap = {}, acCountMap = {};
+  eqs.forEach(e => {
+    if (e.categoria !== 'AC' || !e.sala_id) return;
+    acCountMap[e.sala_id] = (acCountMap[e.sala_id] || 0) + 1;
+    capMap[e.sala_id]     = (capMap[e.sala_id] || 0) + parseCapacidadeBTU(e.potencia);
+  });
+
+  // Intervalos de classificação definidos pelo usuário (em % da carga prevista), com
+  // validação e valores padrão (100% a 130%) caso os campos estejam ausentes/ inválidos.
+  let minPct = parseInt($('adeq-limite-min')?.value);
+  let maxPct = parseInt($('adeq-limite-max')?.value);
+  if (!Number.isFinite(minPct) || minPct < 1)      minPct = 100;
+  if (!Number.isFinite(maxPct) || maxPct < minPct) maxPct = Math.max(minPct, 130);
+  const minRatio = minPct / 100;
+  const maxRatio = maxPct / 100;
+
+  let nOk = 0, nSub = 0, nSuper = 0, nSem = 0;
+  const dados = listaSalas.map(s => {
+    const prevista  = Math.round(parseFloat(s.carga_termica_btu) || 0);
+    const instalada = Math.round(capMap[s.id] || 0);
+    const nAC       = acCountMap[s.id] || 0;
+    const pct       = prevista > 0 ? (instalada / prevista) * 100 : 0;
+    let status, cls, ordem;
+    if (instalada <= 0)                          { status = 'Sem climatização';  cls = '';          ordem = 1; nSem++;   }
+    else if (instalada < prevista * minRatio)    { status = 'Subdimensionada';   cls = 'danger';    ordem = 0; nSub++;   }
+    else if (instalada > prevista * maxRatio)    { status = 'Superdimensionada'; cls = 'andamento'; ordem = 3; nSuper++; }
+    else                                         { status = 'Adequada';          cls = 'success';   ordem = 2; nOk++;    }
+    const local = [s.setores?.blocos?.nome, s.setores?.nome].filter(Boolean).join(' / ') || '—';
+    return { s, prevista, instalada, nAC, pct, status, cls, ordem, local, saldo: instalada - prevista };
+  }).sort((a, b) => a.ordem - b.ordem || a.pct - b.pct);
+
+  const linhas = dados.map(d => {
+    const temAC    = d.instalada > 0;
+    const saldoTxt = temAC ? `${d.saldo >= 0 ? '+' : '−'}${Math.abs(d.saldo).toLocaleString('pt-BR')}` : '—';
+    const saldoCor = !temAC ? '#a0aec0' : d.saldo < 0 ? '#dc2626' : '#059669';
+    return `<tr>
+      <td><strong>${escapeHTML(d.s.nome)}</strong></td>
+      <td>${escapeHTML(d.local)}</td>
+      <td style="text-align:right;">${d.s.area_m2 ? Number(d.s.area_m2).toLocaleString('pt-BR') : '—'}</td>
+      <td style="text-align:right;">${d.prevista.toLocaleString('pt-BR')}</td>
+      <td style="text-align:right;">${temAC ? d.instalada.toLocaleString('pt-BR') : '—'}</td>
+      <td style="text-align:center;">${d.nAC}</td>
+      <td style="text-align:right;color:${saldoCor};font-weight:600;">${saldoTxt}</td>
+      <td style="text-align:center;">${temAC ? d.pct.toFixed(0) + '%' : '—'}</td>
+      <td style="text-align:center;"><span class="tag-badge ${d.cls}">${d.status}</span></td>
+    </tr>`;
+  }).join('');
+
+  const card = (cor, bg, valor, rotulo) =>
+    `<div style="flex:1;background:${bg};border:1px solid ${cor}44;border-radius:6px;padding:8px 10px;text-align:center;">
+       <div style="font-size:20px;font-weight:800;color:${cor};line-height:1;">${valor}</div>
+       <div style="font-size:9px;color:#4a5568;text-transform:uppercase;letter-spacing:.05em;margin-top:4px;">${rotulo}</div>
+     </div>`;
+  const resumo = `<div style="display:flex;gap:8px;margin:2px 0 12px;">
+    ${card('#059669', '#ecfdf5', nOk,    'Adequadas')}
+    ${card('#dc2626', '#fef2f2', nSub,   'Subdimensionadas')}
+    ${card('#1e40af', '#eff6ff', nSuper, 'Superdimensionadas')}
+    ${card('#718096', '#f7fafc', nSem,   'Sem climatização')}
+  </div>`;
+
+  const html = `
+  <div class="laudo-wrapper relatorio-livre">
+    <div class="laudo-header">
+      <div style="display:flex;align-items:center;gap:14px;"><img src="${LOGO_ETIQUETA}" alt="Logo" style="height:40px;width:auto;display:block;"><div><h1 style="font-size:16px;">Adequação da Carga Térmica por Sala</h1><p>Carga prevista × capacidade de climatização instalada (ar-condicionado)</p></div></div>
+      <div class="laudo-header-meta">
+        <strong>Salas avaliadas: ${dados.length}</strong><br>
+        Data de Emissão: ${new Date().toLocaleDateString('pt-BR')}<br>
+        Emitido às ${new Date().toLocaleTimeString('pt-BR')}
+      </div>
+    </div>
+    <div class="laudo-section">
+      ${resumo}
+      <table class="laudo-checklist-table">
+        <thead>
+          <tr>
+            <th>Sala</th><th>Bloco / Setor</th>
+            <th style="text-align:right;">Área (m²)</th>
+            <th style="text-align:right;">Carga Prevista (BTU/h)</th>
+            <th style="text-align:right;">Instalada (BTU/h)</th>
+            <th style="text-align:center;">ACs</th>
+            <th style="text-align:right;">Saldo (BTU/h)</th>
+            <th style="text-align:center;">Atend.</th>
+            <th style="text-align:center;">Situação</th>
+          </tr>
+        </thead>
+        <tbody>${linhas}</tbody>
+      </table>
+      <div style="margin-top:12px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:9px;color:#718096;line-height:1.6;">
+        <strong>Critério (intervalos definidos: ${minPct}% a ${maxPct}% da carga prevista):</strong>
+        <span style="color:#059669;font-weight:700;">Adequada</span> = capacidade instalada entre ${minPct}% e ${maxPct}% da carga prevista.
+        <span style="color:#dc2626;font-weight:700;">Subdimensionada</span> = abaixo de ${minPct}%.
+        <span style="color:#1e40af;font-weight:700;">Superdimensionada</span> = acima de ${maxPct}% (revisar eficiência/consumo).
+        <span style="color:#718096;font-weight:700;">Sem climatização</span> = nenhum ar-condicionado vinculado à sala.
+        Considera apenas ativos de categoria Ar-Condicionado (AC) com capacidade em BTU/h informada. Carga prevista calculada pelo método prático NBR 16401 / ASHRAE.
+      </div>
+      <div style="margin-top:8px;font-size:9px;color:#a0aec0;">Documento gerado pelo Sistema de Gestão Univag · ${new Date().toLocaleString('pt-BR')}</div>
+    </div>
+  </div>`;
+
+  imprimir('area-relatorio-adequacao-salas', html, 'paisagem');
+}
+
 const EQ_CATEGORIA_LABEL_PLANO = {
   AC:'Ar Condicionado', BEB:'Bebedouro',
   CLIM:'Climatizador Evaporativo', VEN:'Ventilador/Exaustor', OUT:'Outros',

@@ -209,6 +209,26 @@
             </div>
 
             <div class="impr-card">
+              <div class="impr-card-head"><span class="impr-card-icon">🌡️</span><span class="impr-card-title">Adequação de Carga por Sala</span></div>
+              <div class="impr-card-desc">Compara a carga térmica prevista de cada sala com a capacidade de ar-condicionado instalada, classificando em adequada, subdimensionada, superdimensionada ou sem climatização, com quadro-resumo. A4 paisagem.</div>
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;margin:2px 0 4px;">
+                <div style="font-size:11px;font-weight:700;color:#4a5568;margin-bottom:6px;">Intervalos de classificação <small style="font-weight:400;color:#a0aec0;">(% da carga prevista)</small></div>
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:#4a5568;">
+                  <span>Adequada de</span>
+                  <input type="number" id="adeq-limite-min" min="1" step="1" value="100" style="width:60px;padding:3px 6px;font-size:11px;text-align:right;" onchange="salvarLimitesAdequacao()">
+                  <span>% até</span>
+                  <input type="number" id="adeq-limite-max" min="1" step="1" value="130" style="width:60px;padding:3px 6px;font-size:11px;text-align:right;" onchange="salvarLimitesAdequacao()">
+                  <span>%</span>
+                </div>
+                <div style="font-size:10px;color:#a0aec0;margin-top:5px;line-height:1.5;">Abaixo do mínimo → <strong>subdimensionada</strong> · acima do máximo → <strong>superdimensionada</strong>.</div>
+              </div>
+              <div class="impr-card-foot">
+                <span class="impr-escopo todos">Todas as salas</span>
+                <button class="impr-btn alt" onclick="acaoImpressao('emitirRelatorioAdequacaoSalas')">Imprimir</button>
+              </div>
+            </div>
+
+            <div class="impr-card">
               <div class="impr-card-head"><span class="impr-card-icon">📊</span><span class="impr-card-title">Exportar Inventário (XLS)</span></div>
               <div class="impr-card-desc">Planilha com duas abas — Inventário e Resumo — usando separadores decimais brasileiros e BTU/h em formato numérico.</div>
               <div class="impr-card-foot">
@@ -295,6 +315,29 @@
   <script>
     // Invoca a função de impressão de forma defensiva: se a rotina ainda não existir
     // nesta build do app.js, avisa o usuário em vez de falhar silenciosamente no console.
+    // Persiste e restaura os intervalos de classificação de adequação de carga por sala.
+    // Guardados no navegador (localStorage) para que a preferência do usuário se mantenha
+    // entre sessões. Faixa válida: mínimo ≥ 1 e máximo ≥ mínimo.
+    const ADEQ_LIMITES_KEY = 'univag_adeq_limites';
+    function salvarLimitesAdequacao() {
+      const min = parseInt(document.getElementById('adeq-limite-min')?.value);
+      const max = parseInt(document.getElementById('adeq-limite-max')?.value);
+      if (Number.isFinite(min) && Number.isFinite(max)) {
+        try { localStorage.setItem(ADEQ_LIMITES_KEY, JSON.stringify({ min, max })); } catch (e) {}
+      }
+    }
+    function restaurarLimitesAdequacao() {
+      try {
+        const raw = localStorage.getItem(ADEQ_LIMITES_KEY);
+        if (!raw) return;
+        const { min, max } = JSON.parse(raw);
+        const elMin = document.getElementById('adeq-limite-min');
+        const elMax = document.getElementById('adeq-limite-max');
+        if (elMin && Number.isFinite(min)) elMin.value = min;
+        if (elMax && Number.isFinite(max)) elMax.value = max;
+      } catch (e) {}
+    }
+
     function acaoImpressao(nomeFuncao) {
       const fn = window[nomeFuncao];
       if (typeof fn !== 'function') {
@@ -325,6 +368,7 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+      restaurarLimitesAdequacao();
       setTimeout(async () => {
         if (typeof carregarEquipamentos === 'function') await carregarEquipamentos();
         if (typeof inicializarFiltrosGerir === 'function') await inicializarFiltrosGerir();
