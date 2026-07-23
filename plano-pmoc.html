@@ -437,17 +437,6 @@ async function carregarEquipamentosPlano() {
   _planoEqs = data || [];
 }
 
-// ── Adequação da carga térmica por sala (usa classificarAdequacaoCarga, fonte única em app.js) ──
-let _planoSalas = [];
-async function carregarSalasAdequacaoPlano() {
-  const { data, error } = await db
-    .from('salas')
-    .select('id, nome, carga_termica_btu, setores(nome, blocos(nome))')
-    .order('nome', { ascending: true });
-  if (error) { console.warn('Não foi possível carregar salas para adequação térmica:', error.message); return; }
-  _planoSalas = (data || []).filter(s => (parseFloat(s.carga_termica_btu) || 0) > 0);
-}
-
 // ── Cronograma: meses ativos de cada periodicidade a partir do mês inicial ─
 function planoMesesAtivos(periodoKey, mesInicio) {
   const passo = { mensal: 1, trimestral: 3, semestral: 6, anual: 12 }[periodoKey] || 1;
@@ -574,40 +563,29 @@ function gerarDocumentoPMOC() {
     });
   });
 
-  // Adequação da carga térmica por sala (nota resumida — cálculo completo permanece no
-  // Relatório de Adequação de Salas do dashboard; classificação usa a mesma função
-  // compartilhada classificarAdequacaoCarga, definida em app.js).
-  const capInstaladaPorSala = {};
+  // Carga instalada por ambiente, agrupada por Bloco › Setor (apenas capacidade instalada,
+  // sem comparação com carga prevista/situação — conforme preferência do RT).
+  const instaladaPorGrupoSala = {};
   _planoEqs.forEach(eq => {
-    if (planoNormCat(eq.categoria) !== 'AC' || !eq.sala_id) return;
-    capInstaladaPorSala[eq.sala_id] = (capInstaladaPorSala[eq.sala_id] || 0) + parseCapacidadeBTU(eq.potencia);
+    if (planoNormCat(eq.categoria) !== 'AC') return;
+    const grupo = [(eq.bloco || 'Sem bloco'), (eq.setor || 'Sem setor')].join(' › ');
+    const salaNome = eq.sala || 'Sem sala definida';
+    instaladaPorGrupoSala[grupo] = instaladaPorGrupoSala[grupo] || {};
+    instaladaPorGrupoSala[grupo][salaNome] = (instaladaPorGrupoSala[grupo][salaNome] || 0) + parseCapacidadeBTU(eq.potencia);
   });
-  const ADEQ_COR = {
-    'Adequada': '#059669', 'Subdimensionada': '#dc2626',
-    'Superdimensionada': '#1e40af', 'Sem climatização': '#718096',
-  };
   let linhasAdeq = '';
-  _planoSalas.forEach(s => {
-    const prevista  = Math.round(parseFloat(s.carga_termica_btu) || 0);
-    const instalada = Math.round(capInstaladaPorSala[s.id] || 0);
-    const { status } = classificarAdequacaoCarga(prevista, instalada);
-    const local = [s.setores?.blocos?.nome, s.setores?.nome].filter(Boolean).join(' / ') || '—';
-    linhasAdeq += `<tr>
-      <td>${escapeHTML(s.nome)}</td>
-      <td>${escapeHTML(local)}</td>
-      <td style="text-align:right;">${prevista.toLocaleString('pt-BR')}</td>
-      <td style="text-align:right;">${instalada.toLocaleString('pt-BR')}</td>
-      <td style="text-align:center;color:${ADEQ_COR[status]};font-weight:700;">${status}</td>
-    </tr>`;
+  Object.entries(instaladaPorGrupoSala).sort((a, b) => a[0].localeCompare(b[0])).forEach(([grupo, salas]) => {
+    linhasAdeq += `<tr class="tr-grupo"><td colspan="2">📍 ${escapeHTML(grupo)}</td></tr>`;
+    Object.entries(salas).sort((a, b) => a[0].localeCompare(b[0])).forEach(([salaNome, total]) => {
+      linhasAdeq += `<tr><td>${escapeHTML(salaNome)}</td><td style="text-align:right;">${Math.round(total).toLocaleString('pt-BR')}</td></tr>`;
+    });
   });
-  const secAdequacao = _planoSalas.length ? `
-    <div class="cat-titulo">Adequação da Carga Térmica por Ambiente</div>
+  const secAdequacao = linhasAdeq ? `
+    <div class="cat-titulo">Carga Instalada por Ambiente</div>
     <table class="tb-lista">
-      <thead><tr><th>Sala/Ambiente</th><th>Bloco › Setor</th><th style="width:90px;">Prevista (BTU/h)</th><th style="width:90px;">Instalada (BTU/h)</th><th style="width:120px;">Situação</th></tr></thead>
+      <thead><tr><th>Sala/Ambiente</th><th style="width:130px;">Instalada (BTU/h)</th></tr></thead>
       <tbody>${linhasAdeq}</tbody>
-    </table>
-    <p class="texto" style="font-size:8px;color:#718096;">Classificação de referência (capacidade instalada entre 100% e 130% da carga prevista =
-    Adequada). Memória de cálculo completa (área, ocupação, insolação) disponível no Relatório de Adequação de Salas do sistema.</p>` : '';
+    </table>` : '';
 
   const sec4 = `
     <div class="sec">
@@ -865,8 +843,9 @@ function gerarDocumentoPMOC() {
   });
 
   const sec9Guia = `
-    <div class="sec">
-      <div class="sec-titulo">11. GUIA DE EXECUÇÃO DOS ITENS DE VERIFICAÇÃO (POP-PMOC-001)</div>
+    <div class="sec sec-anexo">
+      <div class="anexo-etiqueta">ANEXO · POP-PMOC-001</div>
+      <div class="sec-titulo">GUIA DE EXECUÇÃO DOS ITENS DE VERIFICAÇÃO</div>
       <p class="texto">Manual de campo para os executantes: o procedimento a ser realizado em cada item do
       checklist da Seção 6, e os critérios objetivos para classificar o resultado como <strong>C</strong>
       (Conforme), <strong>NC</strong> (Não Conforme) ou <strong>NA</strong> (Não Aplicável) no laudo PMOC do
@@ -965,6 +944,11 @@ function gerarDocumentoPMOC() {
                   font-size:7.5px;color:#94a3b8;text-align:center;}
 
       /* Guia de Execução (POP-PMOC-001) — embutido no mesmo documento */
+      /* Guia de Execução (POP-PMOC-001) — embutido no mesmo documento, como Anexo */
+      .sec-anexo{page-break-before:always;break-before:page;}
+      .anexo-etiqueta{display:inline-block;background:#eef2ff;color:#1e3a5f;font-size:8.5px;font-weight:700;
+                       letter-spacing:.08em;text-transform:uppercase;border:1px solid #c7d2ef;border-radius:10px;
+                       padding:3px 10px;margin-bottom:8px;}
       .guia-cat-header{background:#1e3a5f;color:#fff;padding:6px 10px;font-size:10px;font-weight:700;
                         margin:16px 0 8px;border-radius:4px;break-after:avoid;page-break-after:avoid;}
       .guia-periodo{background:#f8fafc;font-weight:700;color:#475569;font-size:8.5px;letter-spacing:.05em;
@@ -1004,7 +988,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Carrega config salva e inventário
   await carregarConfigPlano();
   await carregarEquipamentosPlano();
-  await carregarSalasAdequacaoPlano();
 });
 </script>
 </body>
