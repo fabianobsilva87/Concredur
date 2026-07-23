@@ -167,10 +167,42 @@
             <input type="text" id="pp-rt-empresa" placeholder="Razão social / CNPJ da empresa mantenedora">
             <div class="plano-hint">Obrigatória para emissão final — distingue o RT que assina da empresa/equipe que executa.</div>
           </div>
+          <div class="plano-field full">
+            <label>Atribuição Técnica Registrada (CREA/CAU/CFT)</label>
+            <input type="text" id="pp-rt-atribuicao" placeholder="Ex: Atribuição em Instalações de Climatização e Refrigeração (Resolução 218/1973, art. 10)">
+            <div class="plano-hint">Não presume habilitação apenas pelo título profissional — registre a atribuição específica do RT junto ao conselho.</div>
+          </div>
+          <div class="plano-field full">
+            <label>Referência da Certidão de Atribuição (nº / link)</label>
+            <input type="text" id="pp-rt-certidao" placeholder="Nº da certidão ou link de consulta pública no CREA/CAU/CFT">
+          </div>
         </div>
       </div>
 
-      <!-- 3. Parâmetros do Plano -->
+      <!-- 3. Monitoramento QAI -->
+      <div class="plano-card">
+        <h3>🌬️ Monitoramento da Qualidade do Ar Interior (QAI)</h3>
+        <div class="plano-grid">
+          <div class="plano-field full">
+            <label>Metodologia</label>
+            <textarea id="pp-qai-metodologia" placeholder="Ex: Medição de CO2/temperatura/UR/velocidade do ar com equipamento calibrado; contagem microbiológica por amostragem de ar comparando ambiente interno x externo, conforme RE ANVISA nº 09/2003."></textarea>
+          </div>
+          <div class="plano-field">
+            <label>Laboratório Responsável</label>
+            <input type="text" id="pp-qai-laboratorio" placeholder="Razão social do laboratório acreditado">
+          </div>
+          <div class="plano-field">
+            <label>Quantidade de Amostras</label>
+            <input type="text" id="pp-qai-qtd-amostras" placeholder="Ex: 2 amostras por ambiente (interno + externo)">
+          </div>
+          <div class="plano-field full">
+            <label>Pontos de Coleta</label>
+            <textarea id="pp-qai-pontos-coleta" placeholder="Ex: 1 ponto interno por setor climatizado + 1 ponto de referência externo, a favor do vento."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Parâmetros do Plano -->
       <div class="plano-card">
         <h3>⚙️ Parâmetros do Plano</h3>
         <div class="plano-grid">
@@ -329,6 +361,12 @@ function planoColetarConfig() {
     rt_telefone:   $('pp-rt-telefone').value.trim(),
     rt_email:      $('pp-rt-email').value.trim(),
     rt_empresa:    $('pp-rt-empresa').value.trim(),
+    rt_atribuicao: $('pp-rt-atribuicao').value.trim(),
+    rt_certidao:   $('pp-rt-certidao').value.trim(),
+    qai_metodologia:    $('pp-qai-metodologia').value.trim(),
+    qai_laboratorio:    $('pp-qai-laboratorio').value.trim(),
+    qai_qtd_amostras:   $('pp-qai-qtd-amostras').value.trim(),
+    qai_pontos_coleta:  $('pp-qai-pontos-coleta').value.trim(),
     ano:           parseInt($('pp-ano').value, 10) || new Date().getFullYear(),
     mes_inicio:    parseInt($('pp-mes-inicio').value, 10) || 0,
     local_emissao: $('pp-local-emissao').value.trim(),
@@ -347,6 +385,9 @@ function planoAplicarConfig(cfg) {
   setVal('pp-rt-conselho', cfg.rt_conselho); setVal('pp-rt-registro', cfg.rt_registro);
   setVal('pp-rt-art', cfg.rt_art);         setVal('pp-rt-telefone', cfg.rt_telefone);
   setVal('pp-rt-email', cfg.rt_email);     setVal('pp-rt-empresa', cfg.rt_empresa);
+  setVal('pp-rt-atribuicao', cfg.rt_atribuicao); setVal('pp-rt-certidao', cfg.rt_certidao);
+  setVal('pp-qai-metodologia', cfg.qai_metodologia); setVal('pp-qai-laboratorio', cfg.qai_laboratorio);
+  setVal('pp-qai-qtd-amostras', cfg.qai_qtd_amostras); setVal('pp-qai-pontos-coleta', cfg.qai_pontos_coleta);
   setVal('pp-ano', cfg.ano);               setVal('pp-mes-inicio', cfg.mes_inicio);
   setVal('pp-local-emissao', cfg.local_emissao);
   setVal('pp-data-emissao', cfg.data_emissao);
@@ -390,7 +431,7 @@ let _planoEqs = [];
 async function carregarEquipamentosPlano() {
   const { data, error } = await db
     .from('equipamentos')
-    .select('id, tag, produto, marca, categoria, potencia, bloco, setor, sala, criticidade, nr_serie, patrimonio')
+    .select('id, tag, produto, marca, categoria, potencia, bloco, setor, sala, criticidade, nr_serie, patrimonio, extras_tecnico')
     .order('tag', { ascending: true });
   if (error) { planoToast('❌ Erro ao carregar equipamentos: ' + error.message, true); return; }
   _planoEqs = data || [];
@@ -465,6 +506,7 @@ function gerarDocumentoPMOC() {
         <tr><td class="lbl">Telefone</td><td>${escapeHTML(cfg.rt_telefone || '—')}</td>
             <td class="lbl">E-mail</td><td>${escapeHTML(cfg.rt_email || '—')}</td></tr>
         <tr><td class="lbl">Empresa Executante</td><td colspan="3">${escapeHTML(cfg.rt_empresa || '—')}</td></tr>
+        ${cfg.rt_atribuicao ? `<tr><td class="lbl">Atribuição Técnica</td><td colspan="3">${escapeHTML(cfg.rt_atribuicao)}${cfg.rt_certidao ? ' — Certidão: ' + escapeHTML(cfg.rt_certidao) : ''}</td></tr>` : ''}
       </table>
     </div>`;
 
@@ -531,7 +573,47 @@ function gerarDocumentoPMOC() {
       </table>
     </div>`;
 
-  // ── 5. Plano de atividades (fonte única: CHECKLIST_PMOC_DEFS do app.js) ──
+  // ── 5. Memorial descritivo do sistema (item 12) — gerado a partir do parque cadastrado ──
+  // Descreve, por bloco/setor, o tipo de sistema de climatização predominante, a existência
+  // de renovação/tomada de ar externo ou exaustão, e se os sistemas são independentes
+  // (splits por ambiente) ou centralizados (água gelada, VRF, dutado).
+  let memorialCorpo = '';
+  Object.entries(grupos).sort((a, b) => a[0].localeCompare(b[0])).forEach(([grupo, eqs]) => {
+    const eqsACGrupo = eqs.filter(e => planoNormCat(e.categoria) === 'AC');
+    const instalacoesGrupo = eqsACGrupo.map(e => parseExtras(e.extras_tecnico)['instalacao-ac']).filter(Boolean);
+    const tiposUnicos = [...new Set(instalacoesGrupo)];
+    const possuiCentralizado = instalacoesGrupo.some(v => AC_INSTALACOES_PORTE_MAIOR.includes(v));
+    const possuiRenovacaoAr = instalacoesGrupo.some(v => AC_INSTALACOES_AGUA_ABERTA.includes(v)) ||
+      eqs.some(e => planoNormCat(e.categoria) === 'VEN');
+    const categoriasGrupo = [...new Set(eqs.map(e => PLANO_CAT_LABEL[planoNormCat(e.categoria)]))];
+
+    memorialCorpo += `
+      <div class="cat-titulo">📍 ${escapeHTML(grupo)}</div>
+      <table class="tb-ident">
+        <tr><td class="lbl">Sistemas Presentes</td><td colspan="3">${escapeHTML(categoriasGrupo.join(', ') || '—')}</td></tr>
+        <tr><td class="lbl">Tipo(s) de Instalação AC</td><td colspan="3">${escapeHTML(tiposUnicos.join(', ') || 'Não informado / sem equipamento AC')}</td></tr>
+        <tr><td class="lbl">Configuração</td><td>${possuiCentralizado ? 'Sistema(s) centralizado(s)/de maior porte' : 'Sistemas independentes (splits individuais)'}</td>
+            <td class="lbl">Renovação/Exaustão de Ar</td><td>${possuiRenovacaoAr ? 'Presente (verificar item DUT-05 / VEN)' : 'Não identificada — verificar necessidade conforme uso do ambiente'}</td></tr>
+      </table>`;
+  });
+
+  const sec5Memorial = `
+    <div class="sec">
+      <div class="sec-titulo">5. MEMORIAL DESCRITIVO DO SISTEMA</div>
+      <p class="texto">Descrição geral, por ambiente/setor, dos sistemas de climatização instalados, sua
+      configuração (independente ou centralizada) e a existência de renovação de ar externo ou exaustão,
+      conforme o cadastro de equipamentos vigente.</p>
+      ${memorialCorpo || '<p class="texto">Nenhum equipamento cadastrado para compor o memorial descritivo.</p>'}
+    </div>`;
+
+  // ── 6. Plano de atividades (fonte única: CHECKLIST_PMOC_DEFS do app.js) ──
+  // Item 8: atividades condicionadas ao tipo de sistema instalado (CHECKLIST_ITEM_CONDICIONAL,
+  // definido em app.js) são ocultadas/marcadas conforme o parque de equipamentos AC cadastrado.
+  const eqsAC = _planoEqs.filter(e => planoNormCat(e.categoria) === 'AC');
+  const instalacoesAC = eqsAC.map(e => parseExtras(e.extras_tecnico)['instalacao-ac']).filter(Boolean);
+  const temAguaAberta  = instalacoesAC.some(v => AC_INSTALACOES_AGUA_ABERTA.includes(v));
+  const temPorteMaior  = instalacoesAC.some(v => AC_INSTALACOES_PORTE_MAIOR.includes(v));
+
   let sec5Corpo = '';
   catsPresentes.forEach(cat => {
     const defs = CHECKLIST_PMOC_DEFS[cat] || CHECKLIST_PMOC_DEFS.OUT;
@@ -540,8 +622,17 @@ function gerarDocumentoPMOC() {
       const itens = defs[p.key] || [];
       if (!itens.length) return;
       linhas += `<tr class="tr-periodo"><td colspan="2">${PLANO_PERIODO_LABEL[p.key]}</td></tr>`;
-      itens.forEach(([, label]) => {
-        linhas += `<tr><td>${escapeHTML(label)}</td><td style="text-align:center;width:82px;">${PLANO_PERIODO_LABEL[p.key]}</td></tr>`;
+      itens.forEach(([key, label]) => {
+        const condicional = cat === 'AC' ? CHECKLIST_ITEM_CONDICIONAL[key] : undefined;
+        if (condicional === 'agua_aberta' && !temAguaAberta) {
+          linhas += `<tr style="color:#a0aec0;"><td>${escapeHTML(label)} <em>(não aplicável — nenhum sistema de água aberto cadastrado: torre de resfriamento, condensador evaporativo ou água gelada)</em></td><td style="text-align:center;width:82px;">N/A</td></tr>`;
+        } else if (condicional === 'porte_maior' && !temPorteMaior) {
+          linhas += `<tr style="color:#a0aec0;"><td>${escapeHTML(label)} <em>(não aplicável — nenhum equipamento de maior porte cadastrado)</em></td><td style="text-align:center;width:82px;">N/A</td></tr>`;
+        } else if (condicional === 'porte_maior') {
+          linhas += `<tr><td>${escapeHTML(label)} <em>(quando aplicável)</em></td><td style="text-align:center;width:82px;">${PLANO_PERIODO_LABEL[p.key]}</td></tr>`;
+        } else {
+          linhas += `<tr><td>${escapeHTML(label)}</td><td style="text-align:center;width:82px;">${PLANO_PERIODO_LABEL[p.key]}</td></tr>`;
+        }
       });
     });
     const nEq = _planoEqs.filter(e => planoNormCat(e.categoria) === cat).length;
@@ -555,14 +646,47 @@ function gerarDocumentoPMOC() {
 
   const sec5 = `
     <div class="sec">
-      <div class="sec-titulo">5. PLANO DE ATIVIDADES DE MANUTENÇÃO E CONTROLE</div>
+      <div class="sec-titulo">6. PLANO DE ATIVIDADES DE MANUTENÇÃO E CONTROLE</div>
       <p class="texto">As atividades abaixo são cumulativas por periodicidade: nas execuções trimestrais são
       realizadas também as rotinas mensais; nas semestrais, as mensais e trimestrais; e assim sucessivamente.
       A execução é registrada por equipamento na respectiva ficha de manutenção (laudo PMOC).</p>
       ${sec5Corpo}
     </div>`;
 
-  // ── 6. Cronograma anual ──
+  // ── 7. Monitoramento da Qualidade do Ar Interior — QAI (itens 9 e 10) ──
+  const secQai = `
+    <div class="sec">
+      <div class="sec-titulo">7. MONITORAMENTO DA QUALIDADE DO AR INTERIOR (QAI)</div>
+      <p class="texto">Independentemente da manutenção dos equipamentos descrita na Seção 6, o estabelecimento
+      deve manter monitoramento periódico da qualidade do ar interior (QAI), com <strong>periodicidade
+      semestral</strong>, contemplando a medição de CO₂, temperatura, umidade relativa e velocidade do ar,
+      além da contagem microbiológica do ar (fungos e bactérias), comparando ambiente interno e externo,
+      conforme <strong>Resolução RE ANVISA nº 09/2003</strong>.</p>
+      <table class="tb-ident">
+        <tr><td class="lbl">Metodologia</td><td colspan="3">${escapeHTML(cfg.qai_metodologia || '—')}</td></tr>
+        <tr><td class="lbl">Laboratório Responsável</td><td>${escapeHTML(cfg.qai_laboratorio || '—')}</td>
+            <td class="lbl">Qtd. de Amostras</td><td>${escapeHTML(cfg.qai_qtd_amostras || '—')}</td></tr>
+        <tr><td class="lbl">Pontos de Coleta</td><td colspan="3">${escapeHTML(cfg.qai_pontos_coleta || '—')}</td></tr>
+      </table>
+      <div class="cat-titulo">Critérios de Aceitação por Parâmetro</div>
+      <table class="tb-lista">
+        <thead><tr><th>Parâmetro</th><th>Referência</th></tr></thead>
+        <tbody>
+          <tr><td>Temperatura</td><td>Verão: 23°C a 26°C · Inverno: 20°C a 22°C (NBR 16401)</td></tr>
+          <tr><td>Umidade Relativa</td><td>40% a 65%</td></tr>
+          <tr><td>CO₂ (dióxido de carbono)</td><td>Máximo de 1.000 ppm, ou diferencial ≤ 700 ppm em relação ao ar externo</td></tr>
+          <tr><td>Velocidade do Ar (zona de ocupação)</td><td>Até 0,25 m/s</td></tr>
+          <tr><td>Diferencial de Pressão em Filtros</td><td>Conforme especificação do fabricante do filtro/equipamento</td></tr>
+          <tr><td>Taxa de Renovação de Ar Externo</td><td>Conforme uso do ambiente (referência: NBR 16401 / ASHRAE 62.1)</td></tr>
+          <tr><td>Contagem Microbiológica do Ar</td><td>Concentração de fungos no ambiente interno não superior à do ambiente externo (RE ANVISA nº 09/2003)</td></tr>
+        </tbody>
+      </table>
+      <p class="texto" style="font-size:9px;color:#718096;">Valores de referência de caráter geral, conforme ABNT NBR 16401 e RE ANVISA nº 09/2003. Eventuais
+      parâmetros específicos exigidos para ambientes especiais (ex.: salas limpas, centros cirúrgicos) devem
+      ser tratados em documentação complementar.</p>
+    </div>`;
+
+  // ── 8. Cronograma anual ──
   const mesInicio = cfg.mes_inicio;
   let linhasCron = '';
   catsPresentes.forEach(cat => {
@@ -582,7 +706,7 @@ function gerarDocumentoPMOC() {
 
   const sec6 = `
     <div class="sec">
-      <div class="sec-titulo">6. CRONOGRAMA ANUAL DE EXECUÇÃO — ${cfg.ano}</div>
+      <div class="sec-titulo">8. CRONOGRAMA ANUAL DE EXECUÇÃO — ${cfg.ano}</div>
       <p class="texto">Ciclo iniciado em <strong>${PLANO_MESES[mesInicio]}/${cfg.ano}</strong>. As datas efetivas
       de execução dentro de cada mês seguem a programação operacional do sistema (aba Programação PMOC),
       calculada em dias úteis.</p>
@@ -610,7 +734,7 @@ function gerarDocumentoPMOC() {
   ];
   const sec7 = `
     <div class="sec">
-      <div class="sec-titulo">7. ORIENTAÇÕES E RECOMENDAÇÕES GERAIS</div>
+      <div class="sec-titulo">9. ORIENTAÇÕES E RECOMENDAÇÕES GERAIS</div>
       <ol class="lista-orient">${orientacoes.map(o => `<li>${o}</li>`).join('')}</ol>
       ${cfg.obs ? `<p class="texto"><strong>Observações específicas do estabelecimento:</strong> ${escapeHTML(cfg.obs)}</p>` : ''}
     </div>`;
@@ -618,7 +742,7 @@ function gerarDocumentoPMOC() {
   // ── 8. Termo de responsabilidade e assinaturas ──
   const sec8 = `
     <div class="sec sec-termo">
-      <div class="sec-titulo">8. TERMO DE RESPONSABILIDADE TÉCNICA</div>
+      <div class="sec-titulo">10. TERMO DE RESPONSABILIDADE TÉCNICA</div>
       <p class="texto">Declaro, na qualidade de responsável técnico, que o presente Plano de Manutenção,
       Operação e Controle foi elaborado em conformidade com a legislação e as normas técnicas vigentes,
       responsabilizando-me pela sua implantação, acompanhamento e atualização durante o período de vigência.</p>
@@ -645,7 +769,7 @@ function gerarDocumentoPMOC() {
       · Lei nº 13.589/2018 · Portaria MS nº 3.523/98
     </div>`;
 
-  const html = capa + sec1 + sec2 + sec3 + sec4 + sec5 + sec6 + sec7 + sec8 + rodape;
+  const html = capa + sec1 + sec2 + sec3 + sec4 + sec5Memorial + sec5 + secQai + sec6 + sec7 + sec8 + rodape;
 
   // ── Popup de impressão (mesma técnica das demais impressões do sistema) ──
   const win = window.open('', '_blank', 'width=1000,height=760');

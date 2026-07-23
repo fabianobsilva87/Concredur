@@ -188,6 +188,21 @@
               <select id="sala-setor" class="form-input-style" disabled><option value="">— Selecione o bloco primeiro —</option></select>
             </div>
             <div class="form-group"><label>Nome da Sala *</label><input type="text" id="sala-nome" placeholder="Ex: Sala 204, Copa, Corredor B"></div>
+            <div class="form-group">
+              <label>Tipo de Ambiente</label>
+              <select id="sala-tipo-ambiente" class="form-input-style" onchange="atualizarSugestaoCriticidadeSala()">
+                <option value="">— Selecione —</option>
+                <option value="Laboratório">Laboratório</option>
+                <option value="CME">CME (Central de Materiais Esterilizados)</option>
+                <option value="Raio-X">Sala de Raio-X / Radiologia</option>
+                <option value="Consultório">Consultório</option>
+                <option value="Sala de Aula">Sala de Aula</option>
+                <option value="Administrativo">Área Administrativa</option>
+                <option value="Copa">Copa / Cozinha</option>
+                <option value="Outro">Outro</option>
+              </select>
+              <div class="plano-hint" id="sala-criticidade-sugerida" style="font-size:11px;color:#4a5568;margin-top:4px;"></div>
+            </div>
           </div>
 
           <h4 style="font-size:13px;font-weight:700;color:#4a5568;margin:18px 0 4px;">🌡️ Carga Térmica Prevista (BTU/h)</h4>

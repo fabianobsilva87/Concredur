@@ -418,7 +418,7 @@ function toggleItemsPorFrequencia() {
 
 // ===================== EQUIPAMENTOS =====================
 const EQ_CAMPOS_EXTRAS = {
-  AC:   ['eq-ciclo','eq-tensao','eq-gas','eq-gas-qtd','eq-tec-compressor','eq-instalacao-ac','eq-validade'],
+  AC:   ['eq-ciclo','eq-tensao','eq-gas','eq-gas-qtd','eq-tec-compressor','eq-instalacao-ac','eq-localizacao-condensadora','eq-validade'],
   BEB:  ['eq-cap-beb','eq-tipo-beb','eq-filtro-beb','eq-validade-filtro-beb','eq-lacre-beb','eq-validade-lacre-beb'],
   CLIM: ['eq-vazao-clim','eq-tipo-clim','eq-painel-clim','eq-validade-painel-clim','eq-tensao-clim','eq-consumo-clim'],
   VEN:  ['eq-potencia-ven','eq-tipo-ven','eq-diametro-ven','eq-tensao-ven'],
@@ -428,6 +428,35 @@ const EQ_CATEGORIA_LABEL = {
   AC:'❄️ Ar Condicionado', BEB:'💧 Bebedouro',
   CLIM:'🌀 Climatizador Evaporativo', VEN:'💨 Ventilador/Exaustor', OUT:'🔧 Outros',
 };
+
+// ── Classificação de sistemas AC por porte/abertura de água (item 8 da revisão PMOC) ──
+// Usado para habilitar/ocultar automaticamente atividades do checklist que só se aplicam
+// a sistemas de maior porte (água gelada, torre de resfriamento, condensador evaporativo,
+// self-contained, VRF, split dutado) — nunca a splits comuns (Hi-Wall, Cassete, Piso-Teto,
+// Janeleiro, Portátil).
+const AC_INSTALACOES_AGUA_ABERTA = ['Sistema de Água Gelada (Chiller)', 'Torre de Resfriamento', 'Condensador Evaporativo'];
+const AC_INSTALACOES_PORTE_MAIOR = ['Split Duto', 'Self-Contained', 'VRF', ...AC_INSTALACOES_AGUA_ABERTA];
+
+// Itens do checklist AC (CHECKLIST_PMOC_DEFS) condicionados ao tipo de sistema instalado.
+// 'agua_aberta'  → só aplicável quando há sistema de água aberto (torre/condensador evaporativo/água gelada); caso contrário é ocultado/marcado N/A.
+// 'porte_maior'  → só se aplica a equipamentos de maior porte (não splits comuns); marcado "quando aplicável".
+const CHECKLIST_ITEM_CONDICIONAL = {
+  bio_04: 'agua_aberta',
+  mec_02: 'porte_maior',
+  mec_03: 'porte_maior',
+  mec_04: 'porte_maior',
+  fil_02: 'porte_maior',
+};
+
+// Parseia com segurança o campo extras_tecnico, que é armazenado como TEXT (JSON serializado)
+// e nunca deve ser tratado como se já fosse um objeto (ver nota em CLAUDE memory sobre o bug
+// de Object.keys() retornando índices de caractere quando aplicado direto sobre a string).
+function parseExtras(raw) {
+  if (!raw) return {};
+  if (typeof raw === 'object') return raw;
+  try { const p = JSON.parse(raw); return (p && typeof p === 'object') ? p : {}; }
+  catch (e) { return {}; }
+}
 
 // ── Capacidade (BTU/h) — select de opções padrão + campo "Outro" para valores não listados ──
 function lerCapacidadeBTU() {
@@ -457,6 +486,23 @@ function onChangeCapacidadeBTU() {
   if (!sel || !outroInput) return;
   outroInput.style.display = sel.value === '__outro__' ? 'block' : 'none';
   if (sel.value !== '__outro__') outroInput.value = '';
+}
+
+// Mostra uma dica contextual ao selecionar o tipo de instalação do AC, informando quais
+// atividades do checklist PMOC serão habilitadas/ocultadas para este equipamento (item 8).
+function onChangeInstalacaoAC() {
+  const sel = $('eq-instalacao-ac'); const hint = $('eq-instalacao-ac-hint');
+  if (!sel || !hint) return;
+  const v = sel.value;
+  if (!v) { hint.style.display = 'none'; hint.textContent = ''; return; }
+  if (AC_INSTALACOES_AGUA_ABERTA.includes(v)) {
+    hint.textContent = '💧 Sistema de água aberto: habilita a coleta de amostra de água (BIO-04) e demais rotinas de maior porte no PMOC.';
+  } else if (AC_INSTALACOES_PORTE_MAIOR.includes(v)) {
+    hint.textContent = '⚙️ Equipamento de maior porte: rotinas de lubrificação, correias/polias e diferencial de pressão de filtros serão marcadas como aplicáveis no PMOC.';
+  } else {
+    hint.textContent = 'ℹ️ Split comum: rotinas de coleta de água, lubrificação de rolamentos e correias/polias não se aplicam e serão marcadas como não aplicáveis no PMOC.';
+  }
+  hint.style.display = 'block';
 }
 
 function toggleCamposEquipamento() {
@@ -565,6 +611,7 @@ async function carregarEquipamentoParaEdicao() {
   if ($('eq-sala-id')) {
     await popularSelectSalas(eq.setor_id || '', 'eq-sala-id');
     $('eq-sala-id').value = eq.sala_id || '';
+    if (typeof atualizarSugestaoCriticidadeEquipamento === 'function') atualizarSugestaoCriticidadeEquipamento();
   }
   if (eq.categoria === 'AC') {
     definirCapacidadeBTU(eq.potencia || '');
@@ -573,12 +620,13 @@ async function carregarEquipamentoParaEdicao() {
   }
   if ($('eq-validade') && eq.validade) $('eq-validade').value = eq.validade;
 
-  // Preenche os campos técnicos extras (extras_tecnico JSONB)
-  const extras = eq.extras_tecnico || {};
+  // Preenche os campos técnicos extras (extras_tecnico TEXT/JSON — parse defensivo)
+  const extras = parseExtras(eq.extras_tecnico);
   Object.entries(extras).forEach(([k, v]) => {
     const el = $('eq-' + k);
     if (el) el.value = v;
   });
+  if (typeof onChangeInstalacaoAC === 'function') onChangeInstalacaoAC();
 
   // Atualiza o título e o botão para refletir o modo edição
   const btn = $('btn-salvar');
@@ -874,7 +922,7 @@ function exportarEquipamentosXLS() {
 
   // ----- Aba 1: Inventário -----
   const linhas = items.map(eq => {
-    const extras = eq.extras_tecnico || {};
+    const extras = parseExtras(eq.extras_tecnico);
     const crit    = eq.criticidade || 'Média';
     const isAC    = eq.categoria === 'AC';
     return {
@@ -899,6 +947,7 @@ function exportarEquipamentosXLS() {
       'Potência (BTU/h)':          isAC ? (() => { const n = parseFloat((eq.potencia || '').replace(/\s*BTU\/h/i, '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? '' : n; })() : '',
       'Tecnologia do Compressor':  extras['tec-compressor']  || '',
       'Tipo de Instalação':        extras['instalacao-ac']   || '',
+      'Localização da Condensadora': extras['localizacao-condensadora'] || '',
       'Possui QR Code':            eq.qrcode_token ? 'Sim' : 'Não',
       'ID do Registro':            eq.id          || '',
       'Data de Cadastro':          eq.created_at ? fmtDate(eq.created_at) : '',
@@ -1212,10 +1261,35 @@ async function popularSelectSalas(setorId, selectId) {
     sel.disabled = true;
     return;
   }
-  const { data } = await db.from('salas').select('id, nome').eq('setor_id', setorId).order('nome', { ascending: true });
+  const { data } = await db.from('salas').select('id, nome, tipo_ambiente').eq('setor_id', setorId).order('nome', { ascending: true });
   sel.disabled = false;
   sel.innerHTML = '<option value="">— Selecione —</option>'
-    + (data || []).map(s => `<option value="${s.id}">${escapeHTML(s.nome)}</option>`).join('');
+    + (data || []).map(s => `<option value="${s.id}" data-tipo-ambiente="${escapeHTML(s.tipo_ambiente || '')}">${escapeHTML(s.nome)}</option>`).join('');
+}
+
+// Sugestão de criticidade com base no tipo de ambiente da sala selecionada (item 11).
+// Nunca força o valor — apenas exibe uma recomendação; o ajuste manual pelo RT permanece livre.
+const TIPO_AMBIENTE_CRITICIDADE = {
+  'Laboratório': 'Alta', 'CME': 'Alta', 'Raio-X': 'Alta',
+  'Consultório': 'Média', 'Sala de Aula': 'Média',
+  'Administrativo': 'Baixa', 'Copa': 'Baixa',
+};
+function sugerirCriticidadePorAmbiente(tipoAmbiente) {
+  return TIPO_AMBIENTE_CRITICIDADE[tipoAmbiente] || null;
+}
+function atualizarSugestaoCriticidadeEquipamento() {
+  const sel = $('eq-sala-id'); const hint = $('eq-criticidade-sugerida');
+  if (!sel || !hint) return;
+  const opt = sel.selectedOptions[0];
+  const tipoAmbiente = opt?.dataset?.tipoAmbiente || '';
+  const sugestao = sugerirCriticidadePorAmbiente(tipoAmbiente);
+  if (sugestao) {
+    hint.textContent = `💡 Sugestão com base no ambiente (${tipoAmbiente}): Criticidade ${sugestao}. Ajuste conforme sua avaliação técnica.`;
+    hint.style.display = 'block';
+  } else {
+    hint.style.display = 'none';
+    hint.textContent = '';
+  }
 }
 
 // Disparado pelo onchange do select de Bloco em equipamentos.html
@@ -1634,6 +1708,7 @@ function editarSala(id) {
   $('sala-id-edicao').value = s.id;
   $('sala-setor').value = s.setor_id || '';
   $('sala-nome').value = s.nome || '';
+  if ($('sala-tipo-ambiente')) { $('sala-tipo-ambiente').value = s.tipo_ambiente || ''; atualizarSugestaoCriticidadeSala(); }
   if ($('sala-area'))      $('sala-area').value      = s.area_m2 ?? '';
   if ($('sala-pessoas'))   $('sala-pessoas').value    = s.pessoas_previstas ?? 0;
   if ($('sala-incidencia-solar')) $('sala-incidencia-solar').value = s.incidencia_solar || 'sem';
@@ -1660,6 +1735,7 @@ function resetarFormSala() {
   $('sala-id-edicao').value = '';
   $('sala-setor').value = '';
   $('sala-nome').value = '';
+  if ($('sala-tipo-ambiente')) { $('sala-tipo-ambiente').value = ''; atualizarSugestaoCriticidadeSala(); }
   if ($('sala-area'))      $('sala-area').value      = '';
   if ($('sala-pessoas'))   $('sala-pessoas').value    = 0;
   if ($('sala-equip-watts')) $('sala-equip-watts').value = 0;
@@ -1674,6 +1750,17 @@ function resetarFormSala() {
   atualizarPreviaCargaTermicaSala();
   $('btn-salvar-sala').textContent = '💾 Salvar Sala';
   $('btn-cancelar-sala').style.display = 'none';
+}
+
+function atualizarSugestaoCriticidadeSala() {
+  const sel = $('sala-tipo-ambiente'); const hint = $('sala-criticidade-sugerida');
+  if (!sel || !hint) return;
+  const sugestao = sugerirCriticidadePorAmbiente(sel.value);
+  if (sugestao) {
+    hint.textContent = `💡 Equipamentos cadastrados nesta sala herdarão a sugestão de criticidade ${sugestao} (ajustável manualmente ao cadastrar cada ativo).`;
+  } else {
+    hint.textContent = '';
+  }
 }
 
 // Recalcula e exibe em tempo real a prévia da carga térmica no formulário de Sala (locais.html)
@@ -1714,6 +1801,7 @@ if ($('btn-salvar-sala')) {
     const num_janelas       = parseInt($('sala-num-janelas')?.value) || 0;
     const area_janelas_m2   = parseFloat($('sala-area-janelas')?.value) || 0;
     const incidencia_janelas = $('sala-incidencia-janelas')?.value || 'sem';
+    const tipo_ambiente = $('sala-tipo-ambiente')?.value || null;
 
     // Normaliza a lista de equipamentos e recalcula a carga interna efetiva (equip_watts).
     const equipamentos_carga = _salaEquipCarga
@@ -1727,7 +1815,7 @@ if ($('btn-salvar-sala')) {
     const equip_watts = Math.round(equipamentos_carga.reduce((s, it) => s + wattsEfetivosItem(it), 0));
 
     const carga_termica_btu = calcularCargaTermicaBTU({ area_m2, pessoas_previstas, equip_watts, incidencia_solar, btu_m2_base, cobertura, num_janelas, area_janelas_m2, incidencia_janelas });
-    const payload = { setor_id, nome, area_m2, pessoas_previstas, equip_watts, incidencia_solar, cobertura, btu_m2_base, num_janelas, area_janelas_m2, incidencia_janelas, equipamentos_carga, carga_termica_btu };
+    const payload = { setor_id, nome, area_m2, pessoas_previstas, equip_watts, incidencia_solar, cobertura, btu_m2_base, num_janelas, area_janelas_m2, incidencia_janelas, equipamentos_carga, carga_termica_btu, tipo_ambiente };
     const idEd = $('sala-id-edicao')?.value;
     const { error } = idEd
       ? await db.from('salas').update(payload).eq('id', idEd)
@@ -3757,9 +3845,7 @@ async function carregarInventarioGas() {
   let totalKg = 0;
 
   (eqs||[]).forEach(e => {
-    const extras = (typeof e.extras_tecnico === 'string')
-      ? (() => { try { return JSON.parse(e.extras_tecnico); } catch(x) { return {}; } })()
-      : (e.extras_tecnico || {});
+    const extras = parseExtras(e.extras_tecnico);
     const tipo = extras['gas'] || null;
     const qtd  = parseFloat((extras['gas-qtd'] || '0').toString().replace(',','.')) || 0;
     if (tipo) {

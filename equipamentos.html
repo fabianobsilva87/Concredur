@@ -145,7 +145,7 @@
               </div>
               <div class="form-group">
                 <label>Tipo de Instalação</label>
-                <select id="eq-instalacao-ac" class="form-input-style">
+                <select id="eq-instalacao-ac" class="form-input-style" onchange="onChangeInstalacaoAC()">
                   <option value="">— Selecione —</option>
                   <option value="Split Hi-Wall">Split Hi-Wall</option>
                   <option value="Split Cassete">Split Cassete</option>
@@ -155,7 +155,15 @@
                   <option value="VRF">Sistema VRF/VRV</option>
                   <option value="Janela">Janeleiro</option>
                   <option value="Portátil">Portátil</option>
+                  <option value="Sistema de Água Gelada (Chiller)">Sistema de Água Gelada (Chiller)</option>
+                  <option value="Torre de Resfriamento">Torre de Resfriamento</option>
+                  <option value="Condensador Evaporativo">Condensador Evaporativo</option>
                 </select>
+                <div class="form-hint" id="eq-instalacao-ac-hint" style="display:none;font-size:11px;color:#4a5568;margin-top:4px;"></div>
+              </div>
+              <div class="form-group">
+                <label>Localização da Condensadora</label>
+                <input type="text" id="eq-localizacao-condensadora" placeholder="Ex: Cobertura, área técnica, fachada norte...">
               </div>
               <div class="form-group">
                 <label>Validade da Garantia</label>
@@ -322,9 +330,10 @@
               </div>
               <div class="form-group">
                 <label>Sala / Identificação</label>
-                <select id="eq-sala-id" class="form-input-style" disabled>
+                <select id="eq-sala-id" class="form-input-style" disabled onchange="atualizarSugestaoCriticidadeEquipamento()">
                   <option value="">— Selecione o setor primeiro —</option>
                 </select>
+                <div class="form-hint" id="eq-criticidade-sugerida" style="display:none;font-size:11px;color:#4a5568;margin-top:4px;"></div>
               </div>
             </div>
             <p style="font-size:11px;margin-top:8px;">
