@@ -466,17 +466,23 @@ function gerarDocumentoPMOC() {
   // ── Capa ──
   const capa = `
     <div class="capa">
-      <img src="${LOGO_ETIQUETA}" alt="Logo" style="height:52px;margin-bottom:26px;">
+      <div class="capa-logo-wrap"><img src="${LOGO_ETIQUETA}" alt="Logo"></div>
       <div class="capa-titulo">PLANO DE MANUTENÇÃO,<br>OPERAÇÃO E CONTROLE</div>
       <div class="capa-sub">PMOC — Sistemas de Climatização e Refrigeração</div>
-      <div class="capa-legal">Lei Federal nº 13.589/2018 · Portaria MS nº 3.523/98 · RE ANVISA nº 09/2003 · ABNT NBR 16401</div>
+      <div class="capa-legal">
+        <span>Lei Federal nº 13.589/2018</span><span>Portaria MS nº 3.523/98</span>
+        <span>RE ANVISA nº 09/2003</span><span>ABNT NBR 16401</span>
+      </div>
       <div class="capa-box">
-        <div class="capa-linha"><span>Estabelecimento</span><strong>${escapeHTML(cfg.razao)}</strong></div>
-        ${cfg.cnpj ? `<div class="capa-linha"><span>CNPJ</span><strong>${escapeHTML(cfg.cnpj)}</strong></div>` : ''}
-        <div class="capa-linha"><span>Vigência</span><strong>Ano de ${cfg.ano}</strong></div>
-        <div class="capa-linha"><span>Responsável Técnico</span><strong>${escapeHTML(cfg.rt_nome)}</strong></div>
-        <div class="capa-linha"><span>Registro</span><strong>${escapeHTML(planoFormatRegistro(cfg.rt_conselho, cfg.rt_registro))}</strong></div>
-        ${cfg.rt_art ? `<div class="capa-linha"><span>ART/TRT</span><strong>${escapeHTML(cfg.rt_art)}</strong></div>` : ''}
+        <div class="capa-box-header">Dados do Plano</div>
+        <div class="capa-box-body">
+          <div class="capa-item"><span>Estabelecimento</span><strong>${escapeHTML(cfg.razao)}</strong></div>
+          ${cfg.cnpj ? `<div class="capa-item half"><span>CNPJ</span><strong>${escapeHTML(cfg.cnpj)}</strong></div>` : ''}
+          <div class="capa-item half"><span>Vigência</span><strong>Ano de ${cfg.ano}</strong></div>
+          <div class="capa-item"><span>Responsável Técnico</span><strong>${escapeHTML(cfg.rt_nome)}</strong></div>
+          <div class="capa-item half"><span>Registro</span><strong>${escapeHTML(planoFormatRegistro(cfg.rt_conselho, cfg.rt_registro))}</strong></div>
+          ${cfg.rt_art ? `<div class="capa-item half"><span>ART/TRT</span><strong>${escapeHTML(cfg.rt_art)}</strong></div>` : ''}
+        </div>
       </div>
       <div class="capa-emissao">${escapeHTML(cfg.local_emissao || '')}${cfg.local_emissao ? ', ' : ''}${emissaoBR}</div>
     </div>`;
@@ -621,25 +627,26 @@ function gerarDocumentoPMOC() {
     CHECKLIST_PERIODICIDADE_INFO.forEach(p => {
       const itens = defs[p.key] || [];
       if (!itens.length) return;
-      linhas += `<tr class="tr-periodo"><td colspan="2">${PLANO_PERIODO_LABEL[p.key]}</td></tr>`;
+      linhas += `<tr class="tr-periodo"><td colspan="3">${PLANO_PERIODO_LABEL[p.key]}</td></tr>`;
       itens.forEach(([key, label]) => {
         const condicional = cat === 'AC' ? CHECKLIST_ITEM_CONDICIONAL[key] : undefined;
+        const avaliacao = `<div class="avaliacao-opcoes"><span>C</span><span>NC</span><span>NA</span></div>`;
         if (condicional === 'agua_aberta' && !temAguaAberta) {
-          linhas += `<tr style="color:#a0aec0;"><td>${escapeHTML(label)} <em>(não aplicável — nenhum sistema de água aberto cadastrado: torre de resfriamento, condensador evaporativo ou água gelada)</em></td><td style="text-align:center;width:82px;">N/A</td></tr>`;
+          linhas += `<tr style="color:#a0aec0;"><td>${escapeHTML(label)} <em>(não aplicável — nenhum sistema de água aberto cadastrado: torre de resfriamento, condensador evaporativo ou água gelada)</em></td><td style="text-align:center;width:82px;">N/A</td><td style="text-align:center;width:76px;">—</td></tr>`;
         } else if (condicional === 'porte_maior' && !temPorteMaior) {
-          linhas += `<tr style="color:#a0aec0;"><td>${escapeHTML(label)} <em>(não aplicável — nenhum equipamento de maior porte cadastrado)</em></td><td style="text-align:center;width:82px;">N/A</td></tr>`;
+          linhas += `<tr style="color:#a0aec0;"><td>${escapeHTML(label)} <em>(não aplicável — nenhum equipamento de maior porte cadastrado)</em></td><td style="text-align:center;width:82px;">N/A</td><td style="text-align:center;width:76px;">—</td></tr>`;
         } else if (condicional === 'porte_maior') {
-          linhas += `<tr><td>${escapeHTML(label)} <em>(quando aplicável)</em></td><td style="text-align:center;width:82px;">${PLANO_PERIODO_LABEL[p.key]}</td></tr>`;
+          linhas += `<tr><td>${escapeHTML(label)} <em>(quando aplicável)</em></td><td style="text-align:center;width:82px;">${PLANO_PERIODO_LABEL[p.key]}</td><td style="width:76px;">${avaliacao}</td></tr>`;
         } else {
-          linhas += `<tr><td>${escapeHTML(label)}</td><td style="text-align:center;width:82px;">${PLANO_PERIODO_LABEL[p.key]}</td></tr>`;
+          linhas += `<tr><td>${escapeHTML(label)}</td><td style="text-align:center;width:82px;">${PLANO_PERIODO_LABEL[p.key]}</td><td style="width:76px;">${avaliacao}</td></tr>`;
         }
       });
     });
     const nEq = _planoEqs.filter(e => planoNormCat(e.categoria) === cat).length;
     sec5Corpo += `
       <div class="cat-titulo">${escapeHTML(PLANO_CAT_LABEL[cat])} — ${nEq} equipamento(s)</div>
-      <table class="tb-lista">
-        <thead><tr><th>Atividade de Manutenção e Controle</th><th style="width:82px;">Periodicidade</th></tr></thead>
+      <table class="tb-lista tb-atividades">
+        <thead><tr><th>Atividade de Manutenção e Controle</th><th style="width:82px;">Periodicidade</th><th style="width:76px;">Avaliação</th></tr></thead>
         <tbody>${linhas}</tbody>
       </table>`;
   });
@@ -649,7 +656,10 @@ function gerarDocumentoPMOC() {
       <div class="sec-titulo">6. PLANO DE ATIVIDADES DE MANUTENÇÃO E CONTROLE</div>
       <p class="texto">As atividades abaixo são cumulativas por periodicidade: nas execuções trimestrais são
       realizadas também as rotinas mensais; nas semestrais, as mensais e trimestrais; e assim sucessivamente.
-      A execução é registrada por equipamento na respectiva ficha de manutenção (laudo PMOC).</p>
+      A execução é registrada por equipamento na respectiva ficha de manutenção (laudo PMOC), que traz o
+      critério de avaliação de cada item: <strong>C</strong> — Conforme (atende integralmente); <strong>NC</strong>
+      — Não Conforme (requer ação corretiva/Ordem de Serviço); <strong>NA</strong> — Não Aplicável ao equipamento
+      ou sistema em questão.</p>
       ${sec5Corpo}
     </div>`;
 
@@ -765,8 +775,7 @@ function gerarDocumentoPMOC() {
 
   const rodape = `
     <div class="doc-rodape">
-      PMOC ${cfg.ano} — ${escapeHTML(cfg.razao)} · Documento gerado pelo sistema Concredur em ${fmtDate(hoje())}
-      · Lei nº 13.589/2018 · Portaria MS nº 3.523/98
+      PMOC ${cfg.ano} — ${escapeHTML(cfg.razao)} · Lei nº 13.589/2018 · Portaria MS nº 3.523/98
     </div>`;
 
   const html = capa + sec1 + sec2 + sec3 + sec4 + sec5Memorial + sec5 + secQai + sec6 + sec7 + sec8 + rodape;
@@ -784,16 +793,29 @@ function gerarDocumentoPMOC() {
 
       /* Capa */
       .capa{min-height:230mm;display:flex;flex-direction:column;align-items:center;justify-content:center;
-            text-align:center;page-break-after:always;break-after:page;}
-      .capa-titulo{font-size:26px;font-weight:700;color:#1e3a5f;line-height:1.25;margin-bottom:8px;}
-      .capa-sub{font-size:13px;color:#4a5568;margin-bottom:6px;}
-      .capa-legal{font-size:9px;color:#94a3b8;margin-bottom:34px;}
-      .capa-box{border:1px solid #cbd5e1;border-radius:8px;padding:18px 26px;min-width:340px;text-align:left;}
-      .capa-linha{display:flex;justify-content:space-between;gap:24px;padding:4px 0;font-size:11px;
-                  border-bottom:1px dashed #e2e8f0;}
-      .capa-linha:last-child{border-bottom:none;}
-      .capa-linha span{color:#64748b;}
-      .capa-emissao{margin-top:30px;font-size:10px;color:#64748b;}
+            text-align:center;page-break-after:always;break-after:page;position:relative;
+            background:linear-gradient(180deg,#f4f7fb 0%,#ffffff 45%);}
+      .capa::before{content:'';position:absolute;top:0;left:0;right:0;height:10px;background:#1e3a5f;}
+      .capa::after{content:'';position:absolute;bottom:0;left:0;right:0;height:10px;background:#1e3a5f;}
+      .capa-logo-wrap{background:#1e3a5f;border-radius:14px;padding:18px 34px;margin-bottom:28px;
+                       box-shadow:0 10px 24px rgba(30,58,95,.28);}
+      .capa-logo-wrap img{height:44px;width:auto;display:block;filter:brightness(0) invert(1);}
+      .capa-titulo{font-size:27px;font-weight:700;color:#1e3a5f;line-height:1.28;margin-bottom:10px;letter-spacing:.01em;}
+      .capa-sub{font-size:13px;color:#4a5568;margin-bottom:16px;font-weight:600;}
+      .capa-legal{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;max-width:430px;margin-bottom:36px;}
+      .capa-legal span{font-size:8px;color:#1e3a5f;background:#eef2ff;border:1px solid #c7d2ef;
+                        border-radius:10px;padding:3px 9px;font-weight:600;letter-spacing:.02em;white-space:nowrap;}
+      .capa-box{border:1px solid #cbd5e1;border-radius:10px;min-width:370px;max-width:430px;text-align:left;
+                overflow:hidden;box-shadow:0 6px 18px rgba(30,58,95,.10);background:#fff;}
+      .capa-box-header{background:#1e3a5f;color:#fff;font-size:10px;font-weight:700;letter-spacing:.09em;
+                        text-transform:uppercase;padding:8px 20px;}
+      .capa-box-body{padding:14px 20px 16px;display:grid;grid-template-columns:1fr 1fr;gap:0 22px;}
+      .capa-item{grid-column:1 / -1;padding:7px 0;border-bottom:1px dashed #e2e8f0;}
+      .capa-item.half{grid-column:auto;}
+      .capa-item:last-child, .capa-item.half:nth-last-child(-n+2){border-bottom:none;}
+      .capa-item span{display:block;font-size:7.5px;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px;}
+      .capa-item strong{font-size:11.5px;color:#1a202c;}
+      .capa-emissao{margin-top:26px;font-size:10px;color:#64748b;font-weight:600;}
 
       /* Seções */
       .sec{margin-bottom:16px;break-inside:auto;}
@@ -811,6 +833,11 @@ function gerarDocumentoPMOC() {
       .tr-grupo td{background:#f0f4ff;font-weight:700;color:#1e3a5f;font-size:8.5px;}
       .tr-periodo td{background:#f8fafc;font-weight:700;color:#475569;font-size:8.5px;letter-spacing:.03em;}
       .cat-titulo{font-size:9.5px;font-weight:700;color:#1e3a5f;margin:10px 0 4px;break-after:avoid;page-break-after:avoid;}
+
+      /* Avaliação (C/NC/NA) na tabela de atividades */
+      .avaliacao-opcoes{display:flex;gap:4px;justify-content:center;}
+      .avaliacao-opcoes span{border:1px solid #94a3b8;border-radius:3px;padding:1px 4px;
+                              font-size:7px;color:#475569;font-weight:700;background:#fff;}
 
       /* Cronograma */
       .tb-cron th{text-align:center;font-size:8px;padding:3px 2px;}
