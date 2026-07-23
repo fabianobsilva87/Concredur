@@ -431,10 +431,21 @@ let _planoEqs = [];
 async function carregarEquipamentosPlano() {
   const { data, error } = await db
     .from('equipamentos')
-    .select('id, tag, produto, marca, categoria, potencia, bloco, setor, sala, criticidade, nr_serie, patrimonio, extras_tecnico')
+    .select('id, tag, produto, marca, categoria, potencia, bloco, setor, sala, sala_id, criticidade, nr_serie, patrimonio, extras_tecnico')
     .order('tag', { ascending: true });
   if (error) { planoToast('❌ Erro ao carregar equipamentos: ' + error.message, true); return; }
   _planoEqs = data || [];
+}
+
+// ── Adequação da carga térmica por sala (usa classificarAdequacaoCarga, fonte única em app.js) ──
+let _planoSalas = [];
+async function carregarSalasAdequacaoPlano() {
+  const { data, error } = await db
+    .from('salas')
+    .select('id, nome, carga_termica_btu, setores(nome, blocos(nome))')
+    .order('nome', { ascending: true });
+  if (error) { console.warn('Não foi possível carregar salas para adequação térmica:', error.message); return; }
+  _planoSalas = (data || []).filter(s => (parseFloat(s.carga_termica_btu) || 0) > 0);
 }
 
 // ── Cronograma: meses ativos de cada periodicidade a partir do mês inicial ─
@@ -563,6 +574,41 @@ function gerarDocumentoPMOC() {
     });
   });
 
+  // Adequação da carga térmica por sala (nota resumida — cálculo completo permanece no
+  // Relatório de Adequação de Salas do dashboard; classificação usa a mesma função
+  // compartilhada classificarAdequacaoCarga, definida em app.js).
+  const capInstaladaPorSala = {};
+  _planoEqs.forEach(eq => {
+    if (planoNormCat(eq.categoria) !== 'AC' || !eq.sala_id) return;
+    capInstaladaPorSala[eq.sala_id] = (capInstaladaPorSala[eq.sala_id] || 0) + parseCapacidadeBTU(eq.potencia);
+  });
+  const ADEQ_COR = {
+    'Adequada': '#059669', 'Subdimensionada': '#dc2626',
+    'Superdimensionada': '#1e40af', 'Sem climatização': '#718096',
+  };
+  let linhasAdeq = '';
+  _planoSalas.forEach(s => {
+    const prevista  = Math.round(parseFloat(s.carga_termica_btu) || 0);
+    const instalada = Math.round(capInstaladaPorSala[s.id] || 0);
+    const { status } = classificarAdequacaoCarga(prevista, instalada);
+    const local = [s.setores?.blocos?.nome, s.setores?.nome].filter(Boolean).join(' / ') || '—';
+    linhasAdeq += `<tr>
+      <td>${escapeHTML(s.nome)}</td>
+      <td>${escapeHTML(local)}</td>
+      <td style="text-align:right;">${prevista.toLocaleString('pt-BR')}</td>
+      <td style="text-align:right;">${instalada.toLocaleString('pt-BR')}</td>
+      <td style="text-align:center;color:${ADEQ_COR[status]};font-weight:700;">${status}</td>
+    </tr>`;
+  });
+  const secAdequacao = _planoSalas.length ? `
+    <div class="cat-titulo">Adequação da Carga Térmica por Ambiente</div>
+    <table class="tb-lista">
+      <thead><tr><th>Sala/Ambiente</th><th>Bloco › Setor</th><th style="width:90px;">Prevista (BTU/h)</th><th style="width:90px;">Instalada (BTU/h)</th><th style="width:120px;">Situação</th></tr></thead>
+      <tbody>${linhasAdeq}</tbody>
+    </table>
+    <p class="texto" style="font-size:8px;color:#718096;">Classificação de referência (capacidade instalada entre 100% e 130% da carga prevista =
+    Adequada). Memória de cálculo completa (área, ocupação, insolação) disponível no Relatório de Adequação de Salas do sistema.</p>` : '';
+
   const sec4 = `
     <div class="sec">
       <div class="sec-titulo">4. RELAÇÃO DE AMBIENTES E EQUIPAMENTOS CLIMATIZADOS</div>
@@ -577,6 +623,7 @@ function gerarDocumentoPMOC() {
         </tr></thead>
         <tbody>${linhasEq}</tbody>
       </table>
+      ${secAdequacao}
     </div>`;
 
   // ── 5. Memorial descritivo do sistema (item 12) — gerado a partir do parque cadastrado ──
@@ -778,7 +825,56 @@ function gerarDocumentoPMOC() {
       PMOC ${cfg.ano} — ${escapeHTML(cfg.razao)} · Lei nº 13.589/2018 · Portaria MS nº 3.523/98
     </div>`;
 
-  const html = capa + sec1 + sec2 + sec3 + sec4 + sec5Memorial + sec5 + secQai + sec6 + sec7 + sec8 + rodape;
+  // ── 11. Guia de Execução dos Itens de Verificação (POP-PMOC-001) ──
+  // Embutido no mesmo documento a pedido do RT: usa CHECKLIST_PMOC_DEFS (labels/periodicidade)
+  // e CHECKLIST_EXECUCAO_GUIA (como executar, critérios C/NC/NA, ferramenta/segurança) — ambos
+  // fonte única em app.js — restrito às categorias efetivamente presentes no parque cadastrado.
+  let guiaCorpo = '';
+  catsPresentes.forEach(cat => {
+    const defs = CHECKLIST_PMOC_DEFS[cat] || CHECKLIST_PMOC_DEFS.OUT;
+    const nEqCat = _planoEqs.filter(e => planoNormCat(e.categoria) === cat).length;
+    guiaCorpo += `<div class="guia-cat-header">${escapeHTML(PLANO_CAT_LABEL[cat])} — ${nEqCat} equipamento(s) cadastrado(s)</div>`;
+    CHECKLIST_PERIODICIDADE_INFO.forEach(p => {
+      const itens = defs[p.key] || [];
+      if (!itens.length) return;
+      guiaCorpo += `<div class="guia-periodo">${PLANO_PERIODO_LABEL[p.key]}</div>`;
+      itens.forEach(([key, label]) => {
+        const g = CHECKLIST_EXECUCAO_GUIA[key];
+        const badge = key.replace('_', '-').toUpperCase();
+        if (!g) {
+          guiaCorpo += `<div class="guia-item"><div class="guia-item-header"><span class="guia-badge">${escapeHTML(badge)}</span><span class="guia-item-titulo">${escapeHTML(label)}</span></div></div>`;
+          return;
+        }
+        const extras = [];
+        if (g.ferramenta) extras.push(`<span><b>FERRAMENTA</b> ${escapeHTML(g.ferramenta)}</span>`);
+        if (g.seguranca)  extras.push(`<span><b>SEGURANÇA</b> ${escapeHTML(g.seguranca)}</span>`);
+        guiaCorpo += `
+          <div class="guia-item">
+            <div class="guia-item-header"><span class="guia-badge">${escapeHTML(badge)}</span><span class="guia-item-titulo">${escapeHTML(label)}</span></div>
+            <div class="guia-exec-label">Como Executar</div>
+            <div class="guia-exec-texto">${escapeHTML(g.exec)}</div>
+            <div class="guia-avaliacao">
+              <div class="guia-crit c"><strong>C · Conforme</strong>${escapeHTML(g.c)}</div>
+              <div class="guia-crit nc"><strong>NC · Não Conforme</strong>${escapeHTML(g.nc)}</div>
+              <div class="guia-crit na"><strong>NA · Não Aplicável</strong>${escapeHTML(g.na)}</div>
+            </div>
+            ${extras.length ? `<div class="guia-extra">${extras.join('')}</div>` : ''}
+          </div>`;
+      });
+    });
+  });
+
+  const sec9Guia = `
+    <div class="sec">
+      <div class="sec-titulo">11. GUIA DE EXECUÇÃO DOS ITENS DE VERIFICAÇÃO (POP-PMOC-001)</div>
+      <p class="texto">Manual de campo para os executantes: o procedimento a ser realizado em cada item do
+      checklist da Seção 6, e os critérios objetivos para classificar o resultado como <strong>C</strong>
+      (Conforme), <strong>NC</strong> (Não Conforme) ou <strong>NA</strong> (Não Aplicável) no laudo PMOC do
+      sistema. Os códigos seguem exatamente o checklist desta Seção 6.</p>
+      ${guiaCorpo}
+    </div>`;
+
+  const html = capa + sec1 + sec2 + sec3 + sec4 + sec5Memorial + sec5 + secQai + sec6 + sec7 + sec8 + sec9Guia + rodape;
 
   // ── Popup de impressão (mesma técnica das demais impressões do sistema) ──
   const win = window.open('', '_blank', 'width=1000,height=760');
@@ -867,6 +963,29 @@ function gerarDocumentoPMOC() {
 
       .doc-rodape{margin-top:18px;padding-top:6px;border-top:1px solid #cbd5e1;
                   font-size:7.5px;color:#94a3b8;text-align:center;}
+
+      /* Guia de Execução (POP-PMOC-001) — embutido no mesmo documento */
+      .guia-cat-header{background:#1e3a5f;color:#fff;padding:6px 10px;font-size:10px;font-weight:700;
+                        margin:16px 0 8px;border-radius:4px;break-after:avoid;page-break-after:avoid;}
+      .guia-periodo{background:#f8fafc;font-weight:700;color:#475569;font-size:8.5px;letter-spacing:.05em;
+                     text-transform:uppercase;padding:4px 9px;margin:10px 0 8px;border-left:3px solid #1e3a5f;
+                     break-after:avoid;page-break-after:avoid;}
+      .guia-item{border:1px solid #cbd5e1;border-radius:8px;padding:10px 13px;margin-bottom:9px;
+                  break-inside:avoid;page-break-inside:avoid;}
+      .guia-item-header{display:flex;align-items:center;gap:9px;margin-bottom:7px;flex-wrap:wrap;}
+      .guia-badge{background:#1e3a5f;color:#fff;font-size:8.5px;font-weight:700;border-radius:4px;
+                   padding:2px 7px;white-space:nowrap;}
+      .guia-item-titulo{font-size:9.5px;font-weight:700;color:#1a202c;}
+      .guia-exec-label{font-size:7.5px;font-weight:700;color:#64748b;text-transform:uppercase;
+                        letter-spacing:.06em;margin-bottom:2px;}
+      .guia-exec-texto{font-size:8.5px;color:#334155;margin-bottom:7px;text-align:justify;}
+      .guia-avaliacao{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;}
+      .guia-crit{border-radius:6px;padding:5px 7px;font-size:7.5px;color:#334155;}
+      .guia-crit.c{background:#ecfdf5;} .guia-crit.nc{background:#fef2f2;} .guia-crit.na{background:#f1f5f9;}
+      .guia-crit strong{display:block;font-size:8px;margin-bottom:2px;}
+      .guia-crit.c strong{color:#059669;} .guia-crit.nc strong{color:#dc2626;} .guia-crit.na strong{color:#64748b;}
+      .guia-extra{margin-top:7px;font-size:7.5px;color:#475569;display:flex;gap:16px;flex-wrap:wrap;}
+      .guia-extra b{color:#92400e;}
     </style></head>
     <body>${html}
     <script>window.addEventListener('load',function(){setTimeout(function(){window.print();window.addEventListener('afterprint',function(){window.close();});},600);});<\/script>
@@ -885,6 +1004,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Carrega config salva e inventário
   await carregarConfigPlano();
   await carregarEquipamentosPlano();
+  await carregarSalasAdequacaoPlano();
 });
 </script>
 </body>

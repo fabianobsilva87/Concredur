@@ -748,6 +748,17 @@ function parseCapacidadeBTU(str) {
   return isNaN(n) ? 0 : n;
 }
 
+// Classifica a adequação da carga térmica de uma sala — fonte única, usada tanto no
+// Relatório de Adequação de Salas (dashboard) quanto na Seção 4 do Plano PMOC.
+// minPct/maxPct definem a faixa aceitável da capacidade instalada em relação à prevista.
+function classificarAdequacaoCarga(prevista, instalada, minPct = 100, maxPct = 130) {
+  const minRatio = minPct / 100, maxRatio = maxPct / 100;
+  if (instalada <= 0)                       return { status: 'Sem climatização',  cls: ''         };
+  if (instalada < prevista * minRatio)      return { status: 'Subdimensionada',   cls: 'danger'   };
+  if (instalada > prevista * maxRatio)      return { status: 'Superdimensionada', cls: 'andamento'};
+  return { status: 'Adequada', cls: 'success' };
+}
+
 // Relatório de Adequação da Carga Térmica por Sala (impressão/PDF, A4 paisagem).
 // Compara a carga térmica prevista de cada sala (carga_termica_btu, calculada em Locais → Salas)
 // com a capacidade de climatização instalada — soma da capacidade (BTU/h) dos aparelhos de
@@ -789,8 +800,6 @@ async function emitirRelatorioAdequacaoSalas() {
   let maxPct = parseInt($('adeq-limite-max')?.value);
   if (!Number.isFinite(minPct) || minPct < 1)      minPct = 100;
   if (!Number.isFinite(maxPct) || maxPct < minPct) maxPct = Math.max(minPct, 130);
-  const minRatio = minPct / 100;
-  const maxRatio = maxPct / 100;
 
   let nOk = 0, nSub = 0, nSuper = 0, nSem = 0;
   const dados = listaSalas.map(s => {
@@ -798,11 +807,12 @@ async function emitirRelatorioAdequacaoSalas() {
     const instalada = Math.round(capMap[s.id] || 0);
     const nAC       = acCountMap[s.id] || 0;
     const pct       = prevista > 0 ? (instalada / prevista) * 100 : 0;
-    let status, cls, ordem;
-    if (instalada <= 0)                          { status = 'Sem climatização';  cls = '';          ordem = 1; nSem++;   }
-    else if (instalada < prevista * minRatio)    { status = 'Subdimensionada';   cls = 'danger';    ordem = 0; nSub++;   }
-    else if (instalada > prevista * maxRatio)    { status = 'Superdimensionada'; cls = 'andamento'; ordem = 3; nSuper++; }
-    else                                         { status = 'Adequada';          cls = 'success';   ordem = 2; nOk++;    }
+    const { status, cls } = classificarAdequacaoCarga(prevista, instalada, minPct, maxPct);
+    let ordem;
+    if (status === 'Subdimensionada')        { ordem = 0; nSub++;   }
+    else if (status === 'Sem climatização')  { ordem = 1; nSem++;   }
+    else if (status === 'Superdimensionada'){ ordem = 3; nSuper++; }
+    else                                     { ordem = 2; nOk++;    }
     const local = [s.setores?.blocos?.nome, s.setores?.nome].filter(Boolean).join(' / ') || '—';
     return { s, prevista, instalada, nAC, pct, status, cls, ordem, local, saldo: instalada - prevista };
   }).sort((a, b) => a.ordem - b.ordem || a.pct - b.pct);
@@ -2106,6 +2116,553 @@ const CHECKLIST_PERIODICIDADE_INFO = [
   { key: 'semestral',  freqLetra: 'S', titulo: '📆 Rotinas Semestrais'  },
   { key: 'anual',      freqLetra: 'A', titulo: '📋 Rotinas Anuais'      },
 ];
+
+// ===================== GUIA DE EXECUÇÃO DOS ITENS (POP-PMOC-001) =====================
+// Fonte única do "como executar", critérios de avaliação (C/NC/NA) e ferramenta/segurança
+// de cada item do checklist. Chaveado pelas MESMAS chaves de CHECKLIST_PMOC_DEFS — nunca
+// duplicar os textos de atividade aqui, apenas o detalhamento operacional de campo.
+// Usado no Plano PMOC (Seção "Guia de Execução") e disponível para qualquer outro
+// renderizador que precise do mesmo detalhamento (ex.: app do técnico em campo).
+const CHECKLIST_EXECUCAO_GUIA = {
+  // ── AC / Split ──────────────────────────────────────────────────────────
+  bio_01: {
+    exec: 'Aspirar/retirar lodo e sujidade da bandeja, lavar e secar. Aplicar sanitizante (ou solução biocida) conforme dosagem do fabricante.',
+    c: 'Bandeja limpa, sem incrustação, com sanitizante aplicado.',
+    nc: 'Bandeja trincada/vazando ou com biofilme persistente que não saiu na limpeza.',
+    na: 'Modelo sem bandeja de condensados acessível.',
+  },
+  bio_02: {
+    exec: 'Despejar água na bandeja e confirmar escoamento total pelo dreno. Se houver acúmulo, desobstruir com sopro/serpente ou solução. Verificar caimento e sifão.',
+    c: 'Água escoa livremente, sem retorno nem vazamento.',
+    nc: 'Dreno entupido que não desobstruiu, ou vazamento na tubulação.',
+    na: 'Sistema sem rede de drenagem (ex.: ambiente seco).',
+    ferramenta: 'Bomba de vácuo manual / mangueira',
+  },
+  fil_01: {
+    exec: 'Remover os filtros, lavar os laváveis (G4) em água corrente com sabão neutro e secar à sombra; filtros descartáveis (F7/F9) devem ser trocados. Recolocar somente secos e sem deformação.',
+    c: 'Filtro limpo/seco recolocado, ou filtro novo instalado, sem rasgos.',
+    nc: 'Filtro rasgado, saturado e sem reposição disponível, ou moldura danificada.',
+    na: 'Equipamento sem elemento filtrante removível.',
+    seguranca: 'Use máscara PFF2 ao manusear filtros sujos.',
+  },
+  mec_01: {
+    exec: 'Com o equipamento ligado, ouvir ruídos anormais e sentir vibração. Inspecionar coxins/amortecedores e reapertar fixadores frouxos.',
+    c: 'Funcionamento silencioso e estável, fixadores firmes.',
+    nc: 'Ruído/vibração excessivos, coxim ressecado ou peça solta sem correção possível em campo.',
+    na: 'Conjunto inacessível no momento da inspeção.',
+    ferramenta: 'Chave de fenda / catraca',
+  },
+  amb_01: {
+    exec: 'Inspecionar o ambiente climatizado quanto à presença de sujidade, odores desagradáveis, fontes de ruído anormal e condições de higiene geral.',
+    c: 'Ambiente limpo, sem odores e sem fontes de ruído identificadas.',
+    nc: 'Sujidade excessiva, odores persistentes ou fonte de ruído identificada não corrigida.',
+    na: 'Área inacessível durante a inspeção.',
+  },
+  amb_02: {
+    exec: 'Verificar presença de infiltrações de água, umidade excessiva e armazenagem inadequada de produtos químicos próximos ao sistema de climatização.',
+    c: 'Sem infiltrações e sem produtos químicos inadequadamente armazenados.',
+    nc: 'Infiltração ativa ou produto químico identificado com risco ao sistema.',
+    na: 'Acesso ao ambiente restrito no momento.',
+  },
+  amb_03: {
+    exec: 'Identificar fontes de radiação, poluentes ou outros riscos que possam comprometer a qualidade do ar interior do ambiente climatizado.',
+    c: 'Nenhuma fonte de risco identificada.',
+    nc: 'Fonte de risco identificada e não corrigida em campo.',
+    na: 'Ambiente sem fontes de risco identificadas.',
+  },
+  amb_04: {
+    exec: 'Realizar avaliação geral das condições de limpeza, conservação e organização do ambiente climatizado conforme exigência da Portaria nº 3.523/98.',
+    c: 'Ambiente em conformidade com os requisitos da norma.',
+    nc: 'Condições em desacordo com os requisitos normativos.',
+    na: 'Não aplicável a este tipo de instalação.',
+  },
+  bio_03: {
+    exec: 'Aplicar produto específico (coil cleaner) nas serpentinas evaporadora/condensadora e enxaguar com baixa pressão, protegendo componentes elétricos.',
+    c: 'Serpentinas limpas, aletas íntegras e desobstruídas.',
+    nc: 'Aletas amassadas/corroídas ou incrustação que não saiu.',
+    na: 'Serpentina inacessível sem desmontagem maior (agendar).',
+    ferramenta: 'Pulverizador / produto coil cleaner',
+    seguranca: 'Proteja conexões elétricas; use luva nitrílica e óculos.',
+  },
+  ele_01: {
+    exec: 'Com alicate amperímetro e multímetro, medir corrente de operação e tensão de alimentação; comparar com os valores de placa.',
+    c: 'Valores dentro da faixa nominal de placa.',
+    nc: 'Corrente acima do nominal ou tensão fora da faixa.',
+    na: 'Sem ponto de medição seguro acessível.',
+    ferramenta: 'Alicate amperímetro / multímetro',
+    seguranca: 'NR-10: trabalho em circuito energizado exige EPI e habilitação.',
+  },
+  ele_02: {
+    exec: 'Desenergizar, aplicar torque nos bornes e conexões do quadro conforme especificação; verificar pontos com sinal de aquecimento.',
+    c: 'Conexões reapertadas, sem oxidação ou marca de calor.',
+    nc: 'Borne com sobreaquecimento, cabo carbonizado ou conector danificado.',
+    na: 'Equipamento sem quadro de comando próprio.',
+    ferramenta: 'Chave de torque / chaves isoladas',
+    seguranca: 'NR-10: desenergizar e bloquear (lockout/tagout).',
+  },
+  fil_02: {
+    exec: 'Medir a queda de pressão (∆P) através do banco de filtros com manômetro diferencial e comparar com o limite do fabricante.',
+    c: '∆P dentro da faixa especificada.',
+    nc: '∆P acima do limite (filtro saturado), indicando troca.',
+    na: 'Equipamento sem tomadas de pressão ou sem filtro mensurável.',
+    ferramenta: 'Manômetro diferencial',
+  },
+  mec_02: {
+    exec: 'Aplicar graxa/óleo recomendado nos pontos de lubrificação; remover excesso. Girar manualmente para confirmar suavidade.',
+    c: 'Rolamentos lubrificados e girando sem ruído.',
+    nc: 'Rolamento travando, com folga ou ruído mesmo após lubrificar.',
+    na: 'Motor com rolamento blindado/selado (lubrificação permanente).',
+    ferramenta: 'Graxeira / graxa específica',
+  },
+  bio_04: {
+    exec: 'Coletar amostra em frasco esterilizado conforme protocolo, identificar e encaminhar ao laboratório.',
+    c: 'Amostra coletada, identificada e enviada.',
+    nc: 'Não foi possível coletar (sem reservatório/água) quando exigido.',
+    na: 'Sistema sem água (split de expansão direta).',
+    ferramenta: 'Frasco estéril / etiqueta',
+  },
+  dut_01: {
+    exec: 'Inspecionar internamente e externamente os dutos e caixa de plenum verificando sujidade, danos estruturais e sinais de corrosão.',
+    c: 'Dutos e plenum limpos, sem danos ou corrosão.',
+    nc: 'Sujidade excessiva, dano estrutural ou corrosão identificada.',
+    na: 'Sistema sem dutos (fancoil de retorno direto).',
+  },
+  dut_02: {
+    exec: 'Verificar a vedação das portas de inspeção e das conexões entre trechos de duto; reforçar vedação se necessário.',
+    c: 'Portas e conexões vedadas sem infiltração de ar.',
+    nc: 'Vazamento de ar identificado em porta ou conexão.',
+    na: 'Sem portas de inspeção instaladas.',
+  },
+  dut_03: {
+    exec: 'Inspecionar o isolamento térmico dos dutos e corrigir ou registrar para manutenção trechos com dano, deterioração ou ausência.',
+    c: 'Isolamento íntegro em todo o percurso inspecionado.',
+    nc: 'Trecho sem isolamento ou com dano significativo não corrigível em campo.',
+    na: 'Dutos sem isolamento térmico previsto em projeto.',
+  },
+  dut_04: {
+    exec: 'Verificar sujidade, fixação e medir a vazão das bocas de insuflamento e retorno; ajustar dampers se necessário.',
+    c: 'Bocas limpas, fixas e com vazão dentro do projetado.',
+    nc: 'Boca suja/solta ou vazão significativamente fora do projeto.',
+    na: 'Sistema sem bocas de ar definidas (difusor embutido).',
+  },
+  dut_05: {
+    exec: 'Verificar funcionamento, bloqueio e balanceamento dos registros de ar e da tomada de ar externo.',
+    c: 'Dampers operando e ar externo balanceado conforme projeto.',
+    nc: 'Damper travado, bloqueado ou tomada de ar externo obstruída.',
+    na: 'Sistema sem dampers ou tomada de ar externo.',
+  },
+  ele_03: {
+    exec: 'Desenergizar e medir a resistência de isolamento entre bobinas e carcaça com megôhmetro, comparando ao mínimo aceitável.',
+    c: 'Resistência de isolamento acima do mínimo (tipicamente ≥ 1 MΩ por norma do fabricante).',
+    nc: 'Isolamento abaixo do mínimo (risco de fuga/curto).',
+    na: 'Motor inacessível para desconexão segura.',
+    ferramenta: 'Megôhmetro',
+    seguranca: 'NR-10: desenergizar, bloquear e descarregar antes de medir.',
+  },
+  ele_04: {
+    exec: 'Simular/verificar atuação dos dispositivos de proteção e confirmar disparo nos setpoints especificados.',
+    c: 'Dispositivos atuam corretamente nos pontos definidos.',
+    nc: 'Proteção não atua ou atua fora do setpoint.',
+    na: 'Equipamento sem esses dispositivos.',
+    ferramenta: 'Multímetro / manômetro',
+  },
+  ins_01: {
+    exec: 'Verificar suportes, mãos-francesas, parafusos e o estado do isolamento térmico das tubulações.',
+    c: 'Estrutura firme e isolamento íntegro.',
+    nc: 'Suporte corroído/solto ou isolamento deteriorado.',
+    na: '—',
+    seguranca: 'NR-35 quando em altura: usar cinto e linha de vida.',
+  },
+  mec_03: {
+    exec: 'Verificar tensão, alinhamento e desgaste da correia; ajustar tensão e alinhar polias; substituir se ressecada/rachada.',
+    c: 'Correia tensionada, alinhada e em bom estado.',
+    nc: 'Correia desgastada/folgada sem reposição em campo, ou polia danificada.',
+    na: 'Acionamento direto (sem correia/polia).',
+    ferramenta: 'Tensiômetro / régua de alinhamento',
+  },
+  ref_01: {
+    exec: 'Conectar manifold e ler pressões de alta e baixa em regime; comparar com a tabela do refrigerante e condição ambiente.',
+    c: 'Pressões compatíveis com a tabela do fluido para a temperatura medida.',
+    nc: 'Pressões indicando carga insuficiente/excessiva ou restrição.',
+    na: 'Sistema selado sem válvula de serviço.',
+    ferramenta: 'Manifold / tabela P-T',
+    seguranca: 'Manuseio de fluido frigorígeno: luva e óculos; risco de queimadura por frio.',
+  },
+  ref_02: {
+    exec: 'Percorrer conexões, soldas e serpentinas com detector eletrônico (ou espuma/bolha) buscando pontos de fuga.',
+    c: 'Nenhum vazamento detectado.',
+    nc: 'Vazamento confirmado em qualquer ponto do circuito.',
+    na: '—',
+    ferramenta: 'Detector eletrônico de gás',
+  },
+  bio_05: {
+    exec: 'Higienizar todo o sistema de ar e coletar/anexar laudos microbiológicos do ambiente conforme exigência sanitária.',
+    c: 'Higienização feita e laudos dentro dos parâmetros.',
+    nc: 'Laudo com parâmetro fora do limite ou higienização incompleta.',
+    na: '—',
+  },
+  ele_05: {
+    exec: 'Medir capacitância dos capacitores e inspecionar contatos dos contatores; substituir os com desgaste visível.',
+    c: 'Capacitância dentro da tolerância e contatos íntegros.',
+    nc: 'Capacitor fora de tolerância/estufado ou contato queimado.',
+    na: 'Equipamento sem esses componentes.',
+    ferramenta: 'Multímetro com medição de capacitância',
+    seguranca: 'NR-10: descarregar capacitor antes de manusear.',
+  },
+  ele_06: {
+    exec: 'Com câmera termográfica, varrer o painel em carga buscando pontos quentes em conexões e componentes.',
+    c: 'Sem pontos quentes anômalos.',
+    nc: 'Aquecimento localizado acima do esperado em conexão/componente.',
+    na: 'Sem painel elétrico próprio.',
+    ferramenta: 'Câmera termográfica',
+  },
+  ins_02: {
+    exec: 'Revisar o plano, atualizar registros, responsável técnico e ART; conferir periodicidades.',
+    c: 'Documentação revisada e atualizada.',
+    nc: 'Documentação desatualizada ou ART pendente.',
+    na: '—',
+  },
+  ins_03: {
+    exec: 'Medir temperaturas de insuflamento/retorno (Delta T) e parâmetros elétricos; estimar eficiência/COP e comparar ao projeto.',
+    c: 'Delta T e desempenho dentro do esperado para o equipamento.',
+    nc: 'Delta T baixo / desempenho degradado indicando falha.',
+    na: 'Sem pontos de medição definidos.',
+    ferramenta: 'Termo-higrômetro / alicate amperímetro',
+  },
+  mec_04: {
+    exec: 'Substituir componentes com desgaste aparente identificados na inspeção; testar funcionamento após troca.',
+    c: 'Componentes substituídos e equipamento operando normal.',
+    nc: 'Peça desgastada sem reposição disponível em campo.',
+    na: 'Nenhum componente exigiu substituição.',
+  },
+  mec_05: {
+    exec: 'Inspecionar nível e cor do óleo pelo visor; limpar a carcaça; observar sinais de superaquecimento.',
+    c: 'Óleo em nível/cor normais e compressor sem sinais de falha.',
+    nc: 'Óleo escuro/baixo ou visor com umidade/sujidade.',
+    na: 'Compressor hermético sem visor de óleo.',
+  },
+  ref_03: {
+    exec: 'Recolher o fluido (recuperadora), fazer vácuo, recarregar pela massa especificada e registrar em boletim/ART.',
+    c: 'Recarga concluída pela massa correta e documentada.',
+    nc: 'Recarga não concluída por falha do sistema (vazamento não sanado).',
+    na: 'Não houve necessidade de substituição neste ciclo.',
+    ferramenta: 'Recuperadora / balança / bomba de vácuo',
+    seguranca: 'Proibido ventilar fluido à atmosfera.',
+  },
+
+  // ── BEB / Bebedouro ─────────────────────────────────────────────────────
+  beb_01: {
+    exec: 'Limpar todas as superfícies externas com produto neutro; remover manchas e resíduos das torneiras e da bica.',
+    c: 'Superfícies limpas e sem resíduos.',
+    nc: 'Corrosão/avaria no gabinete que comprometa a higiene.',
+    na: '—',
+  },
+  beb_02: {
+    exec: 'Verificar se a água sai gelada na temperatura adequada após estabilização; observar funcionamento do compressor.',
+    c: 'Água gelada na temperatura esperada.',
+    nc: 'Água não gela / compressor não liga.',
+    na: 'Bebedouro de temperatura natural (sem refrigeração).',
+    ferramenta: 'Termômetro',
+  },
+  beb_03: {
+    exec: 'Inspecionar mangueiras, conexões e tubulações internas em busca de gotejamento ou umidade.',
+    c: 'Sem vazamentos.',
+    nc: 'Vazamento em qualquer conexão.',
+    na: '—',
+  },
+  beb_04: {
+    exec: 'Esvaziar, lavar e sanitizar a bandeja coletora; verificar o escoamento.',
+    c: 'Bandeja limpa e drenando.',
+    nc: 'Bandeja entupida/trincada.',
+    na: 'Modelo sem bandeja coletora.',
+  },
+  beb_05: {
+    exec: 'Aplicar solução de hipoclorito na concentração indicada no circuito interno, deixar agir e enxaguar abundantemente.',
+    c: 'Higienização concluída e bem enxaguada.',
+    nc: 'Não foi possível higienizar (acesso/avaria).',
+    na: '—',
+    ferramenta: 'Solução de hipoclorito',
+    seguranca: 'Use luva e ventile o ambiente.',
+  },
+  beb_06: {
+    exec: 'Acessar o reservatório, esvaziar, limpar incrustações e verificar integridade.',
+    c: 'Reservatório limpo e íntegro.',
+    nc: 'Reservatório com trinca/biofilme persistente.',
+    na: 'Modelo de fluxo contínuo sem reservatório.',
+  },
+  beb_07: {
+    exec: 'Avaliar desempenho de refrigeração e funcionamento do compressor; medir corrente se aplicável.',
+    c: 'Refrigeração e compressor operando normalmente.',
+    nc: 'Compressor com falha ou refrigeração insuficiente.',
+    na: 'Bebedouro sem refrigeração por compressor.',
+    ferramenta: 'Alicate amperímetro',
+  },
+  beb_08: {
+    exec: 'Conferir data de validade/uso e estado do filtro; avaliar necessidade de troca.',
+    c: 'Filtro dentro da validade e em bom estado.',
+    nc: 'Filtro vencido/saturado sem reposição imediata.',
+    na: 'Modelo sem elemento filtrante.',
+  },
+  beb_09: {
+    exec: 'Substituir o filtro (carvão ativado/sedimentos) e sanitizar a sede; registrar a data da troca.',
+    c: 'Filtro novo instalado e registrado.',
+    nc: 'Sem filtro de reposição compatível.',
+    na: 'Modelo sem elemento filtrante.',
+  },
+  beb_10: {
+    exec: 'Coletar amostra em frasco estéril seguindo protocolo e enviar ao laboratório.',
+    c: 'Amostra coletada e enviada.',
+    nc: 'Coleta inviável quando exigida.',
+    na: '—',
+    ferramenta: 'Frasco estéril',
+  },
+  beb_11: {
+    exec: 'Medir a temperatura de saída e ajustar o termostato para a faixa recomendada.',
+    c: 'Temperatura dentro da faixa após ajuste.',
+    nc: 'Não atinge a temperatura mesmo após ajuste.',
+    na: 'Sem controle de temperatura ajustável.',
+    ferramenta: 'Termômetro',
+  },
+  beb_12: {
+    exec: 'Aplicar lacre de sanitização e registrar número de protocolo/etiqueta com data.',
+    c: 'Lacre aplicado e protocolo registrado.',
+    nc: 'Lacre/registro não realizado.',
+    na: '—',
+    ferramenta: 'Lacre / etiqueta',
+  },
+  beb_13: {
+    exec: 'Revisar compressor, termostato e serpentina; corrigir o que for necessário e testar.',
+    c: 'Sistema revisado e operando.',
+    nc: 'Componente com falha sem correção em campo.',
+    na: 'Bebedouro sem refrigeração.',
+  },
+  beb_14: {
+    exec: 'Trocar vedações e torneiras com desgaste; testar estanqueidade.',
+    c: 'Peças trocadas, sem vazamento.',
+    nc: 'Sem peças de reposição compatíveis.',
+    na: 'Nenhuma peça exigiu troca.',
+  },
+  beb_15: {
+    exec: 'Emitir laudo sanitário e registrar no livro/controle conforme exigência ANVISA.',
+    c: 'Laudo emitido e registrado.',
+    nc: 'Laudo pendente ou parâmetro reprovado.',
+    na: '—',
+  },
+
+  // ── CLIM / Climatizador Evaporativo ─────────────────────────────────────
+  clm_01: {
+    exec: 'Esvaziar o reservatório, remover lodo e calcário, lavar e reabastecer com água limpa.',
+    c: 'Reservatório limpo e reabastecido.',
+    nc: 'Reservatório trincado/vazando.',
+    na: '—',
+  },
+  clm_02: {
+    exec: 'Limpar o painel evaporativo com jato suave sem danificar as células; verificar uniformidade do molhamento.',
+    c: 'Painel limpo e íntegro.',
+    nc: 'Células deformadas/obstruídas.',
+    na: '—',
+  },
+  clm_03: {
+    exec: 'Verificar o nível de água e a atuação da boia; ajustar para o nível correto.',
+    c: 'Boia atua e mantém o nível correto.',
+    nc: 'Boia travada/com vazamento ou nível incorreto.',
+    na: 'Modelo sem boia (abastecimento manual).',
+  },
+  clm_04: {
+    exec: 'Ligar a bomba e confirmar circulação e distribuição uniforme da água no painel.',
+    c: 'Bomba operando e distribuindo água uniformemente.',
+    nc: 'Bomba não bombeia ou distribuição desigual.',
+    na: '—',
+  },
+  clm_05: {
+    exec: 'Com o ventilador ligado, avaliar ruído/vibração e checar a fixação da hélice.',
+    c: 'Ventilador firme e silencioso.',
+    nc: 'Vibração/ruído excessivos ou hélice frouxa.',
+    na: '—',
+  },
+  clm_06: {
+    exec: 'Aplicar produto descalcificante específico, deixar agir e enxaguar bem.',
+    c: 'Reservatório descalcificado e enxaguado.',
+    nc: 'Incrustação persistente após tratamento.',
+    na: '—',
+    ferramenta: 'Descalcificante',
+    seguranca: 'Luva e óculos; ventile.',
+  },
+  clm_07: {
+    exec: 'Desobstruir e limpar chuveiros/aspersores garantindo jato uniforme.',
+    c: 'Distribuidores desobstruídos e uniformes.',
+    nc: 'Bicos entupidos sem desobstrução.',
+    na: '—',
+  },
+  clm_08: {
+    exec: 'Medir a amperagem dos motores com alicate amperímetro e comparar ao valor de placa.',
+    c: 'Correntes dentro do nominal.',
+    nc: 'Corrente acima do nominal.',
+    na: '—',
+    ferramenta: 'Alicate amperímetro',
+    seguranca: 'NR-10.',
+  },
+  clm_09: {
+    exec: 'Lubrificar pontos indicados; confirmar giro suave.',
+    c: 'Rolamentos lubrificados e suaves.',
+    nc: 'Rolamento com folga/ruído.',
+    na: 'Componentes com rolamento selado.',
+    ferramenta: 'Graxa específica',
+  },
+  clm_10: {
+    exec: 'Avaliar o desgaste do painel e decidir sobre substituição.',
+    c: 'Painel em condição de uso.',
+    nc: 'Painel degradado, exigindo troca.',
+    na: '—',
+  },
+  clm_11: {
+    exec: 'Coletar amostra da água e enviar para análise, com foco em Legionella.',
+    c: 'Resultado dentro dos parâmetros.',
+    nc: 'Resultado fora do parâmetro / coleta inviável.',
+    na: '—',
+    ferramenta: 'Frasco estéril',
+  },
+  clm_12: {
+    exec: 'Inspecionar o quadro, reapertar conexões e testar proteções.',
+    c: 'Quadro íntegro e proteções atuando.',
+    nc: 'Conexão danificada ou proteção inoperante.',
+    na: '—',
+    seguranca: 'NR-10: desenergizar.',
+  },
+  clm_13: {
+    exec: 'Aplicar biocida/antiincrustante na dosagem recomendada e registrar.',
+    c: 'Tratamento aplicado e registrado.',
+    nc: 'Tratamento não realizado.',
+    na: '—',
+    ferramenta: 'Biocida',
+  },
+  clm_14: {
+    exec: 'Substituir o painel (celulose/polipropileno) quando degradado.',
+    c: 'Painel novo instalado.',
+    nc: 'Sem painel de reposição compatível.',
+    na: 'Painel ainda em boas condições.',
+  },
+  clm_15: {
+    exec: 'Desmontar a bomba, inspecionar impelidor/eixo/vedação mecânica e recompor.',
+    c: 'Bomba revisada e operando.',
+    nc: 'Componente desgastado sem reposição.',
+    na: '—',
+  },
+  clm_16: {
+    exec: 'Emitir relatório de qualidade da água e arquivar na documentação técnica.',
+    c: 'Relatório emitido e arquivado.',
+    nc: 'Relatório pendente / parâmetro reprovado.',
+    na: '—',
+  },
+
+  // ── VEN / Ventilador / Exaustor ──────────────────────────────────────────
+  ven_01: {
+    exec: 'Desligar e remover poeira acumulada das pás/hélice e da grelha.',
+    c: 'Pás e grelha limpas.',
+    nc: 'Sujidade que compromete o desempenho e não saiu.',
+    na: '—',
+    seguranca: 'Desligue antes de limpar.',
+  },
+  ven_02: {
+    exec: 'Com o equipamento ligado, identificar ruídos anormais, vibração e folgas.',
+    c: 'Operação estável e silenciosa.',
+    nc: 'Vibração/ruído anormais ou folga aparente.',
+    na: '—',
+  },
+  ven_03: {
+    exec: 'Inspecionar e reapertar fixadores, bucins e suportes.',
+    c: 'Tudo firme e bem fixado.',
+    nc: 'Fixação comprometida sem correção possível.',
+    na: '—',
+    ferramenta: 'Chaves',
+  },
+  ven_04: {
+    exec: 'Aplicar graxa adequada nos pontos de lubrificação; confirmar giro suave.',
+    c: 'Lubrificado e girando suave.',
+    nc: 'Rolamento com folga/ruído.',
+    na: 'Rolamento selado.',
+    ferramenta: 'Graxa específica',
+  },
+  ven_05: {
+    exec: 'Medir a corrente de operação e comparar ao valor nominal de placa.',
+    c: 'Corrente dentro do nominal.',
+    nc: 'Corrente acima do nominal.',
+    na: '—',
+    ferramenta: 'Alicate amperímetro',
+    seguranca: 'NR-10.',
+  },
+  ven_06: {
+    exec: 'Desenergizar e reapertar as conexões do quadro de comando.',
+    c: 'Conexões firmes, sem marca de calor.',
+    nc: 'Conexão danificada/aquecida.',
+    na: 'Sem quadro de comando dedicado.',
+    ferramenta: 'Chaves isoladas',
+    seguranca: 'NR-10: desenergizar e bloquear.',
+  },
+  ven_07: {
+    exec: 'Desenergizar e medir o isolamento entre enrolamento e carcaça.',
+    c: 'Isolamento acima do mínimo aceitável.',
+    nc: 'Isolamento abaixo do mínimo.',
+    na: '—',
+    ferramenta: 'Megôhmetro',
+    seguranca: 'NR-10: desenergizar, bloquear, descarregar.',
+  },
+  ven_08: {
+    exec: 'Medir vibração com acelerômetro e avaliar desbalanceamento.',
+    c: 'Vibração dentro do limite.',
+    nc: 'Vibração acima do limite (desbalanceado).',
+    na: 'Sem acesso para medição.',
+    ferramenta: 'Acelerômetro',
+  },
+  ven_09: {
+    exec: 'Trocar rolamentos/buchas com desgaste aparente e testar.',
+    c: 'Peças trocadas e equipamento estável.',
+    nc: 'Sem reposição compatível.',
+    na: 'Nada exigiu substituição.',
+  },
+  ven_10: {
+    exec: 'Executar balanceamento dinâmico quando o conjunto permitir.',
+    c: 'Conjunto balanceado.',
+    nc: 'Não foi possível balancear.',
+    na: 'Conjunto não permite balanceamento.',
+    ferramenta: 'Balanceadora',
+  },
+
+  // ── GER / Ativo-Equipamento Geral ────────────────────────────────────────
+  ger_01: {
+    exec: 'Observar o estado geral do equipamento: gabinete, pintura, corrosão e integridade.',
+    c: 'Equipamento em bom estado de conservação.',
+    nc: 'Avaria/corrosão que compromete o funcionamento.',
+    na: '—',
+  },
+  ger_02: {
+    exec: 'Limpar o equipamento removendo poeira, oxidação superficial e sujidades.',
+    c: 'Equipamento limpo.',
+    nc: 'Sujidade/oxidação severa não removível em campo.',
+    na: '—',
+  },
+  ger_03: {
+    exec: 'Verificar e reapertar suportes, parafusos e estrutura de sustentação.',
+    c: 'Estrutura firme e bem fixada.',
+    nc: 'Fixação comprometida.',
+    na: '—',
+    ferramenta: 'Chaves',
+  },
+  ger_04: {
+    exec: 'Inspecionar conexões, chave geral e proteções; reapertar o necessário.',
+    c: 'Instalação íntegra e proteções operantes.',
+    nc: 'Conexão danificada ou proteção inoperante.',
+    na: 'Equipamento sem alimentação elétrica.',
+    ferramenta: 'Multímetro',
+    seguranca: 'NR-10: desenergizar para reaperto.',
+  },
+  ger_05: {
+    exec: 'Ligar o equipamento e conferir os parâmetros operacionais esperados.',
+    c: 'Funcionamento e parâmetros normais.',
+    nc: 'Falha no funcionamento ou parâmetro fora do esperado.',
+    na: '—',
+  },
+};
 const CHECKLIST_STATUS_LABEL = {
   C:  '<span class="ok">✓ Conforme</span>',
   NC: '<span class="nok">✗ Não Conforme</span>',
