@@ -2763,7 +2763,7 @@ async function emitirRelatorioPMOC(b64) {
           ${respTecnico ? `
           <div class="laudo-assinatura-box" style="min-width:160px;text-align:center;">
             <div style="height:65px;"></div>
-            <div class="laudo-assinatura-linha">${escapeHTML(respTecnico.nome)}<br>Responsável Técnico${respTecnico.crea ? ' — CREA-MT ' + escapeHTML(respTecnico.crea) : ''}</div>
+            <div class="laudo-assinatura-linha">${escapeHTML(respTecnico.nome)}<br>Responsável Técnico${respTecnico.crea ? ' — ' + (/^crea/i.test(respTecnico.crea.trim()) ? escapeHTML(respTecnico.crea) : 'CREA-MT ' + escapeHTML(respTecnico.crea)) : ''}</div>
           </div>` : ''}
         </div>
         <div style="text-align:center;flex-shrink:0;">

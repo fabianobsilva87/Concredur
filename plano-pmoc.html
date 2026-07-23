@@ -135,6 +135,7 @@
           <div class="plano-field">
             <label>Título Profissional</label>
             <input type="text" id="pp-rt-titulo" placeholder="Ex: Engenheiro Mecânico / Técnico em Refrigeração">
+            <div class="plano-hint">Não incluir sufixos de ambiente (" - Teste", " - Dev"); a emissão é bloqueada se detectados.</div>
           </div>
           <div class="plano-field">
             <label>Conselho de Classe</label>
@@ -151,7 +152,7 @@
           <div class="plano-field">
             <label>Nº ART / TRT</label>
             <input type="text" id="pp-rt-art" placeholder="Anotação/Termo de Responsabilidade Técnica">
-            <div class="plano-hint">A ART/TRT vincula legalmente o profissional a este plano.</div>
+            <div class="plano-hint">A ART/TRT vincula legalmente o profissional a este plano. Obrigatória para emissão final.</div>
           </div>
           <div class="plano-field">
             <label>Telefone</label>
@@ -162,8 +163,9 @@
             <input type="text" id="pp-rt-email" placeholder="email@exemplo.com">
           </div>
           <div class="plano-field full">
-            <label>Empresa Executante da Manutenção (se houver)</label>
+            <label>Empresa Executante da Manutenção *</label>
             <input type="text" id="pp-rt-empresa" placeholder="Razão social / CNPJ da empresa mantenedora">
+            <div class="plano-hint">Obrigatória para emissão final — distingue o RT que assina da empresa/equipe que executa.</div>
           </div>
         </div>
       </div>
@@ -232,6 +234,74 @@ function planoNormCat(c) {
   return PLANO_CAT_LABEL[c] ? c : 'OUT';
 }
 
+// ── Saneamento e validação de campos críticos (bugs #2, #3, #4, #5, #6, #15) ──
+
+// Remove sufixos de ambiente de desenvolvimento/teste (" - Teste", " - Dev", "(teste)", etc.)
+// antes de qualquer geração de documento em produção.
+function planoSanearTexto(v) {
+  if (!v) return v;
+  return v.replace(/\s*[-–—(]\s*(teste|test|dev|desenvolvimento|homolog(a[cç][aã]o)?|sandbox)\s*\)?\s*$/i, '').trim();
+}
+
+// Detecta se algum termo de ambiente de teste/dev restou no texto (case-insensitive).
+function planoContemTermoTeste(v) {
+  if (!v) return false;
+  return /\b(teste|test|dev|homolog|sandbox)\b/i.test(v);
+}
+
+// Evita duplicar a sigla do conselho quando o nº de registro já vem prefixado
+// (ex.: conselho="CREA" + registro="CREA-MT 044726" → "CREA-MT 044726", não "CREA CREA-MT 044726").
+function planoFormatRegistro(conselho, registro) {
+  const reg = (registro || '').trim();
+  const cons = (conselho || '').trim();
+  if (!reg) return cons;
+  if (!cons) return reg;
+  const jaContemConselho = new RegExp('^' + cons.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(reg);
+  return jaContemConselho ? reg : `${cons} ${reg}`;
+}
+
+// Validação de nº de ART/TRT: exige preenchimento e rejeita sequências
+// claramente fora do padrão real (ex.: 18+ dígitos corridos sem separação).
+function planoValidarART(art) {
+  const v = (art || '').trim();
+  if (!v) return { ok: false, motivo: 'Nº de ART/TRT não informado.' };
+  const somenteDigitos = v.replace(/\D/g, '');
+  if (somenteDigitos.length > 15) {
+    return { ok: false, motivo: 'Nº de ART/TRT fora do padrão (excesso de dígitos). Confira o número junto ao CREA/CAU/CFT.' };
+  }
+  if (somenteDigitos.length < 5) {
+    return { ok: false, motivo: 'Nº de ART/TRT incompleto.' };
+  }
+  return { ok: true };
+}
+
+// Validação consolidada de todos os campos críticos antes da emissão final (item 15).
+// Retorna { ok, pendentes[] } — pendentes lista as descrições dos campos com problema.
+function planoValidarCamposCriticos(cfg) {
+  const pendentes = [];
+
+  if (!cfg.razao)      pendentes.push('Razão social do estabelecimento');
+  if (!cfg.rt_nome)    pendentes.push('Nome do responsável técnico');
+
+  if (!cfg.rt_titulo) {
+    pendentes.push('Título profissional do responsável técnico');
+  } else if (planoContemTermoTeste(cfg.rt_titulo)) {
+    pendentes.push('Título profissional contém termo de ambiente de teste/desenvolvimento ("' + cfg.rt_titulo + '") — corrija antes de emitir');
+  }
+
+  if (!cfg.rt_registro) pendentes.push('Nº de registro no conselho de classe');
+
+  const artCheck = planoValidarART(cfg.rt_art);
+  if (!artCheck.ok) pendentes.push(artCheck.motivo);
+
+  if (!cfg.rt_empresa) pendentes.push('Empresa executante da manutenção');
+
+  if (!(cfg.mes_inicio >= 0 && cfg.mes_inicio <= 11)) pendentes.push('Mês de início do ciclo');
+  if (!(cfg.ano >= 2020 && cfg.ano <= 2100)) pendentes.push('Ano de vigência');
+
+  return { ok: pendentes.length === 0, pendentes };
+}
+
 let _planoToastTimer = null;
 function planoToast(msg, err = false) {
   const el = $('plano-toast');
@@ -252,7 +322,7 @@ function planoColetarConfig() {
     resp_legal:    $('pp-resp-legal').value.trim(),
     resp_cargo:    $('pp-resp-cargo').value.trim(),
     rt_nome:       $('pp-rt-nome').value.trim(),
-    rt_titulo:     $('pp-rt-titulo').value.trim(),
+    rt_titulo:     planoSanearTexto($('pp-rt-titulo').value.trim()),
     rt_conselho:   $('pp-rt-conselho').value,
     rt_registro:   $('pp-rt-registro').value.trim(),
     rt_art:        $('pp-rt-art').value.trim(),
@@ -337,9 +407,15 @@ function planoMesesAtivos(periodoKey, mesInicio) {
 // ── Geração do documento ──────────────────────────────────────────────────
 function gerarDocumentoPMOC() {
   const cfg = planoColetarConfig();
-  if (!cfg.razao)       { planoToast('⚠️ Preencha a razão social antes de gerar.', true); return; }
-  if (!cfg.rt_nome)     { planoToast('⚠️ Preencha o responsável técnico antes de gerar.', true); return; }
-  if (!cfg.rt_registro) { planoToast('⚠️ Preencha o registro no conselho antes de gerar.', true); return; }
+
+  // Bloqueio de emissão com campos críticos ausentes/ inválidos (item 15),
+  // incluindo empresa executante obrigatória (item 7) e validação de ART (item 5)
+  // e de termos de ambiente de teste no título profissional (item 3).
+  const validacao = planoValidarCamposCriticos(cfg);
+  if (!validacao.ok) {
+    planoToast('⚠️ Não é possível emitir o PMOC. Pendências: ' + validacao.pendentes.join(' · '), true);
+    return;
+  }
   if (!_planoEqs.length) { planoToast('⚠️ Nenhum equipamento cadastrado para compor o plano.', true); return; }
 
   const emissaoBR = fmtDate(cfg.data_emissao);
@@ -358,7 +434,7 @@ function gerarDocumentoPMOC() {
         ${cfg.cnpj ? `<div class="capa-linha"><span>CNPJ</span><strong>${escapeHTML(cfg.cnpj)}</strong></div>` : ''}
         <div class="capa-linha"><span>Vigência</span><strong>Ano de ${cfg.ano}</strong></div>
         <div class="capa-linha"><span>Responsável Técnico</span><strong>${escapeHTML(cfg.rt_nome)}</strong></div>
-        <div class="capa-linha"><span>Registro</span><strong>${escapeHTML(cfg.rt_conselho)} ${escapeHTML(cfg.rt_registro)}</strong></div>
+        <div class="capa-linha"><span>Registro</span><strong>${escapeHTML(planoFormatRegistro(cfg.rt_conselho, cfg.rt_registro))}</strong></div>
         ${cfg.rt_art ? `<div class="capa-linha"><span>ART/TRT</span><strong>${escapeHTML(cfg.rt_art)}</strong></div>` : ''}
       </div>
       <div class="capa-emissao">${escapeHTML(cfg.local_emissao || '')}${cfg.local_emissao ? ', ' : ''}${emissaoBR}</div>
@@ -384,7 +460,7 @@ function gerarDocumentoPMOC() {
       <table class="tb-ident">
         <tr><td class="lbl">Nome</td><td>${escapeHTML(cfg.rt_nome)}</td>
             <td class="lbl">Título Profissional</td><td>${escapeHTML(cfg.rt_titulo || '—')}</td></tr>
-        <tr><td class="lbl">Registro no Conselho</td><td>${escapeHTML(cfg.rt_conselho)} ${escapeHTML(cfg.rt_registro)}</td>
+        <tr><td class="lbl">Registro no Conselho</td><td>${escapeHTML(planoFormatRegistro(cfg.rt_conselho, cfg.rt_registro))}</td>
             <td class="lbl">Nº ART / TRT</td><td>${escapeHTML(cfg.rt_art || '—')}</td></tr>
         <tr><td class="lbl">Telefone</td><td>${escapeHTML(cfg.rt_telefone || '—')}</td>
             <td class="lbl">E-mail</td><td>${escapeHTML(cfg.rt_email || '—')}</td></tr>
@@ -551,7 +627,7 @@ function gerarDocumentoPMOC() {
           <div class="ass-linha"></div>
           <div class="ass-nome">${escapeHTML(cfg.rt_nome)}</div>
           <div class="ass-info">${escapeHTML(cfg.rt_titulo || 'Responsável Técnico')}</div>
-          <div class="ass-info">${escapeHTML(cfg.rt_conselho)} ${escapeHTML(cfg.rt_registro)}${cfg.rt_art ? ' · ART/TRT ' + escapeHTML(cfg.rt_art) : ''}</div>
+          <div class="ass-info">${escapeHTML(planoFormatRegistro(cfg.rt_conselho, cfg.rt_registro))}${cfg.rt_art ? ' · ART/TRT ' + escapeHTML(cfg.rt_art) : ''}</div>
         </div>
         <div class="ass-bloco">
           <div class="ass-linha"></div>
