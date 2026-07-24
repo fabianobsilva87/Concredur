@@ -759,6 +759,47 @@ function parseCapacidadeBTU(str) {
   return isNaN(n) ? 0 : n;
 }
 
+// ----- Sugestão de Criticidade por Sala (baseada no nome/tipo do ambiente) -----
+// Heurística por palavras-chave no nome da sala, usada como orientação inicial no relatório
+// de Adequação de Carga por Sala. NÃO substitui a Matriz de Criticidade por ativo
+// (equipamentos.html / calcularCriticidadeFluxograma) — é apenas um indicativo para o gestor
+// avaliar se a classe cadastrada nos equipamentos daquela sala faz sentido.
+// Single source of truth: se outra tela precisar da mesma sugestão, deve chamar esta função.
+const SUGESTAO_CRITICIDADE_SALA_REGRAS = [
+  { classe: 'Alta', motivo: 'Ambiente com equipamentos/insumos críticos (TI, saúde ou cadeia fria)', palavras: [
+    'cpd', 'data center', 'datacenter', 'servidor', 'telecom', 'nobreak', 'no-break',
+    'farmacia', 'camara fria', 'camara frigorifica', 'camara refrigerada',
+    'laboratorio', 'bioquimica', 'microbiologia', 'patologia', 'anatomia', 'hemocentro',
+    'banco de sangue', 'banco de dados', 'uti', 'cti', 'centro cirurgico', 'sala de cirurgia',
+    'pronto socorro', 'emergencia', 'vacina', 'imunobiologico', 'arquivo medico', 'prontuario',
+    'insumo biologico', 'necropsia', 'necroterio', 'central de gases', 'sala de gases',
+  ]},
+  { classe: 'Média', motivo: 'Ambiente de uso administrativo, acadêmico ou de convivência com fluxo relevante', palavras: [
+    'sala de aula', 'auditorio', 'biblioteca', 'secretaria', 'coordenacao', 'administra',
+    'recepcao', 'reuniao', 'diretoria', 'financeiro', 'recursos humanos', 'refeitorio',
+    'cantina', 'restaurante', 'sala de professores', 'sala de estudo', 'tesouraria', 'protocolo',
+  ]},
+  { classe: 'Baixa', motivo: 'Ambiente de circulação, apoio ou permanência eventual, sem criticidade operacional', palavras: [
+    'corredor', 'banheiro', 'sanitario', 'deposito', 'almoxarifado', 'copa', 'vestiario',
+    'estacionamento', 'garagem', 'hall', 'circulacao', 'area externa',
+  ]},
+];
+
+function _normalizarTextoSugestaoCriticidade(txt) {
+  return (txt || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+// Retorna { classe, motivo } com a classe de criticidade sugerida a partir do nome da sala,
+// ou null se nenhuma palavra-chave reconhecida for encontrada (nome genérico, ex.: "Sala 204").
+function sugerirCriticidadeSala(nomeSala) {
+  const nome = _normalizarTextoSugestaoCriticidade(nomeSala);
+  if (!nome) return null;
+  for (const regra of SUGESTAO_CRITICIDADE_SALA_REGRAS) {
+    if (regra.palavras.some(p => nome.includes(p))) return { classe: regra.classe, motivo: regra.motivo };
+  }
+  return null;
+}
+
 // Relatório de Adequação da Carga Térmica por Sala (impressão/PDF, A4 paisagem).
 // Compara a carga térmica prevista de cada sala (carga_termica_btu, calculada em Locais → Salas)
 // com a capacidade de climatização instalada — soma da capacidade (BTU/h) dos aparelhos de
@@ -829,8 +870,9 @@ async function emitirRelatorioAdequacaoSalas() {
     else if (instalada < prevista * minRatio)    { status = 'Subdimensionada';   cls = 'danger';    ordem = 0; nSub++;   }
     else if (instalada > prevista * maxRatio)    { status = 'Superdimensionada'; cls = 'andamento'; ordem = 3; nSuper++; }
     else                                         { status = 'Adequada';          cls = 'success';   ordem = 2; nOk++;    }
-    const local = [s.setores?.blocos?.nome, s.setores?.nome].filter(Boolean).join(' / ') || '—';
-    return { s, prevista, instalada, nAC, pct, status, cls, ordem, local, saldo: instalada - prevista };
+    const local     = [s.setores?.blocos?.nome, s.setores?.nome].filter(Boolean).join(' / ') || '—';
+    const sugestao  = sugerirCriticidadeSala(s.nome);
+    return { s, prevista, instalada, nAC, pct, status, cls, ordem, local, sugestao, saldo: instalada - prevista };
   }).sort((a, b) => a.ordem - b.ordem || a.pct - b.pct);
 
   // Acumulados (totais gerais) exibidos no cabeçalho e no rodapé da tabela.
@@ -844,10 +886,14 @@ async function emitirRelatorioAdequacaoSalas() {
   const corSaldoHdr  = totSaldo < 0 ? '#fecaca' : '#bbf7d0'; // tons claros, legíveis sobre o azul do cabeçalho
   const corSaldoFoot = totSaldo < 0 ? '#dc2626' : '#059669';
 
+  const CLS_BADGE_SUGESTAO = { Alta: 'danger', Média: 'warning', Baixa: 'success' };
   const linhas = dados.map(d => {
     const temAC    = d.instalada > 0;
     const saldoTxt = temAC ? `${d.saldo >= 0 ? '+' : '−'}${Math.abs(d.saldo).toLocaleString('pt-BR')}` : '—';
     const saldoCor = !temAC ? '#a0aec0' : d.saldo < 0 ? '#dc2626' : '#059669';
+    const sugestaoTxt = d.sugestao
+      ? `<span class="tag-badge ${CLS_BADGE_SUGESTAO[d.sugestao.classe] || ''}" title="${escapeHTML(d.sugestao.motivo)}">${escapeHTML(d.sugestao.classe)} (${EQ_CLASSE_LETRA[d.sugestao.classe] || '?'})</span>`
+      : '<span style="color:#a0aec0;">— nome genérico —</span>';
     return `<tr>
       <td><strong>${escapeHTML(d.s.nome)}</strong></td>
       <td>${escapeHTML(d.local)}</td>
@@ -858,6 +904,7 @@ async function emitirRelatorioAdequacaoSalas() {
       <td style="text-align:right;color:${saldoCor};font-weight:600;">${saldoTxt}</td>
       <td style="text-align:center;">${temAC ? d.pct.toFixed(0) + '%' : '—'}</td>
       <td style="text-align:center;"><span class="tag-badge ${d.cls}">${d.status}</span></td>
+      <td style="text-align:center;">${sugestaoTxt}</td>
     </tr>`;
   }).join('');
 
@@ -898,6 +945,7 @@ async function emitirRelatorioAdequacaoSalas() {
             <th style="text-align:right;">Saldo (BTU/h)</th>
             <th style="text-align:center;">Atend.</th>
             <th style="text-align:center;">Situação</th>
+            <th style="text-align:center;">Criticidade Sugerida<br><small style="font-weight:400;">(pelo nome da sala)</small></th>
           </tr>
         </thead>
         <tbody>${linhas}</tbody>
@@ -912,6 +960,7 @@ async function emitirRelatorioAdequacaoSalas() {
             <td style="text-align:right;color:${corSaldoFoot};">${sinalSaldo}${Math.abs(totSaldo).toLocaleString('pt-BR')}</td>
             <td style="text-align:center;">${pctGlobal.toFixed(0)}%</td>
             <td></td>
+            <td></td>
           </tr>
         </tfoot>
       </table>
@@ -922,6 +971,11 @@ async function emitirRelatorioAdequacaoSalas() {
         <span style="color:#1e40af;font-weight:700;">Superdimensionada</span> = acima de ${maxPct}% (revisar eficiência/consumo).
         <span style="color:#718096;font-weight:700;">Sem climatização</span> = nenhum ar-condicionado vinculado à sala.
         Considera apenas ativos de categoria Ar-Condicionado (AC) com capacidade em BTU/h informada. Carga prevista calculada pelo método prático NBR 16401 / ASHRAE.
+      </div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:9px;color:#718096;line-height:1.6;">
+        <strong>Criticidade Sugerida:</strong> orientação automática, baseada em palavras-chave no nome da sala (ex.: "Laboratório", "CPD", "Sala de Aula", "Corredor"), para apoiar a revisão da classe cadastrada nos equipamentos daquele ambiente.
+        Não substitui a Matriz de Criticidade Baseada em Riscos aplicada a cada ativo em Novo Ativo/Gerenciamento de Ativos.
+        Salas com nome genérico (ex.: "Sala 204") exibem "— nome genérico —" por falta de indício textual do tipo de uso.
       </div>
       <div style="margin-top:8px;font-size:9px;color:#a0aec0;">Documento gerado pelo Sistema de Gestão Univag · ${new Date().toLocaleString('pt-BR')}</div>
     </div>
