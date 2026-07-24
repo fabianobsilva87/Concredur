@@ -759,12 +759,70 @@ function parseCapacidadeBTU(str) {
   return isNaN(n) ? 0 : n;
 }
 
-// ----- Sugestão de Criticidade por Sala (baseada no nome/tipo do ambiente) -----
-// Heurística por palavras-chave no nome da sala, usada como orientação inicial no relatório
-// de Adequação de Carga por Sala. NÃO substitui a Matriz de Criticidade por ativo
-// (equipamentos.html / calcularCriticidadeFluxograma) — é apenas um indicativo para o gestor
-// avaliar se a classe cadastrada nos equipamentos daquela sala faz sentido.
-// Single source of truth: se outra tela precisar da mesma sugestão, deve chamar esta função.
+// ----- Tipo de Ambiente da Sala (cadastro explícito em locais.html) -----
+// Catálogo único (single source of truth) que associa cada Tipo de Ambiente a uma classe de
+// criticidade sugerida. Usado para popular o <select id="sala-tipo-ambiente"> e para orientar
+// o relatório de Adequação de Carga por Sala sem depender apenas do nome digitado da sala.
+const TIPOS_AMBIENTE_SALA = [
+  // Criticidade Alta (A)
+  { value: 'cpd_servidores',   label: 'CPD / Sala de Servidores / TI',              classe: 'Alta' },
+  { value: 'telecom',          label: 'Telecomunicações / Sala de Nobreak',         classe: 'Alta' },
+  { value: 'laboratorio',      label: 'Laboratório (análises, ensino ou pesquisa)', classe: 'Alta' },
+  { value: 'farmacia',         label: 'Farmácia',                                   classe: 'Alta' },
+  { value: 'camara_fria',      label: 'Câmara Fria / Frigorífica',                  classe: 'Alta' },
+  { value: 'insumo_biologico', label: 'Insumos Biológicos / Banco de Sangue',       classe: 'Alta' },
+  { value: 'centro_cirurgico', label: 'Centro Cirúrgico / UTI / Emergência',        classe: 'Alta' },
+  { value: 'arquivo_medico',   label: 'Arquivo Médico / Prontuários',               classe: 'Alta' },
+  // Criticidade Média (B)
+  { value: 'sala_aula',        label: 'Sala de Aula',                               classe: 'Média' },
+  { value: 'auditorio',        label: 'Auditório',                                  classe: 'Média' },
+  { value: 'biblioteca',       label: 'Biblioteca',                                 classe: 'Média' },
+  { value: 'administrativo',   label: 'Administrativo / Secretaria / Coordenação',  classe: 'Média' },
+  { value: 'refeitorio',       label: 'Refeitório / Cantina',                       classe: 'Média' },
+  { value: 'sala_professores', label: 'Sala de Professores / Reunião',              classe: 'Média' },
+  // Criticidade Baixa (C)
+  { value: 'corredor',         label: 'Corredor / Circulação',                      classe: 'Baixa' },
+  { value: 'banheiro',         label: 'Banheiro / Vestiário',                       classe: 'Baixa' },
+  { value: 'deposito',         label: 'Depósito / Almoxarifado',                    classe: 'Baixa' },
+  { value: 'copa',             label: 'Copa',                                       classe: 'Baixa' },
+  { value: 'estacionamento',   label: 'Estacionamento / Área Externa',              classe: 'Baixa' },
+  // Sem sugestão automática — usuário classifica manualmente cada ativo
+  { value: 'outro',            label: 'Outro / Não classificado',                   classe: null },
+];
+
+function popularSelectTipoAmbiente(selectId) {
+  const sel = $(selectId); if (!sel) return;
+  const valorAtual = sel.value;
+  const grupos = { Alta: [], 'Média': [], Baixa: [], _outro: [] };
+  TIPOS_AMBIENTE_SALA.forEach(t => (t.classe ? grupos[t.classe] : grupos._outro).push(t));
+  const optGroup = (label, itens) => itens.length
+    ? `<optgroup label="${label}">${itens.map(t => `<option value="${t.value}">${escapeHTML(t.label)}</option>`).join('')}</optgroup>`
+    : '';
+  sel.innerHTML = '<option value="">— Selecione —</option>'
+    + optGroup('Criticidade Alta (A)', grupos.Alta)
+    + optGroup('Criticidade Média (B)', grupos['Média'])
+    + optGroup('Criticidade Baixa (C)', grupos.Baixa)
+    + optGroup('Outro', grupos._outro);
+  if (valorAtual) sel.value = valorAtual;
+}
+
+// Retorna { classe, motivo, origem } com a criticidade sugerida para uma Sala.
+// Prioriza o Tipo de Ambiente cadastrado explicitamente (origem: 'tipo'); se a sala não tiver
+// tipo definido (cadastros antigos) ou o tipo for "Outro", cai para a heurística por nome
+// (sugerirCriticidadeSala, origem: 'nome'). Retorna null se nenhuma das duas reconhecer o ambiente.
+function obterCriticidadeSugeridaSala(sala) {
+  const tipo = TIPOS_AMBIENTE_SALA.find(t => t.value === sala?.tipo_ambiente);
+  if (tipo && tipo.classe) {
+    return { classe: tipo.classe, motivo: `Baseado no Tipo de Ambiente cadastrado: ${tipo.label}`, origem: 'tipo' };
+  }
+  const porNome = sugerirCriticidadeSala(sala?.nome);
+  return porNome ? { ...porNome, origem: 'nome' } : null;
+}
+
+// ----- Heurística de criticidade por nome de sala (fallback quando não há Tipo de Ambiente) -----
+// Usada por obterCriticidadeSugeridaSala() apenas quando a sala não tem tipo_ambiente cadastrado
+// (registros antigos) ou o tipo é "Outro". NÃO substitui a Matriz de Criticidade por ativo
+// (equipamentos.html / calcularCriticidadeFluxograma) — é apenas um indicativo para o gestor.
 const SUGESTAO_CRITICIDADE_SALA_REGRAS = [
   { classe: 'Alta', motivo: 'Ambiente com equipamentos/insumos críticos (TI, saúde ou cadeia fria)', palavras: [
     'cpd', 'data center', 'datacenter', 'servidor', 'telecom', 'nobreak', 'no-break',
@@ -871,7 +929,7 @@ async function emitirRelatorioAdequacaoSalas() {
     else if (instalada > prevista * maxRatio)    { status = 'Superdimensionada'; cls = 'andamento'; ordem = 3; nSuper++; }
     else                                         { status = 'Adequada';          cls = 'success';   ordem = 2; nOk++;    }
     const local     = [s.setores?.blocos?.nome, s.setores?.nome].filter(Boolean).join(' / ') || '—';
-    const sugestao  = sugerirCriticidadeSala(s.nome);
+    const sugestao  = obterCriticidadeSugeridaSala(s);
     return { s, prevista, instalada, nAC, pct, status, cls, ordem, local, sugestao, saldo: instalada - prevista };
   }).sort((a, b) => a.ordem - b.ordem || a.pct - b.pct);
 
@@ -892,8 +950,8 @@ async function emitirRelatorioAdequacaoSalas() {
     const saldoTxt = temAC ? `${d.saldo >= 0 ? '+' : '−'}${Math.abs(d.saldo).toLocaleString('pt-BR')}` : '—';
     const saldoCor = !temAC ? '#a0aec0' : d.saldo < 0 ? '#dc2626' : '#059669';
     const sugestaoTxt = d.sugestao
-      ? `<span class="tag-badge ${CLS_BADGE_SUGESTAO[d.sugestao.classe] || ''}" title="${escapeHTML(d.sugestao.motivo)}">${escapeHTML(d.sugestao.classe)} (${EQ_CLASSE_LETRA[d.sugestao.classe] || '?'})</span>`
-      : '<span style="color:#a0aec0;">— nome genérico —</span>';
+      ? `<span class="tag-badge ${CLS_BADGE_SUGESTAO[d.sugestao.classe] || ''}" title="${escapeHTML(d.sugestao.motivo)}">${escapeHTML(d.sugestao.classe)} (${EQ_CLASSE_LETRA[d.sugestao.classe] || '?'})</span><br><small style="color:#a0aec0;">${d.sugestao.origem === 'tipo' ? 'pelo tipo' : 'pelo nome'}</small>`
+      : '<span style="color:#a0aec0;">— não classificado —</span>';
     return `<tr>
       <td><strong>${escapeHTML(d.s.nome)}</strong></td>
       <td>${escapeHTML(d.local)}</td>
@@ -945,7 +1003,7 @@ async function emitirRelatorioAdequacaoSalas() {
             <th style="text-align:right;">Saldo (BTU/h)</th>
             <th style="text-align:center;">Atend.</th>
             <th style="text-align:center;">Situação</th>
-            <th style="text-align:center;">Criticidade Sugerida<br><small style="font-weight:400;">(pelo nome da sala)</small></th>
+            <th style="text-align:center;">Criticidade Sugerida<br><small style="font-weight:400;">(Tipo de Ambiente / nome da sala)</small></th>
           </tr>
         </thead>
         <tbody>${linhas}</tbody>
@@ -973,9 +1031,9 @@ async function emitirRelatorioAdequacaoSalas() {
         Considera apenas ativos de categoria Ar-Condicionado (AC) com capacidade em BTU/h informada. Carga prevista calculada pelo método prático NBR 16401 / ASHRAE.
       </div>
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:9px;color:#718096;line-height:1.6;">
-        <strong>Criticidade Sugerida:</strong> orientação automática, baseada em palavras-chave no nome da sala (ex.: "Laboratório", "CPD", "Sala de Aula", "Corredor"), para apoiar a revisão da classe cadastrada nos equipamentos daquele ambiente.
+        <strong>Criticidade Sugerida:</strong> orientação automática — prioriza o <strong>Tipo de Ambiente</strong> cadastrado na Sala (Locais → Salas); quando ausente ("Outro" ou registros antigos), usa palavras-chave no nome da sala (ex.: "Laboratório", "CPD", "Sala de Aula", "Corredor") como alternativa.
         Não substitui a Matriz de Criticidade Baseada em Riscos aplicada a cada ativo em Novo Ativo/Gerenciamento de Ativos.
-        Salas com nome genérico (ex.: "Sala 204") exibem "— nome genérico —" por falta de indício textual do tipo de uso.
+        Salas sem Tipo de Ambiente e sem indício no nome exibem "— não classificado —".
       </div>
       <div style="margin-top:8px;font-size:9px;color:#a0aec0;">Documento gerado pelo Sistema de Gestão Univag · ${new Date().toLocaleString('pt-BR')}</div>
     </div>
@@ -1740,7 +1798,9 @@ async function carregarSalas() {
   tbody.innerHTML = _salasCache.length ? _salasCache.map(s => {
     const nJan = parseInt(s.num_janelas) || 0;
     const nEquip = parseEquipCarga(s.equipamentos_carga).length;
+    const tipoInfo = TIPOS_AMBIENTE_SALA.find(t => t.value === s.tipo_ambiente);
     const infos = [];
+    if (tipoInfo)   infos.push(`🏷️ ${escapeHTML(tipoInfo.label)}`);
     if (nJan > 0)   infos.push(`🪟 ${nJan} janela${nJan > 1 ? 's' : ''}`);
     if (nEquip > 0) infos.push(`💡 ${nEquip} equip.`);
     const sub = infos.length ? `<br><small style="color:#a0aec0;">${infos.join(' · ')}</small>` : '';
@@ -1770,6 +1830,7 @@ function editarSala(id) {
   if ($('sala-num-janelas')) $('sala-num-janelas').value = s.num_janelas ?? 0;
   if ($('sala-area-janelas')) $('sala-area-janelas').value = s.area_janelas_m2 ?? 0;
   if ($('sala-incidencia-janelas')) $('sala-incidencia-janelas').value = s.incidencia_janelas || 'sem';
+  if ($('sala-tipo-ambiente')) $('sala-tipo-ambiente').value = s.tipo_ambiente || '';
 
   // Lista de equipamentos: usa equipamentos_carga se existir; caso contrário, migra o valor
   // antigo de equip_watts para um único item genérico (compatibilidade retroativa).
@@ -1797,6 +1858,7 @@ function resetarFormSala() {
   if ($('sala-num-janelas')) $('sala-num-janelas').value = 0;
   if ($('sala-area-janelas')) $('sala-area-janelas').value = 0;
   if ($('sala-incidencia-janelas')) $('sala-incidencia-janelas').value = 'sem';
+  if ($('sala-tipo-ambiente')) $('sala-tipo-ambiente').value = '';
   _salaEquipCarga = [];
   renderSalaEquipCarga();
   atualizarPreviaCargaTermicaSala();
@@ -1842,6 +1904,7 @@ if ($('btn-salvar-sala')) {
     const num_janelas       = parseInt($('sala-num-janelas')?.value) || 0;
     const area_janelas_m2   = parseFloat($('sala-area-janelas')?.value) || 0;
     const incidencia_janelas = $('sala-incidencia-janelas')?.value || 'sem';
+    const tipo_ambiente      = $('sala-tipo-ambiente')?.value || null;
 
     // Normaliza a lista de equipamentos e recalcula a carga interna efetiva (equip_watts).
     const equipamentos_carga = _salaEquipCarga
@@ -1855,7 +1918,7 @@ if ($('btn-salvar-sala')) {
     const equip_watts = Math.round(equipamentos_carga.reduce((s, it) => s + wattsEfetivosItem(it), 0));
 
     const carga_termica_btu = calcularCargaTermicaBTU({ area_m2, pessoas_previstas, equip_watts, incidencia_solar, btu_m2_base, cobertura, num_janelas, area_janelas_m2, incidencia_janelas });
-    const payload = { setor_id, nome, area_m2, pessoas_previstas, equip_watts, incidencia_solar, cobertura, btu_m2_base, num_janelas, area_janelas_m2, incidencia_janelas, equipamentos_carga, carga_termica_btu };
+    const payload = { setor_id, nome, area_m2, pessoas_previstas, equip_watts, incidencia_solar, cobertura, btu_m2_base, num_janelas, area_janelas_m2, incidencia_janelas, tipo_ambiente, equipamentos_carga, carga_termica_btu };
     const idEd = $('sala-id-edicao')?.value;
     const { error } = idEd
       ? await db.from('salas').update(payload).eq('id', idEd)
