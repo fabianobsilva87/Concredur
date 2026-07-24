@@ -768,7 +768,7 @@ async function emitirRelatorioAdequacaoSalas() {
   let salas, eqs;
   try {
     const rSalas = await db.from('salas')
-      .select('*, setores(nome, blocos(nome, instituicoes(nome)))')
+      .select('*, setores(id, nome, bloco_id, blocos(id, nome, instituicao_id, instituicoes(id, nome)))')
       .order('nome', { ascending: true });
     if (rSalas.error) throw rSalas.error;
     salas = rSalas.data || [];
@@ -780,9 +780,24 @@ async function emitirRelatorioAdequacaoSalas() {
     return;
   }
 
+  // Respeita o filtro de local (Instituição/Bloco/Setor/Sala) selecionado na Central de
+  // Impressões — mesma fonte de estado (_gerirFiltroLocal) usada por obterEquipamentosFiltrados().
+  if (_gerirFiltroLocal.salaId) {
+    salas = salas.filter(s => String(s.id) === String(_gerirFiltroLocal.salaId));
+  } else if (_gerirFiltroLocal.setorId) {
+    salas = salas.filter(s => String(s.setor_id) === String(_gerirFiltroLocal.setorId));
+  } else if (_gerirFiltroLocal.blocoId) {
+    salas = salas.filter(s => String(s.setores?.bloco_id || '') === String(_gerirFiltroLocal.blocoId));
+  } else if (_gerirFiltroLocal.instituicaoId) {
+    salas = salas.filter(s => String(s.setores?.blocos?.instituicao_id || '') === String(_gerirFiltroLocal.instituicaoId));
+  }
+
   const listaSalas = salas.filter(s => (parseFloat(s.carga_termica_btu) || 0) > 0);
   if (!listaSalas.length) {
-    alert('Nenhuma sala com carga térmica prevista foi encontrada.\n\nInforme a área e os parâmetros das salas em Locais → Salas para que a carga seja calculada.');
+    const filtroAtivo = _gerirFiltroLocal.salaId || _gerirFiltroLocal.setorId || _gerirFiltroLocal.blocoId || _gerirFiltroLocal.instituicaoId;
+    alert(filtroAtivo
+      ? 'Nenhuma sala com carga térmica prevista foi encontrada para o local selecionado no filtro.'
+      : 'Nenhuma sala com carga térmica prevista foi encontrada.\n\nInforme a área e os parâmetros das salas em Locais → Salas para que a carga seja calculada.');
     return;
   }
 
