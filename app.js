@@ -782,6 +782,7 @@ const TIPOS_AMBIENTE_SALA = [
   { value: 'refeitorio',       label: 'Refeitório / Cantina',                       classe: 'Média' },
   { value: 'sala_professores', label: 'Sala de Professores / Reunião',              classe: 'Média' },
   { value: 'consultorio',      label: 'Consultório / Atendimento Clínico',          classe: 'Média' },
+  { value: 'sala_espera',      label: 'Sala de Espera / Recepção',                  classe: 'Média' },
   // Criticidade Baixa (C)
   { value: 'corredor',         label: 'Corredor / Circulação',                      classe: 'Baixa' },
   { value: 'banheiro',         label: 'Banheiro / Vestiário',                       classe: 'Baixa' },
@@ -837,7 +838,7 @@ const SUGESTAO_CRITICIDADE_SALA_REGRAS = [
   ]},
   { classe: 'Média', motivo: 'Ambiente de uso administrativo, acadêmico ou de convivência com fluxo relevante', palavras: [
     'sala de aula', 'auditorio', 'biblioteca', 'secretaria', 'coordenacao', 'administra',
-    'recepcao', 'reuniao', 'diretoria', 'financeiro', 'recursos humanos', 'refeitorio',
+    'recepcao', 'sala de espera', 'reuniao', 'diretoria', 'financeiro', 'recursos humanos', 'refeitorio',
     'cantina', 'restaurante', 'sala de professores', 'sala de estudo', 'tesouraria', 'protocolo',
     'consultorio',
   ]},
