@@ -773,6 +773,7 @@ const TIPOS_AMBIENTE_SALA = [
   { value: 'insumo_biologico', label: 'Insumos Biológicos / Banco de Sangue',       classe: 'Alta' },
   { value: 'centro_cirurgico', label: 'Centro Cirúrgico / UTI / Emergência',        classe: 'Alta' },
   { value: 'arquivo_medico',   label: 'Arquivo Médico / Prontuários',               classe: 'Alta' },
+  { value: 'raio_x',           label: 'Sala de Raio-X / Diagnóstico por Imagem',    classe: 'Alta' },
   // Criticidade Média (B)
   { value: 'sala_aula',        label: 'Sala de Aula',                               classe: 'Média' },
   { value: 'auditorio',        label: 'Auditório',                                  classe: 'Média' },
@@ -832,6 +833,7 @@ const SUGESTAO_CRITICIDADE_SALA_REGRAS = [
     'banco de sangue', 'banco de dados', 'uti', 'cti', 'centro cirurgico', 'sala de cirurgia',
     'pronto socorro', 'emergencia', 'vacina', 'imunobiologico', 'arquivo medico', 'prontuario',
     'insumo biologico', 'necropsia', 'necroterio', 'central de gases', 'sala de gases',
+    'raio-x', 'raio x', 'raiox', 'radiologia', 'tomografia', 'ressonancia', 'diagnostico por imagem',
   ]},
   { classe: 'Média', motivo: 'Ambiente de uso administrativo, acadêmico ou de convivência com fluxo relevante', palavras: [
     'sala de aula', 'auditorio', 'biblioteca', 'secretaria', 'coordenacao', 'administra',
