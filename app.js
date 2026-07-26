@@ -391,6 +391,21 @@ function toggleModoRecuperacao(ativar) {
 }
 
 // ===================== FLUXOGRAMA DE CRITICIDADE =====================
+// Parser defensivo único para o campo extras_tecnico (armazenado como `text` no banco,
+// não `jsonb`). Sempre usar esta função para ler o campo — nunca chamar Object.keys()/
+// Object.entries() direto nele, pois se vier como string JSON isso itera os caracteres
+// da string em vez das chaves do objeto. Retorna sempre um objeto (nunca null/undefined).
+function parseExtras(extras) {
+  if (!extras) return {};
+  if (typeof extras === 'object') return extras;
+  try {
+    const parsed = JSON.parse(extras);
+    return (parsed && typeof parsed === 'object') ? parsed : {};
+  } catch (e) {
+    return {};
+  }
+}
+
 function calcularCriticidadeFluxograma() {
   if (!$('crit-interrupcao')) return 'Média';
   const i = $('crit-interrupcao').value, s = $('crit-seguranca').value;
@@ -573,8 +588,8 @@ async function carregarEquipamentoParaEdicao() {
   }
   if ($('eq-validade') && eq.validade) $('eq-validade').value = eq.validade;
 
-  // Preenche os campos técnicos extras (extras_tecnico JSONB)
-  const extras = eq.extras_tecnico || {};
+  // Preenche os campos técnicos extras (extras_tecnico, armazenado como text)
+  const extras = parseExtras(eq.extras_tecnico);
   Object.entries(extras).forEach(([k, v]) => {
     const el = $('eq-' + k);
     if (el) el.value = v;
@@ -1065,7 +1080,7 @@ function exportarEquipamentosXLS() {
 
   // ----- Aba 1: Inventário -----
   const linhas = items.map(eq => {
-    const extras = eq.extras_tecnico || {};
+    const extras = parseExtras(eq.extras_tecnico);
     const crit    = eq.criticidade || 'Média';
     const isAC    = eq.categoria === 'AC';
     return {
@@ -3953,9 +3968,7 @@ async function carregarInventarioGas() {
   let totalKg = 0;
 
   (eqs||[]).forEach(e => {
-    const extras = (typeof e.extras_tecnico === 'string')
-      ? (() => { try { return JSON.parse(e.extras_tecnico); } catch(x) { return {}; } })()
-      : (e.extras_tecnico || {});
+    const extras = parseExtras(e.extras_tecnico);
     const tipo = extras['gas'] || null;
     const qtd  = parseFloat((extras['gas-qtd'] || '0').toString().replace(',','.')) || 0;
     if (tipo) {
