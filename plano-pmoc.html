@@ -460,6 +460,47 @@ async function carregarBlocosPlano() {
   }));
 }
 
+// ── Salas ─────────────────────────────────────────────────────────────────
+// Necessário para os itens 5.3 (renovação de ar exterior em setores assistenciais)
+// e 5.4 (adequação da capacidade instalada), introduzidos pela auditoria 2026.
+// O cadastro de equipamentos traz apenas o nome denormalizado da sala; a carga
+// térmica calculada, a área e a ocupação prevista só existem na tabela `salas`.
+let _planoSalas = [];
+
+async function carregarSalasPlano() {
+  const { data, error } = await db
+    .from('salas')
+    .select('id, nome, area_m2, pessoas_previstas, carga_termica_btu, tipo_ambiente, setores(nome, blocos(nome))')
+    .order('nome', { ascending: true });
+  if (error) { _planoSalas = []; return; }
+  _planoSalas = (data || []).map(s => ({
+    id:      s.id,
+    nome:    s.nome,
+    area:    parseFloat(s.area_m2) || 0,
+    pessoas: parseInt(s.pessoas_previstas, 10) || 0,
+    carga:   parseFloat(s.carga_termica_btu) || 0,
+    setor:   s.setores?.nome || '—',
+    bloco:   s.setores?.blocos?.nome || '—',
+  }));
+}
+
+// Identificação de ambientes assistenciais pelo nome do setor ou da sala.
+// Ajustar conforme a nomenclatura adotada pelo estabelecimento.
+const PLANO_RE_ASSISTENCIAL = /(odonto|medicin|fisioterap|fonoaudio|enfermag|cl[ií]nic|consult[óo]rio|ambulat[óo]ri|laborat[óo]ri|esteriliza|expurgo|curativo|procedimento|inala[çc]|biomedic|farm[áa]c|nutri[çc])/i;
+
+// Exclusão de áreas administrativas e de apoio. Necessária porque a detecção acima
+// também casa pelo nome do SETOR: sem esta exclusão, uma copa ou um almoxarifado
+// pertencente ao setor "Coord. das Clínicas" seria classificado como ambiente
+// assistencial. Sobreclassificar em documento com ART enfraquece a credibilidade dos
+// achados que de fato exigem exaustão dedicada.
+const PLANO_RE_APOIO = /(almoxarifado|arquivo|dep[óo]sito|copa|coordena|recep[çc]|sala dos professores|manuten[çc]|sala de ti|prontu[áa]rio|apoio acad[êe]mico|sala de espera|conviv[êe]ncia|secretaria|sanit[áa]rio|banheiro|corredor|vestu[áa]rio|roupa limpa)/i;
+
+// Piso legal de renovação de ar exterior — Portaria MS nº 3.523/1998.
+const PLANO_AR_EXTERIOR_MIN_M3H_PESSOA = 27;
+
+// Piso de adequação térmica adotado para classificação "Adequada".
+const PLANO_ADEQUACAO_MINIMA = 0.96;
+
 // ── Equipamentos ──────────────────────────────────────────────────────────
 let _planoEqs = [];
 
@@ -618,18 +659,26 @@ function gerarDocumentoPMOC() {
     </div>`;
 
   // ── 3. Objetivo e base legal ──
+  // NOTA TÉCNICA (auditoria 2026): a redação anterior declarava cobrir os sistemas
+  // "instalados no estabelecimento identificado na Seção 1". Como a Seção 1 identifica a
+  // pessoa jurídica por CNPJ e endereço, a frase afirmava cobertura da totalidade do
+  // estabelecimento — afirmação inexata sempre que o cadastro contemple apenas parte dos
+  // blocos. A abrangência passou a ser declarada por remissão expressa ao item 1.1.
   const sec3 = `
     <div class="sec">
       <div class="sec-titulo">3. OBJETIVO, ABRANGÊNCIA E BASE LEGAL</div>
       <p class="texto">Este Plano de Manutenção, Operação e Controle (PMOC) estabelece as rotinas de manutenção
-      preventiva e de controle dos sistemas de climatização, refrigeração e ventilação instalados no
-      estabelecimento identificado na Seção 1, com o objetivo de garantir a qualidade do ar de interiores,
-      a preservação da saúde dos ocupantes e a integridade e eficiência dos equipamentos.</p>
-      <p class="texto">O plano abrange todos os equipamentos relacionados na Seção 4, executado conforme as
-      atividades e periodicidades definidas na Seção 5 e o cronograma da Seção 6, em atendimento à
-      <strong>Lei Federal nº 13.589/2018</strong>, à <strong>Portaria MS nº 3.523/98</strong>, à
-      <strong>Resolução RE ANVISA nº 09/2003</strong> e às normas técnicas
-      <strong>ABNT NBR 16401</strong> e correlatas.</p>
+      preventiva e de controle dos sistemas de climatização, refrigeração e ventilação relacionados na
+      Seção 4, com o objetivo de garantir a qualidade do ar de interiores, a preservação da saúde dos
+      ocupantes e a integridade e eficiência dos equipamentos.</p>
+      <p class="texto"><strong>Abrangência.</strong> A abrangência física deste plano é a declarada no
+      <strong>item 1.1 — Delimitação do Escopo</strong>, que relaciona os blocos do estabelecimento cobertos
+      e, quando existentes, os não cobertos. Ambientes climatizados não relacionados na Seção 4 não estão
+      abrangidos por este plano e demandam inclusão no cadastro e reemissão do documento.</p>
+      <p class="texto">As atividades e periodicidades são as definidas na Seção 6 e o cronograma o da Seção 7,
+      em atendimento à <strong>Lei Federal nº 13.589/2018</strong>, à <strong>Portaria MS nº 3.523/98</strong>,
+      à <strong>Resolução RE ANVISA nº 09/2003</strong> e às normas técnicas <strong>ABNT NBR 16401</strong>,
+      <strong>ABNT NBR 7256</strong> e correlatas.</p>
       <p class="texto">A execução das atividades é registrada nas fichas de manutenção (laudos PMOC) do sistema
       de gestão, que ficam disponíveis para verificação pela fiscalização, acompanhadas das respectivas
       evidências e assinaturas dos executantes.</p>
@@ -688,6 +737,41 @@ function gerarDocumentoPMOC() {
       <tbody>${linhasAdeq}</tbody>
     </table>` : '';
 
+  // ── Painel de distribuição de criticidade (auditoria 2026) ──
+  // A matriz de criticidade só é útil se discriminar. Quando uma única classe concentra
+  // praticamente todo o parque, a variável não carrega informação e o plano deixa de
+  // oferecer critério de priorização de atendimento, de estoque de peças e de metas
+  // diferenciadas de MTBF/MTTR (Seção 10). Este painel torna a condição visível.
+  const critContagem = {};
+  _planoEqs.forEach(e => {
+    const c = (e.criticidade || 'Não informada').trim();
+    critContagem[c] = (critContagem[c] || 0) + 1;
+  });
+  const critTotal = _planoEqs.length || 1;
+  const critOrdenado = Object.entries(critContagem).sort((a, b) => b[1] - a[1]);
+  const critMaiorPct = critOrdenado.length ? (critOrdenado[0][1] / critTotal) : 0;
+  const critDegenerada = critOrdenado.length > 0 && critMaiorPct >= 0.90;
+
+  const linhasCrit = critOrdenado.map(([nome, n]) => `
+    <tr><td>${escapeHTML(nome)}</td>
+        <td style="text-align:center;">${n}</td>
+        <td style="text-align:center;">${(100 * n / critTotal).toFixed(1)}%</td></tr>`).join('');
+
+  const painelCrit = `
+    <div class="cat-titulo">Distribuição de Criticidade</div>
+    <table class="tb-lista">
+      <thead><tr><th>Criticidade</th><th style="width:100px;">Ativos</th><th style="width:100px;">Participação</th></tr></thead>
+      <tbody>${linhasCrit || '<tr><td colspan="3">Sem ativos cadastrados.</td></tr>'}</tbody>
+    </table>
+    ${critDegenerada ? `<p class="texto" style="font-size:9px;color:#9b2c2c;border-left:3px solid #9b2c2c;padding-left:8px;">
+      <strong>RESSALVA DE CLASSIFICAÇÃO.</strong> ${(100 * critMaiorPct).toFixed(1)}% dos ativos estão
+      classificados em uma única faixa de criticidade. Uma variável que assume praticamente um único valor
+      em toda a população <strong>não discrimina</strong>: o plano deixa de oferecer critério objetivo de
+      priorização de atendimento, de dimensionamento de estoque de peças e de metas diferenciadas de MTBF e
+      MTTR (Seção 10). Recomenda-se reaplicar o fluxograma de criticidade (impacto da interrupção, risco à
+      segurança, criticidade operacional e existência de reserva) ativo por ativo. Distribuição de
+      referência: 15 a 25% na faixa Alta, 40 a 50% na Média e 30 a 40% na Baixa.</p>` : ''}`;
+
   const sec4 = `
     <div class="sec">
       <div class="sec-titulo">4. RELAÇÃO DE AMBIENTES E EQUIPAMENTOS CLIMATIZADOS</div>
@@ -702,6 +786,7 @@ function gerarDocumentoPMOC() {
         </tr></thead>
         <tbody>${linhasEq}</tbody>
       </table>
+      ${painelCrit}
       ${secAdequacao}
     </div>`;
 
@@ -755,6 +840,128 @@ function gerarDocumentoPMOC() {
       </table>`;
   });
 
+  // ── 5.3 Renovação de ar exterior em setores assistenciais (auditoria 2026) ──
+  // Clínicas-escola prestam assistência à saúde e enquadram-se como EAS (RDC ANVISA
+  // nº 50/2002), atraindo a ABNT NBR 7256:2021. A Portaria MS nº 3.523/98 fixa piso de
+  // 27 m³/h por pessoa e ressalva exigência superior em ambientes de saúde. Ambiente
+  // assistencial climatizado SEM nenhum ativo de ventilação/exaustão cadastrado opera em
+  // recirculação total — condição em que a reprovação em CO₂ é determinística.
+  const venPorSala = {};
+  _planoEqs.forEach(e => {
+    if (planoNormCat(e.categoria) !== 'VEN' || !e.sala_id) return;
+    venPorSala[e.sala_id] = (venPorSala[e.sala_id] || 0) + 1;
+  });
+  const acPorSala = {};
+  _planoEqs.forEach(e => {
+    if (planoNormCat(e.categoria) !== 'AC' || !e.sala_id) return;
+    acPorSala[e.sala_id] = acPorSala[e.sala_id] || { qtd: 0, btu: 0 };
+    acPorSala[e.sala_id].qtd++;
+    acPorSala[e.sala_id].btu += parseCapacidadeBTU(e.potencia);
+  });
+
+  const salasAssistenciais = _planoSalas.filter(s =>
+    (acPorSala[s.id]?.qtd || 0) > 0 &&
+    PLANO_RE_ASSISTENCIAL.test(`${s.setor} ${s.nome}`) &&
+    !PLANO_RE_APOIO.test(s.nome)
+  );
+  const semRenovacao = salasAssistenciais.filter(s => !(venPorSala[s.id] > 0));
+
+  let sec53 = '';
+  if (salasAssistenciais.length) {
+    const linhas = salasAssistenciais
+      .sort((a, b) => (acPorSala[b.id].btu - acPorSala[a.id].btu))
+      .map(s => {
+        const ven = venPorSala[s.id] || 0;
+        const arMin = s.pessoas * PLANO_AR_EXTERIOR_MIN_M3H_PESSOA;
+        return `<tr${ven === 0 ? ' style="background:#fff5f5;"' : ''}>
+          <td>${escapeHTML(s.setor)}</td>
+          <td>${escapeHTML(s.nome)}</td>
+          <td style="text-align:center;">${s.pessoas || '—'}</td>
+          <td style="text-align:right;">${Math.round(acPorSala[s.id].btu).toLocaleString('pt-BR')}</td>
+          <td style="text-align:center;">${ven}</td>
+          <td style="text-align:right;">${arMin ? arMin.toLocaleString('pt-BR') : '<em>ocupação não informada</em>'}</td>
+          <td>${ven === 0
+            ? '<strong style="color:#9b2c2c;">NC — recirculação total (item 7.4)</strong>'
+            : 'Verificar vazão efetiva em DUT-05'}</td>
+        </tr>`;
+      }).join('');
+
+    sec53 = `
+      <div class="cat-titulo">5.3 Renovação de Ar Exterior e Exaustão — Setores Assistenciais</div>
+      <p class="texto">Os setores abaixo prestam assistência à saúde e enquadram-se como Estabelecimento
+      Assistencial de Saúde nos termos da <strong>RDC ANVISA nº 50/2002</strong>, aplicando-se-lhes,
+      cumulativamente à ABNT NBR 16401, a <strong>ABNT NBR 7256:2021</strong>. Fica estabelecida a
+      <strong>obrigatoriedade de suprimento de ar exterior filtrado</strong> — e de exaustão mecânica
+      dedicada nos ambientes geradores de aerossol, de manipulação de saneantes e de material contaminado.
+      A vazão mínima observa o piso de <strong>${PLANO_AR_EXTERIOR_MIN_M3H_PESSOA} m³/h por pessoa</strong>
+      (Portaria MS nº 3.523/98), prevalecendo valor superior quando resultante do dimensionamento pela
+      <strong>ABNT NBR 16401-3, Nível 2</strong>. Filtragem mínima do ar exterior: <strong>G4 seguida de
+      M5</strong>, elevada conforme a classificação de risco do ambiente pela NBR 7256.</p>
+      <p class="texto" style="font-size:9px;color:#4a5568;">É <strong>tecnicamente inadmissível</strong>
+      atender ambiente assistencial de ocupação permanente exclusivamente por sistema de expansão direta em
+      recirculação total, sem admissão de ar exterior. <strong>Ressalva:</strong> a relação abaixo é composta
+      automaticamente a partir da nomenclatura de setores e ambientes do cadastro de locais, e áreas
+      administrativas ou de apoio são excluídas pelo mesmo critério. Trata-se de <strong>triagem preliminar</strong>:
+      a classificação definitiva de cada ambiente, inclusive quanto à exigência de pressurização diferencial
+      e de exaustão dedicada, compete ao responsável técnico à luz da RDC ANVISA nº 50/2002 e da ABNT NBR 7256.</p>
+      <table class="tb-lista">
+        <thead><tr>
+          <th>Setor</th><th>Ambiente</th><th style="width:8%;">Ocup.</th>
+          <th style="width:12%;">Instalado (BTU/h)</th><th style="width:8%;">Ativos VEN</th>
+          <th style="width:13%;">Ar ext. mín. (m³/h)</th><th style="width:22%;">Situação</th>
+        </tr></thead>
+        <tbody>${linhas}</tbody>
+      </table>
+      ${semRenovacao.length ? `<p class="texto" style="font-size:9px;color:#9b2c2c;border-left:3px solid #9b2c2c;padding-left:8px;">
+        <strong>NÃO CONFORMIDADE DE PROJETO.</strong> ${semRenovacao.length} de ${salasAssistenciais.length}
+        ambientes assistenciais não possuem nenhum ativo de ventilação ou exaustão cadastrado, operando em
+        recirculação total. Cada um deles constitui não conformidade de projeto — <strong>não hipótese de
+        inaplicabilidade</strong> —, sujeita ao Plano de Ação e Contingência do item 7.4, com abertura de
+        Ordem de Serviço de adequação. Ressalva: a ausência de registro no cadastro não comprova a
+        inexistência física de exaustão; a confirmação depende de levantamento de campo com registro
+        fotográfico e anemometria, executado pela rotina <strong>[DUT-05]</strong>.</p>` : ''}`;
+  }
+
+  // ── 5.4 Adequação da capacidade instalada (auditoria 2026) ──
+  // Relaciona exclusivamente os ambientes cuja capacidade instalada é inferior ao piso de
+  // adequação adotado. A Seção 4 permanece apresentando apenas a capacidade instalada, sem
+  // coluna de situação, conforme definição do responsável técnico.
+  const salasSub = _planoSalas
+    .filter(s => s.carga > 0 && (acPorSala[s.id]?.btu || 0) > 0)
+    .map(s => ({ ...s, inst: acPorSala[s.id].btu, pct: acPorSala[s.id].btu / s.carga }))
+    .filter(s => s.pct < PLANO_ADEQUACAO_MINIMA)
+    .sort((a, b) => a.pct - b.pct);
+
+  const totalComCarga = _planoSalas.filter(s => s.carga > 0 && (acPorSala[s.id]?.btu || 0) > 0).length;
+
+  const sec54 = salasSub.length ? `
+    <div class="cat-titulo">5.4 Adequação da Capacidade Instalada</div>
+    <p class="texto">Ambientes cuja capacidade instalada é inferior a
+    <strong>${(PLANO_ADEQUACAO_MINIMA * 100).toFixed(0)}%</strong> da carga térmica calculada.
+    A operação permanente em demanda máxima compromete o conforto térmico, impede o sistema de atingir o
+    setpoint em condição de pico e <strong>acelera a degradação do equipamento</strong>, refletindo-se na
+    redução do MTBF apurado na Seção 10.</p>
+    <table class="tb-lista">
+      <thead><tr>
+        <th>Setor</th><th>Ambiente</th><th style="width:13%;">Carga calc. (BTU/h)</th>
+        <th style="width:13%;">Instalado (BTU/h)</th><th style="width:10%;">Adequação</th>
+        <th style="width:13%;">Déficit (BTU/h)</th>
+      </tr></thead>
+      <tbody>${salasSub.map(s => `<tr>
+        <td>${escapeHTML(s.setor)}</td>
+        <td>${escapeHTML(s.nome)}</td>
+        <td style="text-align:right;">${Math.round(s.carga).toLocaleString('pt-BR')}</td>
+        <td style="text-align:right;">${Math.round(s.inst).toLocaleString('pt-BR')}</td>
+        <td style="text-align:center;${s.pct < 0.80 ? 'color:#9b2c2c;font-weight:bold;' : ''}">${(s.pct * 100).toFixed(1)}%</td>
+        <td style="text-align:right;">${Math.round(s.carga - s.inst).toLocaleString('pt-BR')}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+    <p class="texto" style="font-size:9px;color:#718096;">${salasSub.length} de ${totalComCarga} ambientes
+    com carga térmica calculada estão abaixo do piso de adequação
+    (${(100 * salasSub.length / (totalComCarga || 1)).toFixed(1)}%). Ambientes com área ou ocupação não
+    informadas no cadastro de locais têm carga térmica calculada sem o componente de envoltória e foram
+    excluídos desta apuração — a correção desses registros é condição para a validade do indicador.</p>` : '';
+
   const sec5Memorial = `
     <div class="sec">
       <div class="sec-titulo">5. MEMORIAL DESCRITIVO DO SISTEMA</div>
@@ -762,14 +969,18 @@ function gerarDocumentoPMOC() {
       instalados, de seus componentes de tratamento e distribuição de ar e da existência de renovação de ar
       exterior ou exaustão, conforme o cadastro de equipamentos vigente. <strong>A classificação tipológica
       aqui estabelecida é vinculante para a determinação de aplicabilidade das atividades da Seção 6.</strong></p>
+      <div class="cat-titulo">5.1 Tipologia Construtiva por Setor</div>
       ${memorialCorpo || '<p class="texto">Nenhum equipamento cadastrado para compor o memorial descritivo.</p>'}
+      <div class="cat-titulo">5.2 Regime de Aplicabilidade das Rotinas</div>
       <p class="texto" style="font-size:9px;color:#4a5568;border-left:3px solid #1e3a5f;padding-left:8px;">
-      <strong>Regime de aplicabilidade.</strong> A marcação <strong>NA (Não Aplicável)</strong> somente é admitida
-      quando o componente objeto da rotina <strong>inexiste fisicamente</strong> no ativo inspecionado, com justificativa
-      registrada em campo. É vedado: (a) atribuir NA por decorrência automática do campo cadastral de tipo de
-      instalação, sem verificação em campo; (b) atribuir NA ao item DUT-05 em ambiente de ocupação permanente
-      desprovido de tomada de ar exterior — hipótese que constitui <strong>NC por deficiência de projeto</strong>,
-      com abertura obrigatória de Ordem de Serviço de adequação.</p>
+      A marcação <strong>NA (Não Aplicável)</strong> somente é admitida quando o componente objeto da rotina
+      <strong>inexiste fisicamente</strong> no ativo inspecionado, com justificativa registrada em campo.
+      É vedado: (a) atribuir NA por decorrência automática do campo cadastral de tipo de instalação, sem
+      verificação em campo; (b) atribuir NA ao item DUT-05 em ambiente de ocupação permanente desprovido de
+      tomada de ar exterior — hipótese que constitui <strong>NC por deficiência de projeto</strong>, com
+      abertura obrigatória de Ordem de Serviço de adequação.</p>
+      ${sec53}
+      ${sec54}
     </div>`;
 
   // ── 6. Plano de atividades (fonte única: CHECKLIST_PMOC_DEFS do app.js) ──
@@ -1292,6 +1503,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await carregarConfigPlano();
   await carregarEquipamentosPlano();
   await carregarBlocosPlano();
+  await carregarSalasPlano();
 });
 </script>
 </body>

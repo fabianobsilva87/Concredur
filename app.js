@@ -2305,24 +2305,47 @@ function _assinaturaImg(url, style) {
 // condensador evaporativo, chiller com circuito de água), conforme RE ANVISA nº 09/2003.
 const AC_INSTALACOES_AGUA_ABERTA = ['Água Gelada (Chiller)', 'Torre de Resfriamento/Condensador Evaporativo'];
 
-// Valores do select #eq-instalacao-ac que caracterizam sistema centralizado/de maior porte
-// (dutado, VRF/VRV, self-contained, chiller, torre de resfriamento) — usados para aplicar/
-// dispensar itens do checklist ligados a dutos, plenum e componentes mecânicos de maior porte
-// (correias/polias), que não existem em splits individuais (Hi-Wall, Cassete, Piso-Teto,
-// Janeleiro, Portátil).
+// Valores do select #eq-instalacao-ac que caracterizam sistema centralizado/de maior porte com
+// TRANSMISSÃO POR CORREIAS/POLIAS (dutado, self-contained, chiller, torre de resfriamento).
+// Usado exclusivamente para o item MEC-03 (correias e polias), inexistente em equipamentos de
+// transmissão direta. NÃO deve ser usado para determinar aplicabilidade de rotinas de dutos e
+// plenum — ver AC_INSTALACOES_COM_PLENUM.
 const AC_INSTALACOES_PORTE_MAIOR = ['Split Duto', 'Self-Contained', 'VRF', 'Água Gelada (Chiller)', 'Torre de Resfriamento/Condensador Evaporativo'];
+
+// Valores do select #eq-instalacao-ac que possuem COMPONENTES DE TRATAMENTO E DISTRIBUIÇÃO DE AR
+// (caixa de plenum, rede de dutos, bocas de ar remotas) e, portanto, estão sujeitos às rotinas
+// da série DUT.
+//
+// NOTA TÉCNICA (auditoria 2026): a unidade tipo CASSETE integra esta lista. Por construção, possui
+// caixa de plenum de retorno instalada acima do forro (sob pressão negativa), difusor multidirecional
+// de insuflamento (tipicamente 4 vias), bandeja de condensado permanentemente úmida e, na
+// generalidade dos modelos comerciais, flange pré-perfurada para admissão de ar exterior. Tratá-la
+// como "split individual sem dutos" excluía indevidamente o principal sítio de formação de biofilme
+// do parque do escopo de inspeção e higienização, em desacordo com o item 5 do Anexo I da
+// Portaria MS nº 3.523/1998. O mesmo se aplica a unidades comerciais de maior porte (ex.: linha
+// airCore, 58.000 BTU/h ≈ 17 kW), cuja vazão de ar (~2.900 a 3.400 m³/h) é incompatível com
+// distribuição por difusor único respeitando o limite de 0,25 m/s da RE ANVISA nº 09/2003.
+const AC_INSTALACOES_COM_PLENUM = ['Split Cassete', 'Split Duto', 'Self-Contained', 'VRF', 'Água Gelada (Chiller)', 'Torre de Resfriamento/Condensador Evaporativo'];
 
 // Mapa de itens do checklist PMOC (categoria AC) cuja aplicabilidade depende do tipo de
 // instalação cadastrado no parque de equipamentos. Chaves idênticas às de CHECKLIST_PMOC_DEFS.AC.
-// Valores: 'agua_aberta' (só se aplica quando há sistema de água aberto) ou 'porte_maior'
-// (só se aplica a sistemas dutados/centralizados/de maior porte).
+// Valores:
+//   'agua_aberta' — só se aplica quando há sistema de água aberto (torre/chiller/cond. evaporativo);
+//   'plenum'      — só se aplica a sistemas com plenum, dutos ou bocas de ar remotas;
+//   'porte_maior' — só se aplica a sistemas com transmissão por correias/polias.
+//
+// NOTA TÉCNICA (auditoria 2026): DUT-03 e DUT-05 foram tornados INCONDICIONAIS.
+//   • DUT-03 passou a cobrir o isolamento térmico das LINHAS FRIGORÍGENAS (entreforro, prumadas
+//     e trechos externos), presente em toda instalação de expansão direta.
+//   • DUT-05 verifica a EXISTÊNCIA e a vazão efetiva de tomada de ar exterior. A ausência de
+//     renovação de ar em ambiente de ocupação permanente NÃO é hipótese de inaplicabilidade —
+//     é NÃO CONFORMIDADE DE PROJETO (Portaria MS nº 3.523/1998; RE ANVISA nº 09/2003). Marcar
+//     "NA" neutralizava documentalmente o achado mais relevante do parque.
 const CHECKLIST_ITEM_CONDICIONAL = {
   bio_04: 'agua_aberta',
-  dut_01: 'porte_maior',
-  dut_02: 'porte_maior',
-  dut_03: 'porte_maior',
-  dut_04: 'porte_maior',
-  dut_05: 'porte_maior',
+  dut_01: 'plenum',
+  dut_02: 'plenum',
+  dut_04: 'plenum',
   mec_03: 'porte_maior',
 };
 
@@ -2347,11 +2370,11 @@ const CHECKLIST_PMOC_DEFS = {
     ],
     semestral: [
       ['bio_04', '[BIO-04] Coleta de Amostra de Água para Análise Microbiológica'],
-      ['dut_01', '[DUT-01] Dutos e Caixa de Plenum — Verificação de Sujeira (Interna/Externa), Danos e Corrosão'],
-      ['dut_02', '[DUT-02] Verificação da Vedação das Portas de Inspeção e das Conexões dos Dutos'],
-      ['dut_03', '[DUT-03] Verificação e Eliminação de Danos no Isolamento Térmico dos Dutos'],
-      ['dut_04', '[DUT-04] Bocas de Ar (Insuflamento/Retorno) — Verificação de Sujeira, Fixação e Medição de Vazão'],
-      ['dut_05', '[DUT-05] Registros de Ar (Dampers) e Tomada de Ar Externo — Funcionamento, Bloqueio e Balanceamento'],
+      ['dut_01', '[DUT-01] Dutos, Caixas de Plenum e Câmaras de Mistura — Sujidade, Umidade, Danos e Corrosão'],
+      ['dut_02', '[DUT-02] Vedação de Portas de Inspeção, Conexões e Interface Plenum/Entreforro'],
+      ['dut_03', '[DUT-03] Isolamento Térmico de Dutos, Plenums e Linhas Frigorígenas — Integridade e Condensação'],
+      ['dut_04', '[DUT-04] Bocas de Ar e Difusores (Insuflamento/Retorno) — Sujidade, Fixação e Medição de Vazão'],
+      ['dut_05', '[DUT-05] Tomada de Ar Exterior, Registros (Dampers) e Automação VRF — Existência, Vazão e Funcionamento'],
       ['ele_03', '[ELE-03] Medição de Isolamento Elétrico (Megôhmetro) dos Motores'],
       ['ele_04', '[ELE-04] Teste dos Dispositivos de Proteção (Pressostatos e Termostatos)'],
       ['ins_01', '[INS-01] Inspeção Estrutural — Suportes, Fixações e Isolamento Térmico das Linhas'],
@@ -2475,11 +2498,11 @@ const CHECKLIST_EXECUCAO_GUIA = {
   mec_02: { exec: 'Aplicar graxa/óleo lubrificante nos pontos de lubrificação do motoventilador conforme especificação do fabricante.', c: 'Pontos lubrificados, sem ruído de atrito seco.', nc: 'Ponto de lubrificação sem graxa/óleo ou ruído de atrito identificado.', na: 'Rolamentos selados/sem ponto de lubrificação (motor blindado).' },
   // ── AC — semestral ──
   bio_04: { exec: 'Coletar amostra de água do sistema (torre de resfriamento/condensador evaporativo/água gelada) em frasco estéril, seguindo protocolo do laboratório, e enviar para análise microbiológica (Legionella e contagem bacteriana).', c: 'Amostra coletada e enviada dentro do prazo, resultado dentro dos limites da RE ANVISA nº 09/2003.', nc: 'Resultado fora dos limites — acionar tratamento biocida e nova coleta de confirmação.', na: 'Sistema não possui circuito de água aberto.', ferramenta: 'Frasco estéril de coleta, EPI' },
-  dut_01: { exec: 'Inspecionar visualmente (por pontos de inspeção) o interior dos dutos e caixa de plenum quanto a acúmulo de poeira, danos mecânicos e corrosão.', c: 'Dutos limpos internamente, sem danos ou corrosão relevante.', nc: 'Sujidade significativa, dano estrutural ou corrosão identificada.', na: 'Sistema sem rede de dutos (splits individuais).' },
-  dut_02: { exec: 'Verificar vedação das portas de inspeção e juntas das conexões dos dutos, checando infiltração de ar não filtrado.', c: 'Vedações íntegras, sem infiltração de ar externo.', nc: 'Vedação rompida ou porta de inspeção com folga/vazamento de ar.', na: 'Sistema sem rede de dutos.' },
-  dut_03: { exec: 'Inspecionar o isolamento térmico externo dos dutos quanto a rasgos, umidade ou descolamento, reparando conforme necessário.', c: 'Isolamento íntegro, sem pontos de condensação externa.', nc: 'Isolamento danificado, úmido ou ausente em trechos.', na: 'Sistema sem rede de dutos ou trecho sem isolamento previsto (ex.: retorno).' },
-  dut_04: { exec: 'Limpar grelhas/difusores de insuflamento e retorno, verificar fixação e medir a vazão de ar com anemômetro em cada boca.', c: 'Bocas limpas, bem fixadas e vazão compatível com o projeto/balanceamento.', nc: 'Sujidade acumulada, fixação solta ou vazão fora do esperado.', na: 'Sistema sem dutos/bocas de ar dedicadas.', ferramenta: 'Anemômetro' },
-  dut_05: { exec: 'Testar a movimentação dos registros/dampers manuais ou motorizados e verificar a tomada de ar externo quanto a bloqueios (folhas, sujeira, insetos).', c: 'Dampers funcionando livremente, tomada de ar externo desobstruída.', nc: 'Damper travado ou tomada de ar externo obstruída.', na: 'Sistema sem dampers ou sem tomada de ar externo dedicada.' },
+  dut_01: { exec: 'Abrir portas de inspeção ou remover o painel/grelha frontal e inspecionar o interior da rede de dutos, da CAIXA DE PLENUM DE RETORNO das unidades Cassete (acima do forro), do plenum de insuflamento de unidades dutadas/VRF e da câmara de mistura de ar exterior, quando existente. Verificar deposição de particulado, fibras do forro aspiradas para o plenum, manchas de umidade, colônias visíveis, danos mecânicos e corrosão. Conferir a bandeja de condensado quanto a lâmina d\'água estagnada. Registro fotográfico obrigatório de cada plenum inspecionado.', c: 'Superfícies internas isentas de deposição significativa, sem umidade estagnada, sem colônias visíveis, sem dano estrutural ou corrosão relevante.', nc: 'Deposição de particulado, presença de fibras, umidade ou manchas de proliferação microbiológica, dano estrutural ou corrosão. Executar higienização completa com saneante regularizado e corrigir a causa da umidade.', na: 'Exclusivamente para Split Hi-Wall, Piso-Teto, Janeleiro ou Portátil, sem plenum e sem rede de dutos — registrar a justificativa. NÃO se aplica a Cassete, que possui plenum de retorno integrado.', ferramenta: 'Lanterna, câmera fotográfica, saneante regularizado na ANVISA, EPI', seguranca: 'Desenergizar o equipamento; usar EPI respiratório ao inspecionar plenum com deposição.' },
+  dut_02: { exec: 'Verificar a integridade de gaxetas, fitas de vedação e fixadores das portas e alçapões de inspeção, das juntas e conexões dos trechos de duto e das passagens de tubulação/cabos. Testar a ESTANQUEIDADE DA CAIXA DE PLENUM DE RETORNO DAS UNIDADES CASSETE contra o entreforro, identificando aspiração de ar não filtrado proveniente do plenum de forro.', c: 'Vedações íntegras; ausência de infiltração de ar não filtrado; plenum de retorno estanque em relação ao entreforro.', nc: 'Gaxeta rompida, folga em porta de inspeção, junta desconectada ou aspiração de ar do entreforro. Refazer a vedação e reinspecionar. NOTA: a vedação deficiente converte o entreforro em via de admissão de ar não filtrado, arrastando poeira e fibras minerais do forro diretamente para a serpentina — compromete a QAI mesmo com filtragem conforme.', na: 'Exclusivamente para equipamentos sem portas de inspeção e sem plenum (Hi-Wall, Piso-Teto, Janeleiro, Portátil) — registrar a justificativa.' },
+  dut_03: { exec: 'Inspecionar o isolamento térmico externo de dutos e plenums E o isolamento das LINHAS FRIGORÍGENAS de líquido e sucção (trechos de entreforro, prumadas, shafts e áreas externas), além das linhas de dreno em ambiente climatizado. Verificar rasgos, descolamento, ausência de trechos, encharcamento, ressecamento por UV e condensação superficial. Reparar ou substituir o trecho comprometido.', c: 'Isolamento íntegro e contínuo, seco, sem condensação superficial em qualquer trecho.', nc: 'Trecho ausente, rasgado, descolado, encharcado ou com condensação. Substituir o trecho e investigar sobrecarga térmica local. NOTA: em VRF, a linha de sucção descoberta em entreforro é a causa mais frequente de gotejamento e mancha de umidade em forro atribuídos erroneamente a vazamento de dreno.', na: 'Somente para linhas em ambiente não climatizado sem previsão de isolamento em projeto — registrar a justificativa.' },
+  dut_04: { exec: 'Limpar a face, o núcleo e as aletas direcionais dos difusores multidirecionais (4 vias) das unidades Cassete, difusores lineares, grelhas de retorno e bocas de sistemas dutados/VRF. Verificar fixação, alinhamento e livre movimentação das aletas motorizadas. MEDIR A VAZÃO DE AR POR BOCA com anemômetro de fio quente ou balômetro e comparar com a vazão nominal do fabricante ou de projeto. Verificar a velocidade resultante na zona de ocupação.', c: 'Bocas limpas e bem fixadas; aletas com movimentação livre; vazão medida dentro de ±10% do valor nominal ou de projeto; velocidade na zona de ocupação ≤ 0,25 m/s (RE ANVISA nº 09/2003).', nc: 'Sujidade acumulada, fixação solta, aleta travada, vazão fora da tolerância de ±10% ou velocidade acima de 0,25 m/s na zona de ocupação. Limpar, rebalancear e investigar causa (filtro colmatado, serpentina obstruída, ventilador degradado, obstrução de duto/plenum).', na: 'Exclusivamente para equipamentos com insuflamento e retorno diretos na face do gabinete (Hi-Wall, Piso-Teto, Janeleiro, Portátil) — registrar a justificativa.', ferramenta: 'Anemômetro de fio quente ou balômetro (capture hood) com certificado de calibração vigente' },
+  dut_05: { exec: '1) VERIFICAR A EXISTÊNCIA de tomada de ar exterior no ambiente; nas unidades Cassete, conferir se a flange de ar exterior está ativada, obturada ou desconectada. 2) Inspecionar e desobstruir a captação (folhas, ninhos, insetos, tela colmatada, vegetação) e verificar o afastamento em relação a descargas de exaustão e fontes de contaminação. 3) MEDIR A VAZÃO EFETIVA DE AR EXTERIOR por anemometria e confrontar com o requerido (mínimo 27 m³/h·pessoa — Portaria MS nº 3.523/1998; valor superior pela NBR 16401-3 Nível 2 em setores assistenciais). 4) Testar movimentação e posicionamento de todos os dampers manuais e motorizados, atuadores e fins de curso. 5) AUTOMAÇÃO VRF: verificar comunicação da rede de controle e integridade da controladora, conferir parametrização de setpoints, limites e agendamento, extrair e analisar o histórico de alarmes e códigos de erro das unidades externas, e testar o intertravamento entre climatização e exaustão.', c: 'Tomada de ar exterior existente, desobstruída e com vazão medida igual ou superior à requerida; dampers com movimentação livre e posicionamento correto; automação operante, parametrizada e sem alarmes ativos ou recorrentes.', nc: 'Captação obstruída, mal posicionada ou com vazão inferior à requerida; damper travado, atuador inoperante ou flange de ar exterior obturada; falha de comunicação, parametrização incorreta ou alarmes recorrentes. ATENÇÃO — DEFICIÊNCIA DE PROJETO: a INEXISTÊNCIA de tomada de ar exterior em ambiente de ocupação permanente deve ser registrada como NC (vedada a marcação NA), com abertura de O.S. de adequação e submissão do ambiente ao Plano de Ação e Contingência da Seção 7 do Plano PMOC.', na: 'Exclusivamente para ambientes SEM OCUPAÇÃO PERMANENTE (depósitos, casas de máquinas, salas técnicas não ocupadas) e sem damper instalado — registrar a justificativa. É VEDADO marcar NA por ausência de tomada de ar exterior em ambiente ocupado: essa hipótese é NC.', ferramenta: 'Anemômetro calibrado, interface/controladora do sistema VRF, lanterna' },
   ele_03: { exec: 'Medir a resistência de isolamento entre enrolamentos e carcaça dos motores com megôhmetro, com o motor desenergizado.', c: 'Resistência de isolamento acima de 1 MΩ (ou valor mínimo do fabricante).', nc: 'Resistência abaixo do mínimo — risco de falha elétrica, motor deve ser avaliado.', na: '—', ferramenta: 'Megôhmetro', seguranca: 'Motor totalmente desenergizado e descarregado antes do teste.' },
   ele_04: { exec: 'Testar a atuação dos pressostatos de alta/baixa pressão e termostatos de segurança, simulando condição de disparo quando possível.', c: 'Dispositivos atuam corretamente dentro do setpoint especificado.', nc: 'Dispositivo não atua, atua fora do setpoint ou está bypassado.', na: '—' },
   ins_01: { exec: 'Verificar suportes e fixações das unidades (condensadora/evaporadora) e o isolamento térmico das linhas frigorígenas quanto a integridade.', c: 'Suportes firmes, isolamento das linhas íntegro e sem degradação.', nc: 'Suporte comprometido, corrosão estrutural ou isolamento das linhas danificado.', na: '—' },
