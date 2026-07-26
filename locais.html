@@ -202,9 +202,18 @@
             <div class="form-group"><label for="sala-nome">Nome da Sala *</label><input type="text" id="sala-nome" placeholder="Ex: Sala 204, Copa, Corredor B"></div>
             <div class="form-group">
               <label for="sala-tipo-ambiente">Tipo de Ambiente <small style="color:#a0aec0;font-weight:400;">(orienta a Criticidade sugerida nos relatórios)</small></label>
-              <select id="sala-tipo-ambiente" class="form-input-style"><option value="">— Selecione —</option></select>
+              <select id="sala-tipo-ambiente" class="form-input-style" onchange="atualizarDicaExaustaoSala()"><option value="">— Selecione —</option></select>
+            </div>
+            <div class="form-group">
+              <label for="sala-exige-exaustao">Exaustão mecânica <small style="color:#a0aec0;font-weight:400;">(controla o cadastro de exaustores)</small></label>
+              <select id="sala-exige-exaustao" class="form-input-style" onchange="atualizarDicaExaustaoSala()">
+                <option value="">Herdar do Tipo de Ambiente</option>
+                <option value="sim">Sim — ambiente exige exaustão</option>
+                <option value="nao">Não — ambiente dispensa exaustão</option>
+              </select>
             </div>
           </div>
+          <p id="sala-exaustao-dica" style="font-size:11px;color:#a0aec0;margin:6px 0 0;line-height:1.5;">Selecione o Tipo de Ambiente ou informe a exigência manualmente para que a sala entre no relatório de Conformidade de Exaustão.</p>
 
           <h4 style="font-size:13px;font-weight:700;color:#4a5568;margin:18px 0 4px;">🌡️ Carga Térmica Prevista (BTU/h)</h4>
           <p style="font-size:11px;color:#a0aec0;margin:0 0 12px;">Estimativa baseada em método prático NBR 16401 / ASHRAE: envoltória 600 BTU/m² (ajustada por incidência solar e cobertura) + 600 BTU/pessoa + 3,41 BTU/Watt de equipamentos (ganhos internos não dependem do sol) + janelas com coeficiente próprio conforme exposição solar (sombra 165 · manhã 450 · tarde 700 BTU/m²).</p>
@@ -339,6 +348,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   await popularSelectInstituicoes('sala-instituicao');
   await popularSelectInstituicoes('filtro-sala-instituicao', true);
   popularSelectTipoAmbiente('sala-tipo-ambiente');
+  atualizarDicaExaustaoSala();
   await carregarSalas();
 });
 </script>

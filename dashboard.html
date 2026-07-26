@@ -131,6 +131,24 @@
           <p id="dash-badge-carga-termica" style="font-size:12px;font-weight:700;margin:12px 0 0;text-align:right;">—</p>
         </div>
 
+        <!-- ===== CONSISTÊNCIA ATIVO × AMBIENTE ===== -->
+        <div class="card" style="padding:20px;margin-bottom:20px;">
+          <h3 class="card-title" style="margin-bottom:4px;">🎯 Consistência Ativo × Ambiente</h3>
+          <p style="font-size:12px;color:#a0aec0;margin:0 0 14px;">Auditoria cruzada entre o cadastro de Ativos e o de Salas, conforme filtro de local acima. Relatórios completos na Central de Impressões.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div style="background:#f8fafc;border-radius:8px;padding:14px 18px;">
+              <p style="font-size:11px;color:#718096;margin:0 0 8px;text-transform:uppercase;letter-spacing:.05em;">Divergência de Criticidade</p>
+              <div id="dash-consist-criticidade" style="font-size:13px;color:#a0aec0;">Carregando análise...</div>
+            </div>
+            <div style="background:#f8fafc;border-radius:8px;padding:14px 18px;">
+              <p style="font-size:11px;color:#718096;margin:0 0 8px;text-transform:uppercase;letter-spacing:.05em;">Conformidade de Exaustão</p>
+              <div id="dash-consist-exaustao" style="font-size:13px;color:#a0aec0;">Carregando análise...</div>
+            </div>
+          </div>
+          <p style="font-size:11px;color:#718096;margin:16px 0 8px;font-weight:700;">Divergências prioritárias — ativo → criticidade esperada do ambiente</p>
+          <div id="dash-consist-lista" style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:#a0aec0;">Carregando...</div>
+        </div>
+
         <!-- ===== PAINEL DE ALERTAS ===== -->
         <div id="painel-alertas-vencimento" style="display:none;">
           <div style="background:linear-gradient(135deg,#fff7ed,#fff);border:1.5px solid #f97316;border-radius:12px;padding:20px 24px;margin-bottom:20px;">
@@ -255,6 +273,7 @@
         carregarConformidadeFiltros();
         carregarCoberturaPMOC();
         carregarKpiCargaTermica();
+        carregarConsistenciaAtivoAmbiente();
       })();
     });
   </script>

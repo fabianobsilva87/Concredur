@@ -283,7 +283,7 @@
             <div class="form-grid">
               <div class="form-group">
                 <label for="eq-tipo-ven">Tipo</label>
-                <select id="eq-tipo-ven" class="form-input-style">
+                <select id="eq-tipo-ven" class="form-input-style" onchange="atualizarAvisoExaustaoSala()">
                   <option value="">— Selecione —</option>
                   <option value="Axial">Axial (Hélice)</option>
                   <option value="Centrífugo">Centrífugo</option>
@@ -336,11 +336,12 @@
               </div>
               <div class="form-group">
                 <label for="eq-sala-id">Sala / Identificação</label>
-                <select id="eq-sala-id" class="form-input-style" disabled>
+                <select id="eq-sala-id" class="form-input-style" disabled onchange="atualizarAvisoExaustaoSala()">
                   <option value="">— Selecione o setor primeiro —</option>
                 </select>
               </div>
             </div>
+            <p id="aviso-exaustao-sala" style="display:none;font-size:11px;line-height:1.5;margin:8px 0 0;padding:8px 12px;background:#f8fafc;border-left:3px solid currentColor;border-radius:4px;"></p>
             <p style="font-size:11px;margin-top:8px;">
               <a href="locais.html" target="_blank">+ Cadastrar nova Instituição/Unidade, Bloco/Edificação, Setor ou Sala</a>
             </p>

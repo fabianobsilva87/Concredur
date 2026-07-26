@@ -241,6 +241,24 @@
             </div>
 
             <div class="impr-card">
+              <div class="impr-card-head"><span class="impr-card-icon">🎯</span><span class="impr-card-title">Divergência de Criticidade (Ativo × Ambiente)</span></div>
+              <div class="impr-card-desc">Confronta a classe apurada na Matriz de Riscos de cada ativo com a criticidade esperada do ambiente onde está instalado. Destaca os <strong>subclassificados</strong> — classe inferior à do ambiente, que rebaixa indevidamente a prioridade de atendimento — além de superclassificados e ativos sem criticidade aplicada. Traz ação recomendada por ativo. A4 paisagem.</div>
+              <div class="impr-card-foot">
+                <span class="impr-escopo filtro" title="Respeita o filtro de local (Instituição/Bloco/Setor/Sala).">Respeita filtro de local</span>
+                <button type="button" class="impr-btn alt" onclick="acaoImpressao('emitirRelatorioDivergenciaCriticidade')">Imprimir</button>
+              </div>
+            </div>
+
+            <div class="impr-card">
+              <div class="impr-card-head"><span class="impr-card-icon">💨</span><span class="impr-card-title">Conformidade de Exaustão por Sala</span></div>
+              <div class="impr-card-desc">Aponta as salas que exigem exaustão mecânica e ainda não possuem exaustor cadastrado, além de exaustores instalados em ambientes que não a demandam. A exigência vem do campo Exaustão mecânica da Sala ou, na ausência dele, do Tipo de Ambiente. A4 paisagem.</div>
+              <div class="impr-card-foot">
+                <span class="impr-escopo filtro" title="Respeita o filtro de local (Instituição/Bloco/Setor/Sala). Os filtros de TAG e Criticidade não se aplicam, pois este relatório é por sala.">Respeita filtro de local</span>
+                <button type="button" class="impr-btn alt" onclick="acaoImpressao('emitirRelatorioExaustaoSalas')">Imprimir</button>
+              </div>
+            </div>
+
+            <div class="impr-card">
               <div class="impr-card-head"><span class="impr-card-icon">📊</span><span class="impr-card-title">Exportar Inventário (XLS)</span></div>
               <div class="impr-card-desc">Planilha com duas abas — Inventário e Resumo — usando separadores decimais brasileiros e BTU/h em formato numérico.</div>
               <div class="impr-card-foot">
