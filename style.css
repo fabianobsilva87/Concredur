@@ -1,7 +1,58 @@
 /* ===================== RESET & BASE ===================== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* T2.3 — conteúdo oculto até a sessão ser validada, para não exibir dados de
+   cache antes do redirect para index.html. A classe é adicionada no <head> de
+   cada página e removida ao final de sessaoPronta (app.js) ou do init da
+   página autocontida. Há uma rede de segurança de 8 s: nenhuma falha de JS
+   pode deixar o sistema permanentemente invisível. */
+html.sessao-pendente body { visibility: hidden; }
+
+/* T3.2 — toast global, promovido do padrão já existente em plano-pmoc.html.
+   Substitui alert() como camada de erro: não bloqueia a UI. */
+#app-toast {
+  position: fixed; bottom: 28px; right: 24px; z-index: 4000;
+  background: var(--brand-navy); color: #fff; padding: 11px 18px; border-radius: 8px;
+  font-size: 13px; font-weight: 600; max-width: min(420px, 90vw);
+  white-space: pre-line;   /* preserva as quebras \n herdadas das mensagens de alert() */
+  box-shadow: 0 4px 16px rgba(0,0,0,.2);
+  opacity: 0; transition: opacity .25s; pointer-events: none;
+}
+#app-toast.show { opacity: 1; }
+#app-toast.erro { background: #dc2626; }
+
+/* T1.1b — faixa de ambiente. config.js tem um switch ENV manual; sem indicação
+   visual, um deploy com ENV='homologacao' grava O.S. e fichas PMOC no banco de
+   testes silenciosamente — o mesmo tipo de falha que a guarda de credenciais
+   evita, só que uma camada acima. */
+#app-faixa-ambiente {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 6000;
+  background: repeating-linear-gradient(45deg,#d97706,#d97706 12px,#b45309 12px,#b45309 24px);
+  color: #fff; font: 700 12px/1 'Inter', system-ui, sans-serif;
+  text-align: center; padding: 7px 12px; letter-spacing: .04em;
+  box-shadow: 0 2px 8px rgba(0,0,0,.25); pointer-events: none;
+}
+body.tem-faixa-ambiente { padding-top: 26px; }
+@media print { #app-faixa-ambiente { display: none; } body.tem-faixa-ambiente { padding-top: 0; } }
+
+/* T3.1 — aviso de expiração de sessão por inatividade */
+#app-aviso-inatividade {
+  position: fixed; inset: 0; z-index: 5000; display: none;
+  align-items: center; justify-content: center; background: rgba(15,23,42,.55);
+}
+#app-aviso-inatividade.show { display: flex; }
+#app-aviso-inatividade > div {
+  background: #fff; border-radius: 10px; padding: 26px 30px; max-width: 380px;
+  text-align: center; box-shadow: 0 12px 40px rgba(0,0,0,.3);
+  font-family: 'Inter', system-ui, sans-serif;
+}
+@media print { html.sessao-pendente body { visibility: visible; } }
+
 :root {
+  /* Sprint 5 — var(--brand-navy) é a cor institucional dos documentos impressos (invariante 6)
+     e NÃO é a mesma coisa que --primary (#1a56db, azul da interface). São duas cores
+     distintas: promover uma para a outra alteraria a identidade dos documentos. */
+  --brand-navy:   #1e3a5f;
   --primary:      #1a56db;
   --primary-dark: #1342b0;
   --primary-light:#ebf4ff;
@@ -268,6 +319,44 @@ tbody tr:hover td { background: var(--gray-50); }
   .section-content { padding: 12px 14px; }
   .topbar { padding: 0 14px; gap: 6px; flex-wrap: wrap; height: auto; padding-top: 8px; padding-bottom: 8px; }
   .dash-cards-grid { grid-template-columns: 1fr 1fr; }
+
+  /* Sprint 5 — as tabelas de inventário estouravam a viewport justamente onde o
+     técnico usa o sistema: em campo, no celular. Rolagem horizontal contida no
+     wrapper, com sombra indicando que há mais conteúdo à direita. */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    background:
+      linear-gradient(to right, #fff 30%, rgba(255,255,255,0)) left / 24px 100% no-repeat,
+      linear-gradient(to left,  #fff 30%, rgba(255,255,255,0)) right / 24px 100% no-repeat;
+  }
+  .table-wrap table { min-width: 620px; }
+  .table-wrap th, .table-wrap td { white-space: nowrap; font-size: 12px; padding: 8px 10px; }
+
+  .card { padding: 14px; }
+  .card-title { font-size: 14px; }
+  .dash-kpi-grid { grid-template-columns: 1fr !important; }
+  .pagination-container { flex-wrap: wrap; justify-content: center !important; }
+
+  /* Alvos de toque de 44px (recomendação WCAG 2.5.5) */
+  .btn-primary, .btn-secondary, .btn-refresh, .btn-excluir { min-height: 40px; }
+  input, select, textarea { font-size: 16px; }   /* evita o zoom automático do iOS */
+}
+
+@media (max-width: 420px) {
+  .dash-cards-grid { grid-template-columns: 1fr; }
+  .topbar h2 { font-size: 15px; }
+  #app-toast { left: 12px; right: 12px; bottom: 12px; max-width: none; }
+}
+
+/* Sprint 5 — respeita quem configurou redução de movimento no sistema */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ===================== IMPRESSÃO ===================== */

@@ -6,15 +6,27 @@
 //  Fase 4: dashboard lê views SQL materializadas
 // =====================================================================
 
-// ── Credenciais: lidas de config.js (carregado antes no HTML)
-// Fallback embutido garante funcionamento mesmo se config.js falhar no deploy
-const _SUPA_URL = (typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL)
-  ? SUPABASE_URL
-  : 'https://mqijbvcnalbfjbhhjjzx.supabase.co';
-const _SUPA_KEY = (typeof SUPABASE_ANON_KEY !== 'undefined' && SUPABASE_ANON_KEY)
-  ? SUPABASE_ANON_KEY
-  : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xaWpidmNuYWxiZmpiaGhqanp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0ODM5ODcsImV4cCI6MjA5NjA1OTk4N30.2L_zzKs_voAt5SnmcKeYSBiskX46k8SFFdJgTkIGe7Q';
-const db = supabase.createClient(_SUPA_URL, _SUPA_KEY);
+// ── Credenciais: lidas EXCLUSIVAMENTE de config.js (carregado antes no HTML)
+// Sem fallback embutido. Conectar em silêncio a outro projeto Supabase é pior que
+// não abrir: as O.S. e fichas PMOC iriam para uma base fantasma sem ninguém notar.
+if (typeof SUPABASE_URL === 'undefined' || !SUPABASE_URL ||
+    typeof SUPABASE_ANON_KEY === 'undefined' || !SUPABASE_ANON_KEY) {
+  const _msgCfg =
+    '<div style="padding:40px;font-family:system-ui,-apple-system,sans-serif;color:#dc2626;max-width:640px;margin:0 auto">' +
+    '<h2 style="margin:0 0 12px">Falha de configuração</h2>' +
+    '<p style="color:#4a5568;line-height:1.6">O arquivo <code>config.js</code> não foi carregado, ou não define ' +
+    '<code>SUPABASE_URL</code> e <code>SUPABASE_ANON_KEY</code>.<br>' +
+    'O sistema foi interrompido para não gravar dados em uma base incorreta.<br><br>' +
+    'Contate o administrador do sistema.</p></div>';
+  if (document.body) {
+    document.body.style.visibility = 'visible'; // não deixar a tela invisível (ver T2.3)
+    document.body.innerHTML = _msgCfg;
+  } else {
+    document.documentElement.innerHTML = '<body>' + _msgCfg + '</body>';
+  }
+  throw new Error('CONFIG_AUSENTE');
+}
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Logo institucional (base64) — usada nas etiquetas de impressão
 const LOGO_ETIQUETA = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAAA9CAYAAADoByY0AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyNpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDYuMC1jMDAyIDc5LjE2NDQ4OCwgMjAyMC8wNy8xMC0yMjowNjo1MyAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIDIyLjAgKFdpbmRvd3MpIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOjM4MEYxMjVBNTg3NDExRUU5QTBGQkI4N0VFOTE2RTJGIiB4bXBNTTpEb2N1bWVudElEPSJ4bXAuZGlkOjM4MEYxMjVCNTg3NDExRUU5QTBGQkI4N0VFOTE2RTJGIj4gPHhtcE1NOkRlcml2ZWRGcm9tIHN0UmVmOmluc3RhbmNlSUQ9InhtcC5paWQ6MzgwRjEyNTg1ODc0MTFFRTlBMEZCQjg3RUU5MTZFMkYiIHN0UmVmOmRvY3VtZW50SUQ9InhtcC5kaWQ6MzgwRjEyNTk1ODc0MTFFRTlBMEZCQjg3RUU5MTZFMkYiLz4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz6klSGIAAAP7ElEQVR42uxdCXQV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';
@@ -32,6 +44,160 @@ const fmtDate = (iso) => iso
   ? new Date(iso.includes('T') ? iso : iso + 'T00:00:00').toLocaleDateString('pt-BR')
   : '—';
 const hoje = () => new Date().toISOString().split('T')[0];
+
+// ── T2.1: paginação obrigatória em leituras de lista ──────────────────────────
+// O PostgREST aplica max-rows (padrão 1.000) e retorna truncado SEM erro. Um
+// inventário com 1.001 equipamentos emitiria Plano PMOC incompleto — não
+// conformidade perante a Lei 13.589/2018 e a Portaria MS 3.523/98.
+//
+// Recebe uma FÁBRICA de query (e não a query pronta) para poder reaplicar
+// .range() a cada página, e devolve { data, error } no mesmo formato do
+// supabase-js, de modo que os pontos de chamada não mudem o tratamento de erro.
+async function fetchAll(construirQuery, chunk = 1000) {
+  const todos = [];
+  for (let de = 0; ; de += chunk) {
+    const { data, error } = await construirQuery().range(de, de + chunk - 1);
+    if (error) return { data: null, error };
+    if (data) for (const linha of data) todos.push(linha);
+    if (!data || data.length < chunk) break;
+  }
+  return { data: todos, error: null };
+}
+
+// Variante para filtros .in(): além do max-rows, uma lista grande de IDs estoura
+// o limite de tamanho da URL (HTTP 414). Quebra os IDs em blocos de 500,
+// conforme o padrão de operações em lote do projeto.
+// ATENÇÃO: aqui a fábrica PRECISA devolver uma query nova a cada chamada, senão
+// os filtros .in() se acumulam no mesmo builder.
+async function fetchAllIn(construirQuery, coluna, ids, blocoIds = 500, chunk = 1000) {
+  const todos = [];
+  const unicos = [...new Set(ids || [])];
+  if (!unicos.length) return { data: [], error: null };
+  for (let i = 0; i < unicos.length; i += blocoIds) {
+    const fatia = unicos.slice(i, i + blocoIds);
+    const { data, error } = await fetchAll(() => construirQuery().in(coluna, fatia), chunk);
+    if (error) return { data: null, error };
+    if (data) for (const linha of data) todos.push(linha);
+  }
+  return { data: todos, error: null };
+}
+
+// ── T4.4: contagem de equipamentos por local ────────────────────────────────
+// Tenta a view agregada; se ela ainda não existir no banco, cai no scan completo.
+// Mesmo padrão de fallback já usado pelas vw_dashboard_* do dashboard.
+async function contarEquipamentosPorLocal(nivel) {
+  const coluna = { bloco: 'bloco_id', setor: 'setor_id', sala: 'sala_id' }[nivel];
+  const mapa = {};
+
+  const { data: view, error: erroView } = await db
+    .from('vw_contagem_equipamentos_por_local')
+    .select('local_id, total')
+    .eq('nivel', nivel);
+
+  if (!erroView && view) {
+    view.forEach(r => { if (r.local_id) mapa[r.local_id] = Number(r.total) || 0; });
+    return mapa;
+  }
+
+  console.warn('vw_contagem_equipamentos_por_local indisponível — usando varredura completa.');
+  const { data: eqs } = await fetchAll(() => db.from('equipamentos').select(coluna));
+  (eqs || []).forEach(e => { if (e[coluna]) mapa[e[coluna]] = (mapa[e[coluna]] || 0) + 1; });
+  return mapa;
+}
+
+// ── T1.1b: faixa visível quando o sistema NÃO está apontando para produção ───
+// config.js expõe IS_HOMOLOGACAO, mas nada no sistema o consumia: o switch de
+// ambiente era completamente silencioso.
+function marcarAmbienteNaoProdutivo() {
+  if (typeof IS_HOMOLOGACAO === 'undefined' || !IS_HOMOLOGACAO) return;
+  if (document.getElementById('app-faixa-ambiente')) return;
+  const faixa = document.createElement('div');
+  faixa.id = 'app-faixa-ambiente';
+  faixa.textContent = '\u26A0 AMBIENTE DE HOMOLOGA\u00C7\u00C3O \u2014 os dados gravados aqui N\u00C3O v\u00E3o para a base de produ\u00E7\u00E3o';
+  document.body.appendChild(faixa);
+  document.body.classList.add('tem-faixa-ambiente');
+}
+
+// ── T3.2: toast global + wrapper de consulta ─────────────────────────────────
+// Substitui alert() como camada de erro: alert bloqueia a UI e não registra nada.
+let _appToastTimer = null;
+function toast(msg, tipo = 'info') {
+  let el = document.getElementById('app-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'app-toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.className = (tipo === 'erro' ? 'erro ' : '') + 'show';
+  if (_appToastTimer) clearTimeout(_appToastTimer);
+  _appToastTimer = setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+// Envolve uma consulta ao Supabase, notifica o usuário e registra no console.
+// Uso: const eqs = await q(fetchAll(() => db.from('equipamentos').select('*')), 'inventário');
+async function q(promise, contexto) {
+  const { data, error } = await promise;
+  if (error) {
+    console.error('[' + contexto + ']', error);
+    toast('Erro em ' + contexto + ': ' + error.message, 'erro');
+    throw error;
+  }
+  return data;
+}
+
+// ── T3.1: watchdog de inatividade (30 min, aviso 2 min antes) ────────────────
+// Sistema usado em notebook de sala técnica compartilhada — sessão eterna é risco.
+const INATIVIDADE_LIMITE_MS = 30 * 60 * 1000;
+const INATIVIDADE_AVISO_MS  = 2  * 60 * 1000;
+
+function iniciarWatchdogInatividade() {
+  const pag = window.location.pathname.split('/').pop();
+  if (pag === '' || pag === 'index.html' || pag === 'verificar.html') return;
+
+  let tExpira = null, tAviso = null, ultimoReset = 0;
+
+  const encerrar = async () => {
+    limparTimers();
+    try { await db.auth.signOut(); } catch (e) { console.warn('signOut:', e); }
+    window.location.href = 'index.html?motivo=inatividade';
+  };
+
+  const mostrarAviso = () => {
+    let el = document.getElementById('app-aviso-inatividade');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'app-aviso-inatividade';
+      el.innerHTML =
+        '<div><h3 style="margin:0 0 10px;color:#1e3a5f;">Sessão prestes a expirar</h3>' +
+        '<p style="margin:0 0 18px;color:#4a5568;font-size:14px;line-height:1.5;">' +
+        'Por inatividade, sua sessão será encerrada em 2 minutos.</p>' +
+        '<button type="button" id="btn-continuar-sessao" class="btn-primary">Continuar conectado</button></div>';
+      document.body.appendChild(el);
+      el.querySelector('#btn-continuar-sessao').addEventListener('click', () => {
+        el.classList.remove('show');
+        reiniciar(true);
+      });
+    }
+    el.classList.add('show');
+  };
+
+  const limparTimers = () => { clearTimeout(tExpira); clearTimeout(tAviso); };
+
+  function reiniciar(forcado = false) {
+    const agora = Date.now();
+    // Throttle: no máximo um reset por segundo, para não recriar timers a cada mousemove.
+    if (!forcado && agora - ultimoReset < 1000) return;
+    ultimoReset = agora;
+    limparTimers();
+    tAviso  = setTimeout(mostrarAviso, INATIVIDADE_LIMITE_MS - INATIVIDADE_AVISO_MS);
+    tExpira = setTimeout(encerrar, INATIVIDADE_LIMITE_MS);
+  }
+
+  ['mousemove', 'keydown', 'click', 'scroll', 'touchstart']
+    .forEach(ev => window.addEventListener(ev, () => reiniciar(), { passive: true }));
+  reiniciar(true);
+}
 
 // ── Fase 3: escapeHTML — sanitização para todos os innerHTML com dados do banco ──
 function escapeHTML(str) {
@@ -350,21 +516,28 @@ async function verificarSessaoGlobal() {
       if ($('user-display-email'))
         $('user-display-email').textContent = perfil.nome || user.email;
     } else {
-      // Perfil não existe — cria em background sem bloquear a página
-      db.from('profiles').insert([{
-        id:     user.id,
-        email:  user.email,
-        nome:   user.user_metadata?.full_name || user.email,
-        role:   'admin',
-        status: 'ativo',
-      }]).then(() => {}).catch(() => {});
+      // T1.2 — o cliente NUNCA cria o próprio perfil nem escreve a própria role.
+      // A criação passou a ser responsabilidade do servidor: trigger
+      // on_auth_user_created (AFTER INSERT ON auth.users), com defaults
+      // 'leitor'/'pendente'. Aqui apenas registramos e seguimos com o e-mail.
+      console.warn('profiles: perfil não localizado para', user.email,
+                   '— criação é responsabilidade do trigger no servidor.');
     }
   } catch(e) {
     // RLS ou outro erro em profiles — não impede o uso do sistema
     console.warn('profiles sync:', e.message);
   }
 }
-verificarSessaoGlobal();
+// T2.2 — a promise é exportada para que as páginas sequenciem de verdade o
+// carregamento de dados, em vez de apostar num setTimeout de 400 ms.
+// T2.3 — o .finally() revela a página só depois da validação de sessão.
+window.sessaoPronta = verificarSessaoGlobal()
+  .catch(err => { console.error('verificarSessaoGlobal:', err); })
+  .finally(() => {
+    document.documentElement.classList.remove('sessao-pendente');
+    marcarAmbienteNaoProdutivo();   // T1.1b
+    iniciarWatchdogInatividade();   // T3.1
+  });
 
 if ($('btn-logout')) {
   $('btn-logout').addEventListener('click', async () => {
@@ -602,7 +775,7 @@ async function carregarEquipamentoParaEdicao() {
 }
 
 async function carregarEquipamentos() {
-  const { data } = await db.from('equipamentos').select('*').order('tag', { ascending: true });
+  const { data } = await fetchAll(() => db.from('equipamentos').select('*').order('tag', { ascending: true }));
   globalEquipamentos = data || [];
   filtrarEquipamentos(0);
   atualizarSelectEquipamentos();
@@ -722,7 +895,7 @@ function alterarItensPorPagina(v) { itensPorPagina = parseInt(v) || 20; filtrarE
 // cadastrados — respeita os mesmos filtros aplicados na tela (TAG/nome, criticidade, bloco).
 function emitirRelatorioGeralAtivos() {
   const items = obterEquipamentosFiltrados();
-  if (!items.length) { alert('Nenhum ativo encontrado para gerar o relatório com os filtros atuais.'); return; }
+  if (!items.length) { toast('Nenhum ativo encontrado para gerar o relatório com os filtros atuais.'); return; }
 
   const linhas = items.map(eq => {
     const local   = [eq.instituicao, eq.bloco, eq.setor, eq.sala].filter(Boolean).join(' / ') || '—';
@@ -769,9 +942,44 @@ function emitirRelatorioGeralAtivos() {
 
 // Converte a capacidade textual do ativo (ex.: "12.000 BTU/h", "9000", "80.000 BTU/h") no
 // valor numérico em BTU/h. O ponto é separador de milhar (padrão brasileiro) e é removido.
+// T3.3 — Converte capacidade para BTU/h. Antes, "1,5 TR" virava 1.5 e a sala era
+// classificada como "Subdimensionada" indevidamente no relatório de divergência.
+// Formatos já suportados são preservados: "12.000 BTU/h", "12000", "9.000".
+// Conversões: 1 TR = 12.000 BTU/h · 1 kW ≈ 3.412 BTU/h.
+const BTU_POR_TR = 12000;
+const BTU_POR_KW = 3412;
+
 function parseCapacidadeBTU(str) {
-  const n = parseFloat((str || '').replace(/\s*BTU\/h/i, '').replace(/\./g, '').replace(',', '.'));
-  return isNaN(n) ? 0 : n;
+  const bruto = String(str || '').trim();
+  if (!bruto) return 0;
+
+  // Unidade declarada explicitamente (TR / kW). "BTU/h" cai no caminho padrão.
+  const unidade = /\bTR\b|\btonelada/i.test(bruto) ? 'TR'
+                : (/\bkW\b/i.test(bruto) && !/\bBTU/i.test(bruto)) ? 'KW'
+                : null;
+
+  // Remove a unidade antes de normalizar o número.
+  const semUnidade = bruto
+    .replace(/\s*BTU\s*\/?\s*h?/i, '')
+    .replace(/\s*\bTR\b/i, '')
+    .replace(/\s*toneladas?\s*(de\s*)?(refrigera[cç][aã]o)?/i, '')
+    .replace(/\s*\bkW\b/i, '')
+    .trim();
+
+  // Separadores: em TR/kW o ponto é decimal ("1.5 TR"); em BTU/h é milhar ("12.000").
+  let normalizado;
+  if (unidade && /^\d+[.,]\d+$/.test(semUnidade)) {
+    normalizado = semUnidade.replace(',', '.');
+  } else {
+    normalizado = semUnidade.replace(/\./g, '').replace(',', '.');
+  }
+
+  const n = parseFloat(normalizado);
+  if (isNaN(n)) return 0;
+
+  if (unidade === 'TR') return Math.round(n * BTU_POR_TR);
+  if (unidade === 'KW') return Math.round(n * BTU_POR_KW);
+  return n;
 }
 
 // ----- Tipo de Ambiente da Sala (cadastro explícito em locais.html) -----
@@ -891,11 +1099,11 @@ async function emitirRelatorioAdequacaoSalas() {
       .order('nome', { ascending: true });
     if (rSalas.error) throw rSalas.error;
     salas = rSalas.data || [];
-    const rEq = await db.from('equipamentos').select('sala_id, categoria, potencia');
+    const rEq = await fetchAll(() => db.from('equipamentos').select('sala_id, categoria, potencia'));
     if (rEq.error) throw rEq.error;
     eqs = rEq.data || [];
   } catch (err) {
-    alert('Erro ao carregar dados do relatório: ' + (err.message || err));
+    toast('Erro ao carregar dados do relatório: ' + (err.message || err), 'erro');
     return;
   }
 
@@ -914,7 +1122,7 @@ async function emitirRelatorioAdequacaoSalas() {
   const listaSalas = salas.filter(s => (parseFloat(s.carga_termica_btu) || 0) > 0);
   if (!listaSalas.length) {
     const filtroAtivo = _gerirFiltroLocal.salaId || _gerirFiltroLocal.setorId || _gerirFiltroLocal.blocoId || _gerirFiltroLocal.instituicaoId;
-    alert(filtroAtivo
+    toast(filtroAtivo
       ? 'Nenhuma sala com carga térmica prevista foi encontrada para o local selecionado no filtro.'
       : 'Nenhuma sala com carga térmica prevista foi encontrada.\n\nInforme a área e os parâmetros das salas em Locais → Salas para que a carga seja calculada.');
     return;
@@ -1072,11 +1280,11 @@ const EQ_CLASSE_LETRA = { Alta:'A', Média:'B', Baixa:'C' };
 // no formato de Inventário de Ativos (aba "Inventário" + aba "Resumo" com totais por criticidade)
 function exportarEquipamentosXLS() {
   if (typeof XLSX === 'undefined') {
-    alert('Biblioteca de exportação (XLSX) não carregada. Recarregue a página e tente novamente.');
+    toast('Biblioteca de exportação (XLSX) não carregada. Recarregue a página e tente novamente.');
     return;
   }
   const items = obterEquipamentosFiltrados();
-  if (!items.length) { alert('Nenhum ativo encontrado para exportar com os filtros atuais.'); return; }
+  if (!items.length) { toast('Nenhum ativo encontrado para exportar com os filtros atuais.'); return; }
 
   // ----- Aba 1: Inventário -----
   const linhas = items.map(eq => {
@@ -1161,9 +1369,9 @@ async function gerarTokenEquipamento(id) {
   const { error } = await db.from('equipamentos').update({ qrcode_token: token }).eq('id', id);
   if (error) {
     if (error.message && error.message.includes('qrcode_token')) {
-      alert('⚠️ A coluna "qrcode_token" ainda não existe no banco.\n\nExecute o script fix_qrcode_token.sql no Supabase (SQL Editor) antes de gerar os QR Codes.');
+      toast('⚠️ A coluna "qrcode_token" ainda não existe no banco.\n\nExecute o script fix_qrcode_token.sql no Supabase (SQL Editor) antes de gerar os QR Codes.');
     } else {
-      alert('Erro ao gerar QR Code: ' + error.message);
+      toast('Erro ao gerar QR Code: ' + error.message, 'erro');
     }
     return;
   }
@@ -1178,7 +1386,7 @@ async function gerarTokenEquipamento(id) {
 // Gera tokens para TODOS os ativos que ainda não têm — em lote
 async function gerarTokensFaltantes() {
   const semToken = globalEquipamentos.filter(e => !e.qrcode_token);
-  if (!semToken.length) { alert('Todos os ativos já possuem QR Code.'); return; }
+  if (!semToken.length) { toast('Todos os ativos já possuem QR Code.'); return; }
   if (!confirm(`Gerar QR Code para ${semToken.length} ativo(s) sem token?`)) return;
   for (const eq of semToken) {
     const token = crypto.randomUUID();
@@ -1186,11 +1394,11 @@ async function gerarTokensFaltantes() {
     if (!error) eq.qrcode_token = token;
   }
   filtrarEquipamentos(0);
-  alert(`✓ QR Code gerado para ${semToken.length} ativo(s).`);
+  toast(`✓ QR Code gerado para ${semToken.length} ativo(s).`);
 }
 
 async function atualizarSelectEquipamentos() {
-  const { data } = await db.from('equipamentos').select('id, tag, produto, categoria').order('tag', { ascending: true });
+  const { data } = await fetchAll(() => db.from('equipamentos').select('id, tag, produto, categoria').order('tag', { ascending: true }));
   ['pmoc-equipamento','os-equipamento'].map($).filter(Boolean).forEach(sel => {
     sel.innerHTML = '<option value="">-- Selecione o Ativo --</option>';
     (data || []).forEach(e => {
@@ -1221,7 +1429,7 @@ function onEquipamentoSelecionado() {
 
 // ===================== COLABORADORES & FUNÇÕES =====================
 async function atualizarSelectColaboradores() {
-  const { data } = await db.from('colaboradores').select('id, nome, assinatura_url, assinatura_digital');
+  const { data } = await fetchAll(() => db.from('colaboradores').select('id, nome, assinatura_url, assinatura_digital'));
   ['pmoc-tecnico','os-tecnico','osg-tecnico'].map($).filter(Boolean).forEach(sel => {
     sel.innerHTML = '<option value="">-- Selecione o Colaborador --</option>';
     (data || []).forEach(c => {
@@ -1248,7 +1456,7 @@ async function atualizarSelectFuncoes() {
 let _colabCache = [];
 async function carregarColaboradores() {
   const tbody = $('tbody-colaboradores'); if (!tbody) return;
-  const { data } = await db.from('colaboradores').select('*, funcoes(nome)').order('nome', { ascending: true });
+  const { data } = await fetchAll(() => db.from('colaboradores').select('*, funcoes(nome)').order('nome', { ascending: true }));
   _colabCache = data || [];
   tbody.innerHTML = _colabCache.length ? _colabCache.map(c => {
     // Bug 1 fix: usa lerAssinaturaURL para checar ambas as colunas
@@ -1277,7 +1485,7 @@ async function excluirColaborador(id) {
 async function carregarFuncoes() {
   const tbody = $('tbody-funcoes'); if (!tbody) return;
   const { data: funcoes } = await db.from('funcoes').select('*').order('nome', { ascending: true });
-  const { data: colabs }  = await db.from('colaboradores').select('funcao_id');
+  const { data: colabs }  = await fetchAll(() => db.from('colaboradores').select('funcao_id'));
   const countMap = {};
   (colabs||[]).forEach(c => { if (c.funcao_id) countMap[c.funcao_id] = (countMap[c.funcao_id]||0)+1; });
   const nivelCor = { Junior:'#dbeafe', Pleno:'#d1fae5', Senior:'#fef3c7' };
@@ -1377,7 +1585,7 @@ async function popularSelectBlocos(instituicaoId, selectId) {
     sel.disabled = true;
     return;
   }
-  const { data } = await db.from('blocos').select('id, nome').eq('instituicao_id', instituicaoId).order('nome', { ascending: true });
+  const { data } = await fetchAll(() => db.from('blocos').select('id, nome').eq('instituicao_id', instituicaoId).order('nome', { ascending: true }));
   sel.disabled = false;
   sel.innerHTML = '<option value="">— Selecione —</option>'
     + (data || []).map(b => `<option value="${b.id}">${escapeHTML(b.nome)}</option>`).join('');
@@ -1403,7 +1611,7 @@ async function popularSelectSetores(blocoId, selectId) {
     sel.disabled = true;
     return;
   }
-  const { data } = await db.from('setores').select('id, nome').eq('bloco_id', blocoId).order('nome', { ascending: true });
+  const { data } = await fetchAll(() => db.from('setores').select('id, nome').eq('bloco_id', blocoId).order('nome', { ascending: true }));
   sel.disabled = false;
   sel.innerHTML = '<option value="">— Selecione —</option>'
     + (data || []).map(s => `<option value="${s.id}">${escapeHTML(s.nome)}</option>`).join('');
@@ -1418,7 +1626,7 @@ async function popularSelectSalas(setorId, selectId) {
     sel.disabled = true;
     return;
   }
-  const { data } = await db.from('salas').select('id, nome').eq('setor_id', setorId).order('nome', { ascending: true });
+  const { data } = await fetchAll(() => db.from('salas').select('id, nome').eq('setor_id', setorId).order('nome', { ascending: true }));
   sel.disabled = false;
   sel.innerHTML = '<option value="">— Selecione —</option>'
     + (data || []).map(s => `<option value="${s.id}">${escapeHTML(s.nome)}</option>`).join('');
@@ -1448,7 +1656,7 @@ let _instituicoesCache = [];
 async function carregarInstituicoes() {
   const tbody = $('tbody-instituicoes'); if (!tbody) return;
   const { data: instituicoes } = await db.from('instituicoes').select('*').order('nome', { ascending: true });
-  const { data: blocosTodos }  = await db.from('blocos').select('instituicao_id');
+  const { data: blocosTodos }  = await fetchAll(() => db.from('blocos').select('instituicao_id'));
   _instituicoesCache = instituicoes || [];
   const countMap = {};
   (blocosTodos || []).forEach(b => { countMap[b.instituicao_id] = (countMap[b.instituicao_id] || 0) + 1; });
@@ -1481,7 +1689,7 @@ function resetarFormInstituicao() {
 async function excluirInstituicao(id) {
   if (!confirm('Remover esta Instituição/Unidade? Só será possível se não houver Blocos ou Ativos vinculados a ela.')) return;
   const { error } = await db.from('instituicoes').delete().eq('id', id);
-  if (error) { alert('Não foi possível remover: ' + error.message); return; }
+  if (error) { toast('Não foi possível remover: ' + error.message, 'erro'); return; }
   carregarInstituicoes();
   popularSelectInstituicoes('bloco-instituicao');
   popularSelectInstituicoes('filtro-bloco-instituicao', true);
@@ -1513,11 +1721,9 @@ async function carregarBlocos() {
   const filtroInst = $('filtro-bloco-instituicao')?.value || '';
   let query = db.from('blocos').select('*, instituicoes(nome)').order('nome', { ascending: true });
   if (filtroInst) query = query.eq('instituicao_id', filtroInst);
-  const { data: blocos } = await query;
-  const { data: eqs } = await db.from('equipamentos').select('bloco_id');
+  const { data: blocos } = await fetchAll(() => query);
   _blocosCache = blocos || [];
-  const countMap = {};
-  (eqs || []).forEach(e => { if (e.bloco_id) countMap[e.bloco_id] = (countMap[e.bloco_id] || 0) + 1; });
+  const countMap = await contarEquipamentosPorLocal('bloco');   // T4.4
   tbody.innerHTML = _blocosCache.length ? _blocosCache.map(b => `<tr>
       <td><strong>${escapeHTML(b.nome)}</strong></td>
       <td>${escapeHTML(b.instituicoes?.nome)}</td>
@@ -1550,7 +1756,7 @@ function resetarFormBloco() {
 async function excluirBloco(id) {
   if (!confirm('Remover este Bloco/Edificação? Só será possível se não houver Ativos vinculados a ele.')) return;
   const { error } = await db.from('blocos').delete().eq('id', id);
-  if (error) { alert('Não foi possível remover: ' + error.message); return; }
+  if (error) { toast('Não foi possível remover: ' + error.message, 'erro'); return; }
   carregarBlocos();
 }
 
@@ -1579,11 +1785,9 @@ async function carregarSetores() {
   const filtroBloco = $('filtro-setor-bloco')?.value || '';
   let query = db.from('setores').select('*, blocos(nome, instituicoes(nome))').order('nome', { ascending: true });
   if (filtroBloco) query = query.eq('bloco_id', filtroBloco);
-  const { data: setores } = await query;
-  const { data: eqs } = await db.from('equipamentos').select('setor_id');
+  const { data: setores } = await fetchAll(() => query);
   _setoresCache = setores || [];
-  const countMap = {};
-  (eqs || []).forEach(e => { if (e.setor_id) countMap[e.setor_id] = (countMap[e.setor_id] || 0) + 1; });
+  const countMap = await contarEquipamentosPorLocal('setor');   // T4.4
   tbody.innerHTML = _setoresCache.length ? _setoresCache.map(s => `<tr>
       <td><strong>${escapeHTML(s.nome)}</strong></td>
       <td>${escapeHTML(s.blocos?.nome)} <span style="color:#a0aec0;">(${escapeHTML(s.blocos?.instituicoes?.nome)})</span></td>
@@ -1616,7 +1820,7 @@ function resetarFormSetor() {
 async function excluirSetor(id) {
   if (!confirm('Remover este Setor? Só será possível se não houver Salas ou Ativos vinculados a ele.')) return;
   const { error } = await db.from('setores').delete().eq('id', id);
-  if (error) { alert('Não foi possível remover: ' + error.message); return; }
+  if (error) { toast('Não foi possível remover: ' + error.message, 'erro'); return; }
   carregarSetores();
 }
 
@@ -1810,11 +2014,9 @@ async function carregarSalas() {
   const filtroSetor = $('filtro-sala-setor')?.value || '';
   let query = db.from('salas').select('*, setores(nome, blocos(nome, instituicoes(nome)))').order('nome', { ascending: true });
   if (filtroSetor) query = query.eq('setor_id', filtroSetor);
-  const { data: salas } = await query;
-  const { data: eqs } = await db.from('equipamentos').select('sala_id');
+  const { data: salas } = await fetchAll(() => query);
   _salasCache = salas || [];
-  const countMap = {};
-  (eqs || []).forEach(e => { if (e.sala_id) countMap[e.sala_id] = (countMap[e.sala_id] || 0) + 1; });
+  const countMap = await contarEquipamentosPorLocal('sala');   // T4.4
   tbody.innerHTML = _salasCache.length ? _salasCache.map(s => {
     const nJan = parseInt(s.num_janelas) || 0;
     const nEquip = parseEquipCarga(s.equipamentos_carga).length;
@@ -1906,7 +2108,7 @@ function atualizarPreviaCargaTermicaSala() {
 async function excluirSala(id) {
   if (!confirm('Remover esta Sala? Só será possível se não houver Ativos vinculados a ela.')) return;
   const { error } = await db.from('salas').delete().eq('id', id);
-  if (error) { alert('Não foi possível remover: ' + error.message); return; }
+  if (error) { toast('Não foi possível remover: ' + error.message, 'erro'); return; }
   carregarSalas();
 }
 
@@ -2711,7 +2913,7 @@ function montarCapaSetorHTML(grupo, ano, ultimoDaLista) {
 // agrupando os ativos que passam pelos filtros ativos na tela de Gerenciamento de Ativos.
 function emitirCapasSetorPMOC() {
   const items = obterEquipamentosFiltrados();
-  if (!items.length) { alert('Nenhum ativo encontrado para gerar capas de setor com os filtros atuais.'); return; }
+  if (!items.length) { toast('Nenhum ativo encontrado para gerar capas de setor com os filtros atuais.'); return; }
 
   const anoPadrao = new Date().getFullYear();
   const entrada   = prompt('Ano de referência das capas PMOC:', String(anoPadrao));
@@ -2834,7 +3036,7 @@ function montarCapaOSSetorHTML(grupo, ano, ultimoDaLista) {
 // Mesma fonte e mesmos filtros da capa PMOC — mantém as duas central de impressões em sincronia.
 function emitirCapasSetorOS() {
   const items = obterEquipamentosFiltrados();
-  if (!items.length) { alert('Nenhum ativo encontrado para gerar capas de setor com os filtros atuais.'); return; }
+  if (!items.length) { toast('Nenhum ativo encontrado para gerar capas de setor com os filtros atuais.'); return; }
 
   const anoPadrao = new Date().getFullYear();
   const entrada   = prompt('Ano de referência das capas de O.S.:', String(anoPadrao));
@@ -3020,7 +3222,7 @@ function montarLaudoEmBrancoHTML(eq, ultimoDaLista) {
 // ficam consolidados em uma única página/documento por ativo.
 function emitirLaudosEmBrancoPMOC() {
   const items = obterEquipamentosFiltrados();
-  if (!items.length) { alert('Nenhum ativo encontrado para gerar laudos em branco com os filtros atuais.'); return; }
+  if (!items.length) { toast('Nenhum ativo encontrado para gerar laudos em branco com os filtros atuais.'); return; }
   const html = items.map((eq, i) => montarLaudoAnualAgrupadoHTML(eq, i === items.length - 1)).join('');
   imprimir('area-laudos-em-branco', html, 'paisagem');
 }
@@ -3292,7 +3494,7 @@ if ($('btn-salvar-osg')) {
 
 async function carregarOSGeral() {
   const tbody = $('tbody-osg'); if (!tbody) return;
-  const { data } = await db.from('ordens_servico_geral').select('*').order('created_at', { ascending: false });
+  const { data } = await fetchAll(() => db.from('ordens_servico_geral').select('*').order('created_at', { ascending: false }));
   tbody.innerHTML = (data||[]).map(os => `<tr>
     <td><strong>${escapeHTML(os.numero_os||'OSG')}</strong></td>
     <td>${fmtDate(os.created_at)}</td>
@@ -3307,8 +3509,15 @@ async function carregarOSGeral() {
 
 async function carregarCentralUnificadaOS() {
   const tbody = $('tbody-central-unificada-os'); if (!tbody) return;
-  const { data: ac } = await db.from('ordens_servico').select('id,created_at,tipo_os,status_os,descricao_defeito').limit(20);
-  const { data: g  } = await db.from('ordens_servico_geral').select('id,created_at,tipo_manutencao,status_os,servico_requisitado,numero_os').limit(20);
+  // T2.1 — antes o .limit(20) vinha SEM ORDER BY: o PostgREST devolvia 20 linhas
+  // arbitrárias, que só depois eram ordenadas por data no navegador. A tabela de
+  // "atividade recente" mostrava registros aleatórios, não os mais recentes.
+  const { data: ac } = await db.from('ordens_servico')
+    .select('id,created_at,tipo_os,status_os,descricao_defeito')
+    .order('created_at', { ascending: false }).limit(20);
+  const { data: g  } = await db.from('ordens_servico_geral')
+    .select('id,created_at,tipo_manutencao,status_os,servico_requisitado,numero_os')
+    .order('created_at', { ascending: false }).limit(20);
   const linhas = [
     ...(ac||[]).map(d => ({ id:'OS-AC-'+d.id.toString().slice(0,5).toUpperCase(), data:d.created_at, mod:'Refrigeração', cat:d.tipo_os, st:d.status_os })),
     ...(g ||[]).map(d => ({ id:d.numero_os||'OSG', data:d.created_at, mod:'Facilities', cat:d.tipo_manutencao, st:d.status_os })),
@@ -3351,12 +3560,13 @@ if ($('btn-admin-salvar-usuario')) {
 async function carregarUsuariosSistema() {
   const tbody = $('tbody-usuarios-sistema'); if (!tbody) return;
   const { data: { user: userAtual } } = await db.auth.getUser();
-  const { data: perfis } = await db.from('profiles').select('*').order('email', { ascending: true });
+  const { data: perfis } = await fetchAll(() => db.from('profiles').select('*').order('email', { ascending: true }));
   let lista = perfis || [];
-  const adminNaLista = lista.some(u => u.email === userAtual?.email);
-  if (userAtual?.email && !adminNaLista) {
-    lista = [{ id:userAtual.id, email:userAtual.email, role:'admin', nome:'Administrador', cpf:null, status:'ativo', _isCurrentUser:true }, ...lista];
-  } else if (userAtual?.email) {
+  // T1.2 — antes, quando o perfil do usuário logado não aparecia na lista, um
+  // registro sintético já promovido a administrador era injetado. Isso mascarava
+  // exatamente o sintoma que denunciaria o perfil ausente. Agora exibimos um aviso.
+  const perfilProprioAusente = !!userAtual?.email && !lista.some(u => u.email === userAtual.email);
+  if (userAtual?.email && !perfilProprioAusente) {
     lista = lista.map(u => u.email === userAtual.email ? { ...u, _isCurrentUser:true } : u);
   }
   const roleBadge = {
@@ -3369,7 +3579,12 @@ async function carregarUsuariosSistema() {
     ativo:    '<span class="tag-badge success">● Ativo</span>',
     pendente: '<span class="tag-badge warning">⏳ Aguardando</span>',
   };
-  tbody.innerHTML = lista.map(u => {
+  const avisoPerfilAusente = perfilProprioAusente
+    ? `<tr><td colspan="5" style="background:#fffbeb;color:#92400e;font-weight:600;padding:12px;border-left:4px solid #d97706;">
+         ⚠️ Seu perfil (${escapeHTML(userAtual.email)}) não foi localizado na base — contate o administrador.
+       </td></tr>`
+    : '';
+  tbody.innerHTML = avisoPerfilAusente + lista.map(u => {
     const isVoce = !!u._isCurrentUser;
     return `<tr${isVoce ? ' style="background:#f0f7ff;"' : ''}>
       <td>
@@ -3459,11 +3674,11 @@ async function exibirJanelaQRCode(qrcodeToken, tag, eqId) {
 async function imprimirTodasEtiquetas() {
   // Garante que o cache esteja populado
   if (!globalEquipamentos.length) {
-    const { data } = await db.from('equipamentos').select('*').order('tag', { ascending: true });
+    const { data } = await fetchAll(() => db.from('equipamentos').select('*').order('tag', { ascending: true }));
     globalEquipamentos = data || [];
   }
   const comToken = globalEquipamentos.filter(e => e.qrcode_token);
-  if (!comToken.length) { alert('Nenhum ativo com QR Code cadastrado.'); return; }
+  if (!comToken.length) { toast('Nenhum ativo com QR Code cadastrado.'); return; }
   const lista = comToken.map(eq => ({ eq, url: gerarUrlValidacao(eq.qrcode_token, 'equipamento') }));
   _abrirJanelaEtiqueta(lista);
 }
@@ -3627,7 +3842,7 @@ function _abrirJanelaEtiqueta(lista) {
 </html>`;
 
   const win = window.open('', '_blank', `width=${isSingle ? 620 : 1000},height=720`);
-  if (!win) { alert('Permita pop-ups neste site para abrir a etiqueta de impressão.'); return; }
+  if (!win) { toast('Permita pop-ups neste site para abrir a etiqueta de impressão.'); return; }
   win.document.write(html);
   win.document.close();
 }
@@ -3636,7 +3851,7 @@ function _abrirJanelaEtiqueta(lista) {
 function imprimir(areaId, html, orientacao) {
   const orient = orientacao === 'retrato' ? 'portrait' : 'landscape';
   const win = window.open('', '_blank', 'width=900,height=700');
-  if (!win) { alert('Permita pop-ups para imprimir os laudos.'); return; }
+  if (!win) { toast('Permita pop-ups para imprimir os laudos.'); return; }
   win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Univag — Impressão</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}@page{margin:6mm 8mm;size:A4 ${orient}}html,body{font-family:'Inter',Arial,sans-serif;font-size:10px;color:#1a202c;background:#fff}.laudo-wrapper{width:100%}.laudo-header{background:#1a56db;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0}.laudo-header h1{font-size:16px;font-weight:700}.laudo-header p{font-size:10px;margin-top:4px;opacity:.85}.laudo-header-meta{text-align:right;font-size:10px}.laudo-section{border:1px solid #e2e8f0;border-top:none;padding:12px 16px;break-inside:avoid;page-break-inside:avoid}.laudo-section:last-child{border-radius:0 0 6px 6px}.laudo-section-title{font-size:10px;font-weight:700;color:#1a56db;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0;break-after:avoid;page-break-after:avoid}.laudo-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}.laudo-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 16px}.laudo-field{margin-bottom:4px}.laudo-field label{font-size:9px;color:#718096;text-transform:uppercase;letter-spacing:.06em;display:block}.laudo-field span{font-size:10px;font-weight:600;color:#1a202c}.laudo-checklist-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:10px;break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table th{background:#1a56db;color:#fff;padding:5px 8px;text-align:left;font-size:10px}.laudo-checklist-table td{padding:4px 8px;border-bottom:1px solid #e2e8f0;font-size:10px}.laudo-checklist-table tr{break-inside:avoid;page-break-inside:avoid}.laudo-checklist-table tr:nth-child(even) td{background:#f8fafc}.ok{color:#059669;font-weight:700}.nok{color:#dc2626;font-weight:700}.na{color:#a0aec0}.laudo-assinatura-box{text-align:center;min-width:180px;break-inside:avoid;page-break-inside:avoid}.laudo-assinatura-linha{border-top:1px solid #1a202c;margin-top:8px;padding-top:4px;font-size:10px;color:#4a5568}img{max-width:100%;height:auto;display:block}.tag-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600;background:#e2e8f0;color:#2d3748}.tag-badge.success{background:#d1fae5;color:#065f46}.tag-badge.warning{background:#fef3c7;color:#92400e}.tag-badge.danger{background:#fee2e2;color:#991b1b}.tag-badge.andamento{background:#dbeafe;color:#1e40af}.laudo-field-em-branco{font-size:9px;color:#a0aec0;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px dotted #cbd5e0;padding-bottom:20px;}.laudo-pagebreak{break-after:page;page-break-after:always;}.laudo-checkbox-status{white-space:nowrap;font-size:10px;color:#4a5568;}.laudo-section-checklist{break-inside:auto !important;page-break-inside:auto !important;padding:6px 10px !important;}.exec-label{font-size:9px;color:#b0b8c4;display:block;line-height:1.4;border-bottom:1px dotted #cbd5e0;padding-bottom:8px;margin-bottom:1px;}.relatorio-livre .laudo-section{break-inside:auto !important;page-break-inside:auto !important;}.relatorio-livre .laudo-checklist-table{break-inside:auto !important;page-break-inside:auto !important;}.relatorio-livre .laudo-checklist-table tr{break-inside:avoid;page-break-inside:avoid;}
@@ -3787,8 +4002,8 @@ async function renderizarGraficosDashboard() {
   } else {
     try {
       const [r1, r2] = await Promise.allSettled([
-        db.from('ordens_servico').select('status_os'),
-        db.from('ordens_servico_geral').select('status_os'),
+        fetchAll(() => db.from('ordens_servico').select('status_os')),
+        fetchAll(() => db.from('ordens_servico_geral').select('status_os')),
       ]);
       const osAC  = r1.status === 'fulfilled' ? (r1.value?.data || []) : [];
       const osFac = r2.status === 'fulfilled' ? (r2.value?.data || []) : [];
@@ -3819,7 +4034,7 @@ async function renderizarGraficosDashboard() {
     critData = critView;
   } else {
     try {
-      const { data: eqCrit } = await db.from('equipamentos').select('criticidade');
+      const { data: eqCrit } = await fetchAll(() => db.from('equipamentos').select('criticidade'));
       const map = {};
       (eqCrit||[]).forEach(e => { map[e.criticidade||'Média'] = (map[e.criticidade||'Média']||0)+1; });
       critData = Object.entries(map).map(([criticidade,total]) => ({ criticidade, total }));
@@ -3847,7 +4062,7 @@ async function renderizarGraficosDashboard() {
     facData = facView;
   } else {
     try {
-      const { data: osFac } = await db.from('ordens_servico_geral').select('status_os');
+      const { data: osFac } = await fetchAll(() => db.from('ordens_servico_geral').select('status_os'));
       const map = {};
       (osFac||[]).forEach(o => { map[o.status_os] = (map[o.status_os]||0)+1; });
       facData = Object.entries(map).map(([status_os,total]) => ({ status_os, total }));
@@ -3913,7 +4128,7 @@ async function popularSelectBlocosComTodos(instituicaoId, selectId, labelTodos) 
     sel.disabled = false;
     return;
   }
-  const { data } = await db.from('blocos').select('id, nome').eq('instituicao_id', instituicaoId).order('nome', { ascending: true });
+  const { data } = await fetchAll(() => db.from('blocos').select('id, nome').eq('instituicao_id', instituicaoId).order('nome', { ascending: true }));
   sel.disabled = false;
   sel.innerHTML = `<option value="">${labelTodos}</option>` + (data || []).map(b => `<option value="${b.id}">${escapeHTML(b.nome)}</option>`).join('');
 }
@@ -3926,7 +4141,7 @@ async function popularSelectSetoresComTodos(blocoId, selectId, labelTodos) {
     sel.disabled = false;
     return;
   }
-  const { data } = await db.from('setores').select('id, nome').eq('bloco_id', blocoId).order('nome', { ascending: true });
+  const { data } = await fetchAll(() => db.from('setores').select('id, nome').eq('bloco_id', blocoId).order('nome', { ascending: true }));
   sel.disabled = false;
   sel.innerHTML = `<option value="">${labelTodos}</option>` + (data || []).map(s => `<option value="${s.id}">${escapeHTML(s.nome)}</option>`).join('');
 }
@@ -3939,7 +4154,7 @@ async function popularSelectSalasComTodos(setorId, selectId, labelTodos) {
     sel.disabled = false;
     return;
   }
-  const { data } = await db.from('salas').select('id, nome').eq('setor_id', setorId).order('nome', { ascending: true });
+  const { data } = await fetchAll(() => db.from('salas').select('id, nome').eq('setor_id', setorId).order('nome', { ascending: true }));
   sel.disabled = false;
   sel.innerHTML = `<option value="">${labelTodos}</option>` + (data || []).map(s => `<option value="${s.id}">${escapeHTML(s.nome)}</option>`).join('');
 }
@@ -4018,7 +4233,7 @@ async function carregarKpiCargaTermica() {
   // Carga instalada: soma da potência dos equipamentos AC, respeitando o filtro de localização
   let queryEq = db.from('equipamentos').select('potencia').eq('categoria', 'AC');
   queryEq = aplicarFiltroLocalizacaoQuery(queryEq);
-  const { data: eqsAC } = await queryEq;
+  const { data: eqsAC } = await fetchAll(() => queryEq);
   const cargaInstalada = (eqsAC || []).reduce((soma, e) => {
     const n = parseFloat((e.potencia || '').toString().replace(/\s*BTU\/h/i, '').replace(/\./g, '').replace(',', '.'));
     return soma + (isNaN(n) ? 0 : n);
@@ -4032,21 +4247,21 @@ async function carregarKpiCargaTermica() {
   } else if (_dashFiltro.setorId) {
     querySalas = querySalas.eq('setor_id', _dashFiltro.setorId);
   } else if (_dashFiltro.blocoId) {
-    const { data: setoresDoBloco } = await db.from('setores').select('id').eq('bloco_id', _dashFiltro.blocoId);
+    const { data: setoresDoBloco } = await fetchAll(() => db.from('setores').select('id').eq('bloco_id', _dashFiltro.blocoId));
     const idsSetores = (setoresDoBloco || []).map(s => s.id);
     querySalas = idsSetores.length ? querySalas.in('setor_id', idsSetores) : querySalas.eq('setor_id', '00000000-0000-0000-0000-000000000000');
   } else if (_dashFiltro.instituicaoId) {
-    const { data: blocosDaInst } = await db.from('blocos').select('id').eq('instituicao_id', _dashFiltro.instituicaoId);
+    const { data: blocosDaInst } = await fetchAll(() => db.from('blocos').select('id').eq('instituicao_id', _dashFiltro.instituicaoId));
     const idsBlocos = (blocosDaInst || []).map(b => b.id);
     if (idsBlocos.length) {
-      const { data: setoresDosBlocos } = await db.from('setores').select('id').in('bloco_id', idsBlocos);
+      const { data: setoresDosBlocos } = await fetchAll(() => db.from('setores').select('id').in('bloco_id', idsBlocos));
       const idsSetores = (setoresDosBlocos || []).map(s => s.id);
       querySalas = idsSetores.length ? querySalas.in('setor_id', idsSetores) : querySalas.eq('setor_id', '00000000-0000-0000-0000-000000000000');
     } else {
       querySalas = querySalas.eq('setor_id', '00000000-0000-0000-0000-000000000000');
     }
   }
-  const { data: salasFiltradas } = await querySalas;
+  const { data: salasFiltradas } = await fetchAll(() => querySalas);
   const cargaNecessaria = (salasFiltradas || []).reduce((soma, s) => soma + (parseFloat(s.carga_termica_btu) || 0), 0);
 
   if (elInstalada)  elInstalada.textContent  = cargaInstalada  > 0 ? `${Math.round(cargaInstalada).toLocaleString('pt-BR')} BTU/h`  : '—';
@@ -4082,8 +4297,8 @@ async function carregarKPIsExtras() {
   let queryBebs  = db.from('equipamentos').select('validade').eq('categoria','BEB').not('validade','is',null).lte('validade', e30Str);
   queryBebs = aplicarFiltroLocalizacaoQuery(queryBebs);
   const [{ data: bebs }, { data: pmocs }] = await Promise.all([
-    queryBebs,
-    db.from('fichas_pmoc').select('proxima_manutencao').not('proxima_manutencao','is',null).lt('proxima_manutencao', hjStr),
+    fetchAll(() => queryBebs),
+    fetchAll(() => db.from('fichas_pmoc').select('proxima_manutencao').not('proxima_manutencao','is',null).lt('proxima_manutencao', hjStr)),
   ]);
 
   if (elFiltros) elFiltros.textContent = (bebs||[]).length;
@@ -4098,7 +4313,7 @@ async function carregarInventarioGas() {
 
   let queryEqs = db.from('equipamentos').select('extras_tecnico').eq('categoria','AC');
   queryEqs = aplicarFiltroLocalizacaoQuery(queryEqs);
-  const { data: eqs } = await queryEqs;
+  const { data: eqs } = await fetchAll(() => queryEqs);
   const mapa = {};
   let totalKg = 0;
 
@@ -4149,7 +4364,7 @@ async function carregarDistribuicaoCategoria() {
 
   let queryEqs = db.from('equipamentos').select('categoria,criticidade');
   queryEqs = aplicarFiltroLocalizacaoQuery(queryEqs);
-  const { data: eqs } = await queryEqs;
+  const { data: eqs } = await fetchAll(() => queryEqs);
   const mapa  = {};
   let criticos = 0;
 
@@ -4196,7 +4411,7 @@ async function carregarConformidadeFiltros() {
   const hj = new Date(); hj.setHours(0,0,0,0);
   let queryBebs = db.from('equipamentos').select('tag,validade,bloco').eq('categoria','BEB');
   queryBebs = aplicarFiltroLocalizacaoQuery(queryBebs);
-  const { data: bebs } = await queryBebs;
+  const { data: bebs } = await fetchAll(() => queryBebs);
 
   if (!bebs || !bebs.length) {
     el.innerHTML = '<span style="color:#a0aec0;">Nenhum bebedouro cadastrado.</span>';
@@ -4246,8 +4461,8 @@ async function carregarCoberturaPMOC() {
   let queryEqs = db.from('equipamentos').select('id,categoria');
   queryEqs = aplicarFiltroLocalizacaoQuery(queryEqs);
   const [{ data: eqs }, { data: fichas }] = await Promise.all([
-    queryEqs,
-    db.from('fichas_pmoc').select('equipamento_id'),
+    fetchAll(() => queryEqs),
+    fetchAll(() => db.from('fichas_pmoc').select('equipamento_id')),
   ]);
 
   if (!eqs || !eqs.length) {
@@ -4331,11 +4546,11 @@ async function carregarAlertasVencimento() {
   const em30 = new Date(hj); em30.setDate(em30.getDate() + 30);
 
   const [{ data: fichas }, { data: eqsValidade }] = await Promise.all([
-    db.from('fichas_pmoc').select('proxima_manutencao, equipamentos(tag,bloco,produto,categoria)')
+    fetchAll(() => db.from('fichas_pmoc').select('proxima_manutencao, equipamentos(tag,bloco,produto,categoria)')
       .not('proxima_manutencao','is',null)
       .lte('proxima_manutencao', em30.toISOString().split('T')[0])
-      .order('proxima_manutencao', { ascending: true }),
-    db.from('equipamentos').select('tag,bloco,categoria,produto,validade').not('validade','is',null),
+      .order('proxima_manutencao', { ascending: true })),
+    fetchAll(() => db.from('equipamentos').select('tag,bloco,categoria,produto,validade').not('validade','is',null)),
   ]);
 
   const alertas = [];
@@ -4383,7 +4598,7 @@ async function carregarAlertasVencimento() {
 // ===================== EDIÇÃO PMOC =====================
 async function editarFichaPMOC(id) {
   const ficha = _fichasCache.find(f => f.id == id);
-  if (!ficha) { alert('Ficha não encontrada no cache. Recarregue a página.'); return; }
+  if (!ficha) { toast('Ficha não encontrada no cache. Recarregue a página.'); return; }
   const meta    = lerMetaPMOC(ficha);
   const freqMap = { Mensal:'M', Trimestral:'T', Semestral:'S', Anual:'A' };
   if ($('pmoc-equipamento'))  $('pmoc-equipamento').value  = ficha.equipamento_id || '';
@@ -4428,7 +4643,7 @@ async function excluirFichaPMOC(id) {
   const tag   = ficha?.equipamentos?.tag || id.toString().slice(0,6).toUpperCase();
   if (!confirm(`Excluir ficha PMOC do equipamento ${tag}? Esta ação não pode ser desfeita.`)) return;
   const { error } = await db.from('fichas_pmoc').delete().eq('id', id);
-  if (error) { alert('Erro ao excluir: ' + error.message); return; }
+  if (error) { toast('Erro ao excluir: ' + error.message, 'erro'); return; }
   carregarHistoricoFichas();
 }
 
@@ -4453,7 +4668,7 @@ async function editarOS(id, equipId, colabId, tipo, status, defeito, laudo) {
 async function excluirOS(id) {
   if (!confirm(`Excluir OS-AC-${id.toString().slice(0,5).toUpperCase()}? Esta ação não pode ser desfeita.`)) return;
   const { error } = await db.from('ordens_servico').delete().eq('id', id);
-  if (error) { alert('Erro ao excluir: ' + error.message); return; }
+  if (error) { toast('Erro ao excluir: ' + error.message, 'erro'); return; }
   carregarOrdensServico(); carregarCentralUnificadaOS();
 }
 
@@ -4485,7 +4700,7 @@ async function editarOSG(id, setor, servico, status) {
 async function excluirOSG(id) {
   if (!confirm('Excluir esta O.S. de Facilities? Esta ação não pode ser desfeita.')) return;
   const { error } = await db.from('ordens_servico_geral').delete().eq('id', id);
-  if (error) { alert('Erro ao excluir: ' + error.message); return; }
+  if (error) { toast('Erro ao excluir: ' + error.message, 'erro'); return; }
   carregarOSGeral(); carregarCentralUnificadaOS();
 }
 

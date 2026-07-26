@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Programação e cronograma de manutenções PMOC — Concredur / Univag.">
+    <meta name="theme-color" content="var(--brand-navy)">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="icon" href="logo-univag.png" type="image/png">
   <title>Concredur — Programação PMOC</title>
   <link rel="stylesheet" href="style.css">
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -21,8 +25,8 @@
       border-bottom: 3px solid transparent; margin-bottom: -2px;
       transition: color .15s, border-color .15s; font-family: inherit;
     }
-    .prog-tab:hover { color: #1e3a5f; }
-    .prog-tab.active { color: #1e3a5f; border-bottom-color: #1e3a5f; }
+    .prog-tab:hover { color: var(--brand-navy); }
+    .prog-tab.active { color: var(--brand-navy); border-bottom-color: var(--brand-navy); }
     .prog-tab-panel { display: none; }
     .prog-tab-panel.active { display: block; }
 
@@ -46,7 +50,7 @@
       width: 100%; border-collapse: collapse; font-size: 12px; min-width: 1100px;
     }
     .anual-table thead th {
-      background: #1e3a5f; color: #fff; padding: 8px 10px;
+      background: var(--brand-navy); color: #fff; padding: 8px 10px;
       text-align: center; font-weight: 600; white-space: nowrap;
       border: 1px solid rgba(255,255,255,.12); font-size: 11px;
     }
@@ -57,7 +61,7 @@
     .anual-table tbody tr:hover { background: var(--gray-50); }
     .anual-table td { padding: 6px 8px; vertical-align: middle; border: 1px solid var(--gray-200); }
     .anual-table td.td-eq { min-width: 200px; }
-    .anual-tag { font-weight: 700; font-size: 12px; color: #1e3a5f; }
+    .anual-tag { font-weight: 700; font-size: 12px; color: var(--brand-navy); }
     .anual-sub { font-size: 11px; color: var(--gray-500); margin-top: 1px; }
     .anual-cell { text-align: center; font-size: 11px; padding: 5px 4px !important; }
     .anual-pill {
@@ -86,7 +90,7 @@
     .anual-legend-item { display: flex; align-items: center; gap: 4px; }
     .anual-bloco-header td {
       background: #f0f4ff; font-weight: 700; font-size: 11px;
-      color: #1e3a5f; padding: 5px 10px !important;
+      color: var(--brand-navy); padding: 5px 10px !important;
       border-top: 2px solid #c7d2fe !important;
     }
 
@@ -108,7 +112,7 @@
       min-width: 980px;
     }
     .prog-table thead th {
-      background: #1e3a5f; color: #fff; padding: 9px 10px;
+      background: var(--brand-navy); color: #fff; padding: 9px 10px;
       text-align: center; font-weight: 600; white-space: nowrap;
       border: 1px solid rgba(255,255,255,.12); font-size: 11.5px;
     }
@@ -117,7 +121,7 @@
     .prog-table tbody tr:hover { background: var(--gray-50); }
     .prog-table td { padding: 8px 10px; vertical-align: middle; border: 1px solid var(--gray-200); }
     .prog-table td.td-eq-info { min-width: 210px; }
-    .prog-tag { font-weight: 700; font-size: 12px; color: #1e3a5f; }
+    .prog-tag { font-weight: 700; font-size: 12px; color: var(--brand-navy); }
     .prog-local { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
     .prog-categoria {
       font-size: 10px; font-weight: 700; background: #eef2ff;
@@ -151,7 +155,7 @@
       background: #4169e1; color: #fff; border: none; border-radius: var(--radius);
       cursor: pointer; font-family: inherit; transition: background .15s;
     }
-    .btn-registrar:hover { background: #1e3a5f; }
+    .btn-registrar:hover { background: var(--brand-navy); }
     .btn-registrar.plain { background: var(--gray-200); color: var(--gray-600); }
     .btn-registrar.plain:hover { background: var(--gray-300); }
 
@@ -171,7 +175,7 @@
       box-shadow: 0 16px 48px rgba(0,0,0,.22); overflow: hidden;
     }
     .prog-modal-header {
-      background: #1e3a5f; color: #fff; padding: 14px 20px;
+      background: var(--brand-navy); color: #fff; padding: 14px 20px;
       display: flex; align-items: center; justify-content: space-between;
     }
     .prog-modal-header h3 { font-size: 14px; font-weight: 700; }
@@ -189,14 +193,14 @@
       background: #eef2ff; border: 1px solid #c7d2fe; border-radius: var(--radius);
       padding: 10px 12px; font-size: 12px; color: #3730a3;
     }
-    .prog-modal-info strong { display: block; font-size: 13px; color: #1e3a5f; margin-bottom: 2px; }
+    .prog-modal-info strong { display: block; font-size: 13px; color: var(--brand-navy); margin-bottom: 2px; }
     .prog-modal-fonte-info {
       background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius);
       padding: 8px 12px; font-size: 11px; color: #166534;
     }
     .prog-modal-footer { padding: 12px 20px; border-top: 1px solid var(--gray-200); display: flex; gap: 8px; justify-content: flex-end; }
     .btn-modal-save { padding: 8px 20px; background: #4169e1; color: #fff; border: none; border-radius: var(--radius); font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
-    .btn-modal-save:hover { background: #1e3a5f; }
+    .btn-modal-save:hover { background: var(--brand-navy); }
     .btn-modal-cancel { padding: 8px 16px; background: var(--gray-100); color: var(--gray-600); border: 1px solid var(--gray-300); border-radius: var(--radius); font-size: 13px; cursor: pointer; font-family: inherit; }
     .btn-modal-delete { padding: 8px 16px; background: #fff; color: #dc2626; border: 1px solid #fca5a5; border-radius: var(--radius); font-size: 13px; cursor: pointer; font-family: inherit; margin-right: auto; }
     .btn-modal-delete:hover { background: #fee2e2; border-color: #dc2626; }
@@ -210,7 +214,7 @@
     /* KPIs */
     .prog-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 12px; margin-bottom: 18px; }
     .prog-kpi-card { background: #fff; border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px 16px; box-shadow: var(--shadow-sm); text-align: center; }
-    .prog-kpi-card .kpi-val { font-size: 28px; font-weight: 700; color: #1e3a5f; }
+    .prog-kpi-card .kpi-val { font-size: 28px; font-weight: 700; color: var(--brand-navy); }
     .prog-kpi-card .kpi-lbl { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
     .prog-kpi-card.vencido .kpi-val { color: var(--danger); }
     .prog-kpi-card.alerta  .kpi-val { color: var(--warning); }
@@ -219,7 +223,7 @@
     /* Toolbar */
     .btn-toolbar { padding: 7px 14px; border-radius: var(--radius); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; border: none; display: inline-flex; align-items: center; gap: 6px; }
     .btn-toolbar.primary   { background: #4169e1; color: #fff; }
-    .btn-toolbar.primary:hover   { background: #1e3a5f; }
+    .btn-toolbar.primary:hover   { background: var(--brand-navy); }
     .btn-toolbar.secondary { background: var(--gray-100); color: var(--gray-700); border: 1px solid var(--gray-300); }
     .btn-toolbar.secondary:hover { background: var(--gray-200); }
     .btn-toolbar.success { background: #059669; color: #fff; }
@@ -230,7 +234,7 @@
 
     #prog-toast {
       position: fixed; bottom: 28px; right: 24px; z-index: 2000;
-      background: #1e3a5f; color: #fff; padding: 10px 18px; border-radius: var(--radius);
+      background: var(--brand-navy); color: #fff; padding: 10px 18px; border-radius: var(--radius);
       font-size: 13px; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,.2);
       opacity: 0; transition: opacity .25s; pointer-events: none;
     }
@@ -250,7 +254,7 @@
     }
     .retro-preview { width: 100%; border-collapse: collapse; font-size: 11.5px; }
     .retro-preview th {
-      background: #1e3a5f; color: #fff; padding: 6px 8px; font-size: 10.5px;
+      background: var(--brand-navy); color: #fff; padding: 6px 8px; font-size: 10.5px;
       text-align: left; position: sticky; top: 0; white-space: nowrap;
     }
     .retro-preview td { padding: 6px 8px; border-bottom: 1px solid var(--gray-200); vertical-align: top; }
@@ -273,12 +277,20 @@
 
     /* ── Impressão via popup (mesma técnica do app.js) — não usa @media print ── */
   </style>
+  <script>
+    /* T2.3 — oculta o conteúdo até a sessão ser validada (ver style.css).
+       O timeout é rede de segurança: a tela nunca fica invisível para sempre. */
+    document.documentElement.classList.add('sessao-pendente');
+    setTimeout(function () {
+      document.documentElement.classList.remove('sessao-pendente');
+    }, 8000);
+  </script>
 </head>
 <body>
 <div class="app-container">
   <aside class="sidebar no-print">
     <div class="sidebar-header">
-      <img class="sidebar-logo-img" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAAA9CAYAAADoByY0AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyNpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDYuMC1jMDAyIDc5LjE2NDQ4OCwgMjAyMC8wNy8xMC0yMjowNjo1MyAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIDIyLjAgKFdpbmRvd3MpIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOjM4MEYxMjVBNTg3NDExRUU5QTBGQkI4N0VFOTE2RTJGIiB4bXBNTTpEb2N1bWVudElEPSJ4bXAuZGlkOjM4MEYxMjVCNTg3NDExRUU5QTBGQkI4N0VFOTE2RTJGIj4gPHhtcE1NOkRlcml2ZWRGcm9tIHN0UmVmOmluc3RhbmNlSUQ9InhtcC5paWQ6MzgwRjEyNTg1ODc0MTFFRTlBMEZCQjg3RUU5MTZFMkYiIHN0UmVmOmRvY3VtZW50SUQ9InhtcC5kaWQ6MzgwRjEyNTk1ODc0MTFFRTlBMEZCQjg3RUU5MTZFMkYiLz4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz6klSGIAAAP7ElEQVR42uxdCXQV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" alt="Univag" style="height:30px;width:auto;display:block;margin-bottom:6px;"><p>Gestão de Manutenção</p>
+      <img class="sidebar-logo-img" src="logo-univag.png" alt="Univag" style="height:30px;width:auto;display:block;margin-bottom:6px;"><p>Gestão de Manutenção</p>
       <div class="user-logged-badge">
         <span class="user-icon-dot">●</span>
         <span id="user-display-email">...</span>
@@ -303,7 +315,7 @@
         <div class="nav-item" onclick="location.href='usuarios.html'"><span>👥</span> Gestão de Usuários</div>
       </nav>
     <div class="sidebar-footer">
-      <button id="btn-logout" class="btn-sair">⬅ Sair</button>
+      <button type="button" id="btn-logout" class="btn-sair">⬅ Sair</button>
     </div>
   </aside>
 
@@ -311,15 +323,15 @@
     <div class="topbar no-print">
       <h2>📅 Programação de Manutenções PMOC</h2>
       <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;" id="toolbar-status">
-        <button class="btn-toolbar secondary" id="btn-retro" onclick="abrirModalRetro()">🕒 Retroativas &amp; Projeção</button>
-        <button class="btn-toolbar success" id="btn-exportar" onclick="exportarXLS()">📊 Exportar XLS</button>
-        <button class="btn-toolbar secondary" id="btn-imprimir" onclick="imprimirProgramacao()">🖨️ Imprimir</button>
-        <button class="btn-toolbar primary" onclick="carregarProgramacao()">🔄 Atualizar</button>
+        <button type="button" class="btn-toolbar secondary" id="btn-retro" onclick="abrirModalRetro()">🕒 Retroativas &amp; Projeção</button>
+        <button type="button" class="btn-toolbar success" id="btn-exportar" onclick="exportarXLS()">📊 Exportar XLS</button>
+        <button type="button" class="btn-toolbar secondary" id="btn-imprimir" onclick="imprimirProgramacao()">🖨️ Imprimir</button>
+        <button type="button" class="btn-toolbar primary" onclick="carregarProgramacao()">🔄 Atualizar</button>
       </div>
       <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; display:none;" id="toolbar-anual">
-        <button class="btn-toolbar success" onclick="exportarAnualXLS()">📊 Exportar XLS Anual</button>
-        <button class="btn-toolbar secondary" onclick="imprimirAnual()">🖨️ Imprimir Anual</button>
-        <button class="btn-toolbar primary" onclick="salvarConfiguracaoAnual()">💾 Salvar Configuração</button>
+        <button type="button" class="btn-toolbar success" onclick="exportarAnualXLS()">📊 Exportar XLS Anual</button>
+        <button type="button" class="btn-toolbar secondary" onclick="imprimirAnual()">🖨️ Imprimir Anual</button>
+        <button type="button" class="btn-toolbar primary" onclick="salvarConfiguracaoAnual()">💾 Salvar Configuração</button>
       </div>
     </div>
 
@@ -327,8 +339,8 @@
 
       <!-- Abas -->
       <div class="prog-tabs no-print">
-        <button class="prog-tab active" onclick="mudarAba('status', this)">📊 Status das Manutenções</button>
-        <button class="prog-tab" onclick="mudarAba('anual', this)">📅 Programação Anual</button>
+        <button type="button" class="prog-tab active" onclick="mudarAba('status', this)">📊 Status das Manutenções</button>
+        <button type="button" class="prog-tab" onclick="mudarAba('anual', this)">📅 Programação Anual</button>
       </div>
 
       <!-- Painel: Status -->
@@ -348,11 +360,11 @@
         <!-- Filtros -->
         <div class="prog-filtros no-print">
           <div>
-            <label>Buscar TAG / Produto</label>
+            <label for="f-busca">Buscar TAG / Produto</label>
             <input type="text" id="f-busca" placeholder="Ex: AC-01, Split..." oninput="renderTabela()">
           </div>
           <div>
-            <label>Categoria</label>
+            <label for="f-cat">Categoria</label>
             <select id="f-cat" onchange="renderTabela()">
               <option value="">Todas</option>
               <option value="AC">Ar Condicionado (AC)</option>
@@ -363,11 +375,11 @@
             </select>
           </div>
           <div>
-            <label>Bloco / Edificação</label>
+            <label for="f-bloco">Bloco / Edificação</label>
             <input type="text" id="f-bloco" placeholder="Ex: Bloco A" oninput="renderTabela()">
           </div>
           <div>
-            <label>Status</label>
+            <label for="f-status">Status</label>
             <select id="f-status" onchange="renderTabela()">
               <option value="">Todos</option>
               <option value="late">Vencido</option>
@@ -416,12 +428,12 @@
           <!-- Toolbar anual -->
           <div class="anual-toolbar no-print">
             <div>
-              <label>Ano de referência</label>
+              <label for="anual-ano">Ano de referência</label>
               <input type="number" id="anual-ano" value="" min="2020" max="2050" style="width:90px;"
                 onchange="gerarProgramacaoAnual()">
             </div>
             <div>
-              <label>Agrupar por</label>
+              <label for="anual-agrupar">Agrupar por</label>
               <select id="anual-agrupar" onchange="gerarProgramacaoAnual()">
                 <option value="bloco">Bloco / Edificação</option>
                 <option value="setor">Setor</option>
@@ -429,7 +441,7 @@
               </select>
             </div>
             <div>
-              <label>Filtrar categoria</label>
+              <label for="anual-cat">Filtrar categoria</label>
               <select id="anual-cat" onchange="gerarProgramacaoAnual()">
                 <option value="">Todas</option>
                 <option value="AC">Ar Condicionado (AC)</option>
@@ -476,7 +488,7 @@
   <div class="prog-modal">
     <div class="prog-modal-header">
       <h3 id="modal-titulo">Registrar Manutenção</h3>
-      <button class="prog-modal-close" onclick="fecharModal()">✕</button>
+      <button type="button" class="prog-modal-close" onclick="fecharModal()">✕</button>
     </div>
     <div class="prog-modal-body">
       <div class="prog-modal-info">
@@ -485,15 +497,15 @@
       </div>
       <div id="modal-fonte-info" class="prog-modal-fonte-info" style="display:none;"></div>
       <div class="prog-modal-field">
-        <label>Data de Execução *</label>
+        <label for="modal-data">Data de Execução *</label>
         <input type="date" id="modal-data" />
       </div>
       <div class="prog-modal-field">
-        <label>Técnico Responsável</label>
+        <label for="modal-tecnico">Técnico Responsável</label>
         <input type="text" id="modal-tecnico" placeholder="Nome do técnico que executou">
       </div>
       <div class="prog-modal-field">
-        <label>Observações (opcional)</label>
+        <label for="modal-obs">Observações (opcional)</label>
         <textarea id="modal-obs" placeholder="Intercorrências, substituições realizadas, etc."></textarea>
       </div>
       <div id="modal-proxima-info" style="font-size:12px; color:var(--gray-500); display:none;">
@@ -505,9 +517,9 @@
       </div>
     </div>
     <div class="prog-modal-footer">
-      <button class="btn-modal-delete" id="btn-modal-delete" style="display:none;" onclick="excluirRegistro()">🗑️ Excluir registro</button>
-      <button class="btn-modal-cancel" onclick="fecharModal()">Cancelar</button>
-      <button class="btn-modal-save" onclick="salvarRegistro()">💾 Salvar</button>
+      <button type="button" class="btn-modal-delete" id="btn-modal-delete" style="display:none;" onclick="excluirRegistro()">🗑️ Excluir registro</button>
+      <button type="button" class="btn-modal-cancel" onclick="fecharModal()">Cancelar</button>
+      <button type="button" class="btn-modal-save" onclick="salvarRegistro()">💾 Salvar</button>
     </div>
   </div>
 </div>
@@ -517,7 +529,7 @@
   <div class="prog-modal retro-modal">
     <div class="prog-modal-header">
       <h3>🕒 Retroativas &amp; Projeção de Manutenções</h3>
-      <button class="prog-modal-close" onclick="fecharModalRetro()">✕</button>
+      <button type="button" class="prog-modal-close" onclick="fecharModalRetro()">✕</button>
     </div>
     <div class="prog-modal-body">
       <div class="retro-aviso">
@@ -527,11 +539,11 @@
       </div>
       <div class="retro-grid">
         <div class="prog-modal-field full">
-          <label>Aplicar a</label>
+          <label for="retro-escopo">Aplicar a</label>
           <select id="retro-escopo"></select>
         </div>
         <div class="prog-modal-field">
-          <label>Frequência do plano (PMOC)</label>
+          <label for="retro-freq">Frequência do plano (PMOC)</label>
           <select id="retro-freq">
             <option value="Mensal">Mensal</option>
             <option value="Trimestral">Trimestral</option>
@@ -540,19 +552,19 @@
           </select>
         </div>
         <div class="prog-modal-field">
-          <label>Data da manutenção deste mês *</label>
+          <label for="retro-data">Data da manutenção deste mês *</label>
           <input type="date" id="retro-data">
         </div>
         <div class="prog-modal-field">
-          <label>Gerar retroativas desde</label>
+          <label for="retro-desde">Gerar retroativas desde</label>
           <input type="date" id="retro-desde">
         </div>
         <div class="prog-modal-field">
-          <label>Projetar futuras até</label>
+          <label for="retro-ate">Projetar futuras até</label>
           <input type="date" id="retro-ate">
         </div>
         <div class="prog-modal-field full">
-          <label>Técnico responsável (opcional)</label>
+          <label for="retro-tecnico">Técnico responsável (opcional)</label>
           <input type="text" id="retro-tecnico" placeholder="Nome do técnico executante">
         </div>
       </div>
@@ -570,10 +582,10 @@
       </div>
     </div>
     <div class="prog-modal-footer">
-      <button class="btn-modal-cancel" onclick="fecharModalRetro()">Cancelar</button>
-      <button class="btn-modal-cancel" onclick="retroExportarXLS()">📊 Exportar cronograma</button>
-      <button class="btn-modal-save" onclick="retroPreview()">🔍 Pré-visualizar</button>
-      <button class="btn-modal-save" id="btn-retro-salvar" onclick="retroSalvar()">💾 Salvar registros</button>
+      <button type="button" class="btn-modal-cancel" onclick="fecharModalRetro()">Cancelar</button>
+      <button type="button" class="btn-modal-cancel" onclick="retroExportarXLS()">📊 Exportar cronograma</button>
+      <button type="button" class="btn-modal-save" onclick="retroPreview()">🔍 Pré-visualizar</button>
+      <button type="button" class="btn-modal-save" id="btn-retro-salvar" onclick="retroSalvar()">💾 Salvar registros</button>
     </div>
   </div>
 </div>
@@ -582,9 +594,28 @@
 
 <script>
 // ── Supabase ──────────────────────────────────────────────────────────────
-const _SUPA_URL = (typeof SUPABASE_URL !== 'undefined') ? SUPABASE_URL : '';
-const _SUPA_KEY = (typeof SUPABASE_ANON_KEY !== 'undefined') ? SUPABASE_ANON_KEY : '';
-const db = supabase.createClient(_SUPA_URL, _SUPA_KEY);
+// Guarda de configuração DUPLICADA de app.js por decisão de projeto: esta página é
+// intencionalmente autocontida e não carrega app.js (invariante 3). Sem fallback:
+// antes o fallback vazio fazia createClient('','') lançar exceção genérica e a
+// página ficava em branco, sem nenhuma pista da causa.
+if (typeof SUPABASE_URL === 'undefined' || !SUPABASE_URL ||
+    typeof SUPABASE_ANON_KEY === 'undefined' || !SUPABASE_ANON_KEY) {
+  const _msgCfg =
+    '<div style="padding:40px;font-family:system-ui,-apple-system,sans-serif;color:#dc2626;max-width:640px;margin:0 auto">' +
+    '<h2 style="margin:0 0 12px">Falha de configuração</h2>' +
+    '<p style="color:#4a5568;line-height:1.6">O arquivo <code>config.js</code> não foi carregado, ou não define ' +
+    '<code>SUPABASE_URL</code> e <code>SUPABASE_ANON_KEY</code>.<br>' +
+    'O sistema foi interrompido para não gravar dados em uma base incorreta.<br><br>' +
+    'Contate o administrador do sistema.</p></div>';
+  if (document.body) {
+    document.body.style.visibility = 'visible';
+    document.body.innerHTML = _msgCfg;
+  } else {
+    document.documentElement.innerHTML = '<body>' + _msgCfg + '</body>';
+  }
+  throw new Error('CONFIG_AUSENTE');
+}
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ── Periodicidades ────────────────────────────────────────────────────────
 const PERIODOS = [
@@ -640,6 +671,49 @@ function fmtBR(iso) {
   return `${d}/${m}/${y}`;
 }
 
+// ── T2.1: paginação — DUPLICADO de app.js por decisão de projeto (invariante 3:
+// esta página é autocontida e não carrega app.js). O PostgREST trunca em
+// max-rows (padrão 1.000) sem erro; sem isto o cronograma some do 1.001º
+// equipamento em diante. Mantenha em sincronia com app.js.
+async function fetchAll(construirQuery, chunk = 1000) {
+  const todos = [];
+  for (let de = 0; ; de += chunk) {
+    const { data, error } = await construirQuery().range(de, de + chunk - 1);
+    if (error) return { data: null, error };
+    if (data) for (const linha of data) todos.push(linha);
+    if (!data || data.length < chunk) break;
+  }
+  return { data: todos, error: null };
+}
+
+// Blocos de 500 IDs para não estourar o tamanho da URL (HTTP 414) no filtro .in().
+async function fetchAllIn(construirQuery, coluna, ids, blocoIds = 500, chunk = 1000) {
+  const todos = [];
+  const unicos = [...new Set(ids || [])];
+  if (!unicos.length) return { data: [], error: null };
+  for (let i = 0; i < unicos.length; i += blocoIds) {
+    const fatia = unicos.slice(i, i + blocoIds);
+    const { data, error } = await fetchAll(() => construirQuery().in(coluna, fatia), chunk);
+    if (error) return { data: null, error };
+    if (data) for (const linha of data) todos.push(linha);
+  }
+  return { data: todos, error: null };
+}
+
+// ── T1.1b: faixa de ambiente — DUPLICADO de app.js (invariante 3: página
+// autocontida, não carrega app.js). Mantenha em sincronia.
+// config.js expõe IS_HOMOLOGACAO, mas nada no sistema o consumia: o switch de
+// ambiente era completamente silencioso.
+function marcarAmbienteNaoProdutivo() {
+  if (typeof IS_HOMOLOGACAO === 'undefined' || !IS_HOMOLOGACAO) return;
+  if (document.getElementById('app-faixa-ambiente')) return;
+  const faixa = document.createElement('div');
+  faixa.id = 'app-faixa-ambiente';
+  faixa.textContent = '\u26A0 AMBIENTE DE HOMOLOGA\u00C7\u00C3O \u2014 os dados gravados aqui N\u00C3O v\u00E3o para a base de produ\u00E7\u00E3o';
+  document.body.appendChild(faixa);
+  document.body.classList.add('tem-faixa-ambiente');
+}
+
 function esc(str) {
   if (!str) return '';
   return String(str)
@@ -681,7 +755,9 @@ function renderCell(eq, periodo) {
                     : '';
 
   const eqId  = eq.id;
-  const eqTag = eq.tag.replace(/'/g,"\\'");
+  // T1.3 — a tag deixou de trafegar pelo atributo onclick. Escapar HTML aqui não
+  // resolveria: o parser decodifica &#039; antes do JS avaliar, quebrando a string.
+  // abrirModal() resolve tag e label pelas fontes internas (_equipamentos/PERIODOS).
 
   return `
     <td class="prog-cell">
@@ -691,8 +767,8 @@ function renderCell(eq, periodo) {
         ${proximaHtml}
         ${duHtml}
         ${fonteHtml}
-        <button class="btn-registrar ${ultima ? 'plain' : ''}"
-          onclick="abrirModal('${eqId}','${eqTag}','${periodo.key}','${periodo.label}')">
+        <button type="button" class="btn-registrar ${ultima ? 'plain' : ''}"
+          onclick="abrirModal('${esc(eqId)}','${esc(periodo.key)}')">
           ${ultima ? '✏️ Atualizar' : '➕ Registrar'}
         </button>
       </div>
@@ -773,10 +849,13 @@ function atualizarKPIs(lista) {
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────
-function abrirModal(eqId, eqTag, periodoKey, periodoLabel) {
+function abrirModal(eqId, periodoKey) {
+  // T1.3 — tag e label resolvidos internamente, não mais recebidos do atributo HTML.
+  const periodo      = PERIODOS.find(p => p.key === periodoKey);
+  const eqTag        = _equipamentos.find(e => e.id === eqId)?.tag || eqId;
+  const periodoLabel = periodo?.label || periodoKey;
   _modalContext = { eqId, eqTag, periodoKey, periodoLabel };
   const prog    = (_programacoes[eqId] || {})[periodoKey];
-  const periodo = PERIODOS.find(p => p.key === periodoKey);
 
   $('modal-titulo').textContent       = `Registrar Manutenção — ${periodoLabel}`;
   $('modal-eq-info').textContent      = eqTag;
@@ -931,7 +1010,7 @@ async function carregarHistoricoModal(eqId, periodoKey) {
       <div class="hist-item">
         <span>${fmtBR(h.data_execucao)}</span>
         <span class="hist-tec">${esc(h.tecnico || '')}</span>
-        <span class="hist-badge ${h.origem}">${h.origem === 'real' ? '✓ Real' : '≈ Estimada'}</span>
+        <span class="hist-badge ${h.origem === 'real' ? 'real' : 'estimada'}">${h.origem === 'real' ? '✓ Real' : '≈ Estimada'}</span>
       </div>`).join('');
     wrap.style.display = '';
   } catch (e) { /* tabela ausente — segue sem histórico */ }
@@ -1174,10 +1253,10 @@ async function carregarProgramacao() {
   $('prog-empty').style.display   = 'none';
 
   // 1. Equipamentos
-  const { data: eqs, error: errEq } = await db
+  const { data: eqs, error: errEq } = await fetchAll(() => db
     .from('equipamentos')
     .select('id, tag, produto, marca, categoria, bloco, setor, sala, criticidade')
-    .order('tag', { ascending: true });
+    .order('tag', { ascending: true }));
 
   if (errEq) {
     $('prog-loading').textContent = '❌ Erro ao carregar equipamentos: ' + errEq.message;
@@ -1196,11 +1275,10 @@ async function carregarProgramacao() {
 
   // 2. Fichas PMOC — pega a mais recente por equipamento+frequência
   //    Junta meta_pmoc (JSONB) para ler data_inspecao e frequencia
-  const { data: fichas } = await db
+  const { data: fichas } = await fetchAllIn(() => db
     .from('fichas_pmoc')
     .select('id, equipamento_id, tecnico_nome, created_at, meta_pmoc, observacoes')
-    .in('equipamento_id', eqIds)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false }), 'equipamento_id', eqIds);
 
   // Para cada equipamento, mapear a ficha mais recente por frequência
   // e preencher as periodicidades correspondentes
@@ -1243,10 +1321,9 @@ async function carregarProgramacao() {
   });
 
   // 3. Registros manuais da tabela programacao_pmoc — sobrescrevem fichas PMOC
-  const { data: progs } = await db
+  const { data: progs } = await fetchAllIn(() => db
     .from('programacao_pmoc')
-    .select('equipamento_id, periodo, ultima_data, tecnico, observacao')
-    .in('equipamento_id', eqIds);
+    .select('equipamento_id, periodo, ultima_data, tecnico, observacao'), 'equipamento_id', eqIds);
 
   (progs || []).forEach(r => {
     if (!_programacoes[r.equipamento_id]) _programacoes[r.equipamento_id] = {};
@@ -1394,7 +1471,7 @@ function imprimirProgramacao() {
       </td>`;
     }).join('');
     return `<tr>
-      <td style="padding:6px 10px;font-size:12px;font-weight:700;color:#1e3a5f;border:1px solid #e2e8f0;">${eq.tag}<br><span style="font-weight:400;font-size:11px;color:#718096;">${eq.produto||''} ${local ? '— '+local : ''}</span></td>
+      <td style="padding:6px 10px;font-size:12px;font-weight:700;color:#1e3a5f;border:1px solid #e2e8f0;">${esc(eq.tag)}<br><span style="font-weight:400;font-size:11px;color:#718096;">${esc(eq.produto||'')} ${local ? '— '+esc(local) : ''}</span></td>
       ${cells}
     </tr>`;
   }).join('');
@@ -1631,7 +1708,7 @@ function gerarProgramacaoAnual() {
           <div class="anual-sub">${esc(eq.produto||'')}${eq.produto&&(eq.bloco||eq.setor)?' — ':''}${esc(eq.bloco||eq.setor||'')}</div>
         </td>
         <td>
-          <select class="anual-select-freq" data-eqid="${eq.id}"
+          <select class="anual-select-freq" data-eqid="${esc(eq.id)}"
             onchange="onFreqChange(this)">
             ${['Mensal','Trimestral','Semestral','Anual'].map(f =>
               `<option value="${f}"${freqAtual===f?' selected':''}>${f}</option>`
@@ -1639,7 +1716,7 @@ function gerarProgramacaoAnual() {
           </select>
         </td>
         <td>
-          <input type="text" class="anual-input-tec" data-eqid="${eq.id}"
+          <input type="text" class="anual-input-tec" data-eqid="${esc(eq.id)}"
             value="${esc(tecAtual)}" placeholder="Técnico responsável"
             onchange="onTecChange(this)">
         </td>
@@ -1695,10 +1772,10 @@ async function salvarConfiguracaoAnual() {
 // Carregar configuração salva
 async function carregarConfiguracaoAnual(ano) {
   // Tenta Supabase primeiro
-  const { data, error } = await db
+  const { data, error } = await fetchAll(() => db
     .from('programacao_pmoc_anual')
     .select('equipamento_id, frequencia, tecnico')
-    .eq('ano', ano);
+    .eq('ano', ano));
 
   if (!error && data && data.length) {
     data.forEach(r => {
@@ -1783,9 +1860,9 @@ function imprimirAnual() {
     }).join('');
 
     return `<tr>
-      <td style="padding:5px 8px;font-size:11px;font-weight:700;color:#1e3a5f;border:1px solid #e2e8f0;white-space:nowrap;">${eq.tag}<br><span style="font-weight:400;font-size:10px;color:#718096;">${eq.produto||''}</span></td>
+      <td style="padding:5px 8px;font-size:11px;font-weight:700;color:#1e3a5f;border:1px solid #e2e8f0;white-space:nowrap;">${esc(eq.tag)}<br><span style="font-weight:400;font-size:10px;color:#718096;">${esc(eq.produto||'')}</span></td>
       <td style="padding:5px 8px;font-size:10px;border:1px solid #e2e8f0;">${freqAtual}</td>
-      <td style="padding:5px 8px;font-size:10px;border:1px solid #e2e8f0;">${cfg.tecnico||'—'}</td>
+      <td style="padding:5px 8px;font-size:10px;border:1px solid #e2e8f0;">${esc(cfg.tecnico) || '—'}</td>
       ${celulas}
     </tr>`;
   }).join('');
@@ -1836,8 +1913,12 @@ function imprimirAnual() {
 
 // ── Auth + init ───────────────────────────────────────────────────────────
 (async () => {
+  // T2.3 — página autocontida (invariante 3): revela o conteúdo por conta própria.
+  const revelar = () => document.documentElement.classList.remove('sessao-pendente');
   const { data: { session } } = await db.auth.getSession();
   if (!session) { location.href = 'index.html'; return; }
+  revelar();
+  marcarAmbienteNaoProdutivo();   // T1.1b
   $('user-display-email').textContent = session.user.email;
   $('btn-logout').addEventListener('click', async () => {
     await db.auth.signOut(); location.href = 'index.html';

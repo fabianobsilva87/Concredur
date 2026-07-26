@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Geração do documento Plano PMOC com validade legal — Concredur / Univag.">
+    <meta name="theme-color" content="var(--brand-navy)">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="icon" href="logo-univag.png" type="image/png">
   <title>Concredur — Plano PMOC</title>
   <link rel="stylesheet" href="style.css">
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -20,7 +24,7 @@
     .plano-field textarea { resize: vertical; min-height: 64px; }
     .plano-card { background: #fff; border: 1px solid var(--gray-200); border-radius: 10px; box-shadow: var(--shadow-sm); padding: 18px 20px; margin-bottom: 18px; }
     .plano-card h3 {
-      font-size: 13px; font-weight: 700; color: #1e3a5f; margin-bottom: 14px;
+      font-size: 13px; font-weight: 700; color: var(--brand-navy); margin-bottom: 14px;
       padding-bottom: 8px; border-bottom: 1px solid var(--gray-200);
       display: flex; align-items: center; gap: 8px;
     }
@@ -31,23 +35,31 @@
     }
     .btn-toolbar { padding: 7px 14px; border-radius: var(--radius); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; border: none; display: inline-flex; align-items: center; gap: 6px; }
     .btn-toolbar.primary   { background: #4169e1; color: #fff; }
-    .btn-toolbar.primary:hover { background: #1e3a5f; }
+    .btn-toolbar.primary:hover { background: var(--brand-navy); }
     .btn-toolbar.success   { background: #059669; color: #fff; }
     .btn-toolbar.success:hover { background: #047857; }
     #plano-toast {
       position: fixed; bottom: 28px; right: 24px; z-index: 2000;
-      background: #1e3a5f; color: #fff; padding: 10px 18px; border-radius: var(--radius);
+      background: var(--brand-navy); color: #fff; padding: 10px 18px; border-radius: var(--radius);
       font-size: 13px; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,.2);
       opacity: 0; transition: opacity .25s; pointer-events: none;
     }
     #plano-toast.show { opacity: 1; }
   </style>
+  <script>
+    /* T2.3 — oculta o conteúdo até a sessão ser validada (ver style.css).
+       O timeout é rede de segurança: a tela nunca fica invisível para sempre. */
+    document.documentElement.classList.add('sessao-pendente');
+    setTimeout(function () {
+      document.documentElement.classList.remove('sessao-pendente');
+    }, 8000);
+  </script>
 </head>
 <body>
 <div class="app-container">
   <aside class="sidebar no-print">
     <div class="sidebar-header">
-      <img class="sidebar-logo-img" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAAA9CAYAAADoByY0AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyNpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDYuMC1jMDAyIDc5LjE2NDQ4OCwgMjAyMC8wNy8xMC0yMjowNjo1MyAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIDIyLjAgKFdpbmRvd3MpIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOjM4MEYxMjVBNTg3NDExRUU5QTBGQkI4N0VFOTE2RTJGIiB4bXBNTTpEb2N1bWVudElEPSJ4bXAuZGlkOjM4MEYxMjVCNTg3NDExRUU5QTBGQkI4N0VFOTE2RTJGIj4gPHhtcE1NOkRlcml2ZWRGcm9tIHN0UmVmOmluc3RhbmNlSUQ9InhtcC5paWQ6MzgwRjEyNTg1ODc0MTFFRTlBMEZCQjg3RUU5MTZFMkYiIHN0UmVmOmRvY3VtZW50SUQ9InhtcC5kaWQ6MzgwRjEyNTk1ODc0MTFFRTlBMEZCQjg3RUU5MTZFMkYiLz4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz6klSGIAAAP7ElEQVR42uxdCXQV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" alt="Univag" style="height:30px;width:auto;display:block;margin-bottom:6px;"><p>Gestão de Manutenção</p>
+      <img class="sidebar-logo-img" src="logo-univag.png" alt="Univag" style="height:30px;width:auto;display:block;margin-bottom:6px;"><p>Gestão de Manutenção</p>
       <div class="user-logged-badge">
         <span class="user-icon-dot">●</span>
         <span id="user-display-email">...</span>
@@ -72,7 +84,7 @@
         <div class="nav-item" onclick="location.href='usuarios.html'"><span>👥</span> Gestão de Usuários</div>
       </nav>
     <div class="sidebar-footer">
-      <button id="btn-logout" class="btn-sair">⬅ Sair</button>
+      <button type="button" id="btn-logout" class="btn-sair">⬅ Sair</button>
     </div>
   </aside>
 
@@ -80,8 +92,8 @@
     <div class="topbar no-print">
       <h2>📘 Plano PMOC — Documento Estruturado</h2>
       <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;">
-        <button class="btn-toolbar primary" onclick="salvarConfigPlano()">💾 Salvar Dados</button>
-        <button class="btn-toolbar success" onclick="gerarDocumentoPMOC()">🖨️ Gerar Documento PMOC</button>
+        <button type="button" class="btn-toolbar primary" onclick="salvarConfigPlano()">💾 Salvar Dados</button>
+        <button type="button" class="btn-toolbar success" onclick="gerarDocumentoPMOC()">🖨️ Gerar Documento PMOC</button>
       </div>
     </div>
 
@@ -98,27 +110,27 @@
         <h3>🏛️ Identificação do Estabelecimento (Proprietário)</h3>
         <div class="plano-grid">
           <div class="plano-field full">
-            <label>Razão Social / Nome do Estabelecimento *</label>
+            <label for="pp-razao">Razão Social / Nome do Estabelecimento *</label>
             <input type="text" id="pp-razao" placeholder="Ex: Univag Centro Universitário">
           </div>
           <div class="plano-field">
-            <label>CNPJ</label>
+            <label for="pp-cnpj">CNPJ</label>
             <input type="text" id="pp-cnpj" placeholder="00.000.000/0000-00">
           </div>
           <div class="plano-field">
-            <label>Telefone</label>
+            <label for="pp-telefone">Telefone</label>
             <input type="text" id="pp-telefone" placeholder="(65) 0000-0000">
           </div>
           <div class="plano-field full">
-            <label>Endereço Completo</label>
+            <label for="pp-endereco">Endereço Completo</label>
             <input type="text" id="pp-endereco" placeholder="Av., nº, bairro, cidade — UF, CEP">
           </div>
           <div class="plano-field">
-            <label>Responsável Legal / Representante</label>
+            <label for="pp-resp-legal">Responsável Legal / Representante</label>
             <input type="text" id="pp-resp-legal" placeholder="Nome do representante">
           </div>
           <div class="plano-field">
-            <label>Cargo do Responsável Legal</label>
+            <label for="pp-resp-cargo">Cargo do Responsável Legal</label>
             <input type="text" id="pp-resp-cargo" placeholder="Ex: Diretor Administrativo">
           </div>
         </div>
@@ -129,16 +141,16 @@
         <h3>🧑‍🔧 Responsável Técnico pela Assinatura do PMOC</h3>
         <div class="plano-grid">
           <div class="plano-field full">
-            <label>Nome Completo *</label>
+            <label for="pp-rt-nome">Nome Completo *</label>
             <input type="text" id="pp-rt-nome" placeholder="Nome do responsável técnico">
           </div>
           <div class="plano-field">
-            <label>Título Profissional</label>
+            <label for="pp-rt-titulo">Título Profissional</label>
             <input type="text" id="pp-rt-titulo" placeholder="Ex: Engenheiro Mecânico / Técnico em Refrigeração">
             <div class="plano-hint">Não incluir sufixos de ambiente (" - Teste", " - Dev"); a emissão é bloqueada se detectados.</div>
           </div>
           <div class="plano-field">
-            <label>Conselho de Classe</label>
+            <label for="pp-rt-conselho">Conselho de Classe</label>
             <select id="pp-rt-conselho">
               <option value="CREA">CREA</option>
               <option value="CFT">CFT</option>
@@ -146,34 +158,34 @@
             </select>
           </div>
           <div class="plano-field">
-            <label>Nº de Registro no Conselho *</label>
+            <label for="pp-rt-registro">Nº de Registro no Conselho *</label>
             <input type="text" id="pp-rt-registro" placeholder="Ex: CREA-MT 000000-D">
           </div>
           <div class="plano-field">
-            <label>Nº ART / TRT</label>
+            <label for="pp-rt-art">Nº ART / TRT</label>
             <input type="text" id="pp-rt-art" placeholder="Anotação/Termo de Responsabilidade Técnica">
             <div class="plano-hint">A ART/TRT vincula legalmente o profissional a este plano. Obrigatória para emissão final.</div>
           </div>
           <div class="plano-field">
-            <label>Telefone</label>
+            <label for="pp-rt-telefone">Telefone</label>
             <input type="text" id="pp-rt-telefone" placeholder="(65) 00000-0000">
           </div>
           <div class="plano-field">
-            <label>E-mail</label>
+            <label for="pp-rt-email">E-mail</label>
             <input type="text" id="pp-rt-email" placeholder="email@exemplo.com">
           </div>
           <div class="plano-field full">
-            <label>Empresa Executante da Manutenção *</label>
+            <label for="pp-rt-empresa">Empresa Executante da Manutenção *</label>
             <input type="text" id="pp-rt-empresa" placeholder="Razão social / CNPJ da empresa mantenedora">
             <div class="plano-hint">Obrigatória para emissão final — distingue o RT que assina da empresa/equipe que executa.</div>
           </div>
           <div class="plano-field full">
-            <label>Atribuição Técnica Registrada (CREA/CAU/CFT)</label>
+            <label for="pp-rt-atribuicao">Atribuição Técnica Registrada (CREA/CAU/CFT)</label>
             <input type="text" id="pp-rt-atribuicao" placeholder="Ex: Atribuição em Instalações de Climatização e Refrigeração (Resolução 218/1973, art. 10)">
             <div class="plano-hint">Não presume habilitação apenas pelo título profissional — registre a atribuição específica do RT junto ao conselho.</div>
           </div>
           <div class="plano-field full">
-            <label>Referência da Certidão de Atribuição (nº / link)</label>
+            <label for="pp-rt-certidao">Referência da Certidão de Atribuição (nº / link)</label>
             <input type="text" id="pp-rt-certidao" placeholder="Nº da certidão ou link de consulta pública no CREA/CAU/CFT">
           </div>
         </div>
@@ -184,19 +196,19 @@
         <h3>🌬️ Monitoramento da Qualidade do Ar Interior (QAI)</h3>
         <div class="plano-grid">
           <div class="plano-field full">
-            <label>Metodologia</label>
+            <label for="pp-qai-metodologia">Metodologia</label>
             <textarea id="pp-qai-metodologia" placeholder="Ex: Medição de CO2/temperatura/UR/velocidade do ar com equipamento calibrado; contagem microbiológica por amostragem de ar comparando ambiente interno x externo, conforme RE ANVISA nº 09/2003."></textarea>
           </div>
           <div class="plano-field">
-            <label>Laboratório Responsável</label>
+            <label for="pp-qai-laboratorio">Laboratório Responsável</label>
             <input type="text" id="pp-qai-laboratorio" placeholder="Razão social do laboratório acreditado">
           </div>
           <div class="plano-field">
-            <label>Quantidade de Amostras</label>
+            <label for="pp-qai-qtd-amostras">Quantidade de Amostras</label>
             <input type="text" id="pp-qai-qtd-amostras" placeholder="Ex: 2 amostras por ambiente (interno + externo)">
           </div>
           <div class="plano-field full">
-            <label>Pontos de Coleta</label>
+            <label for="pp-qai-pontos-coleta">Pontos de Coleta</label>
             <textarea id="pp-qai-pontos-coleta" placeholder="Ex: 1 ponto interno por setor climatizado + 1 ponto de referência externo, a favor do vento."></textarea>
           </div>
         </div>
@@ -207,24 +219,24 @@
         <h3>⚙️ Parâmetros do Plano</h3>
         <div class="plano-grid">
           <div class="plano-field">
-            <label>Ano de Vigência</label>
+            <label for="pp-ano">Ano de Vigência</label>
             <input type="number" id="pp-ano" min="2020" max="2100">
           </div>
           <div class="plano-field">
-            <label>Mês de Início do Ciclo</label>
+            <label for="pp-mes-inicio">Mês de Início do Ciclo</label>
             <select id="pp-mes-inicio"></select>
             <div class="plano-hint">Define os meses das rotinas trimestrais, semestrais e anuais no cronograma.</div>
           </div>
           <div class="plano-field">
-            <label>Local de Emissão</label>
+            <label for="pp-local-emissao">Local de Emissão</label>
             <input type="text" id="pp-local-emissao" placeholder="Ex: Várzea Grande — MT">
           </div>
           <div class="plano-field">
-            <label>Data de Emissão</label>
+            <label for="pp-data-emissao">Data de Emissão</label>
             <input type="date" id="pp-data-emissao">
           </div>
           <div class="plano-field full">
-            <label>Observações Gerais (impressas na seção de orientações)</label>
+            <label for="pp-obs">Observações Gerais (impressas na seção de orientações)</label>
             <textarea id="pp-obs" placeholder="Particularidades da instituição, restrições de horário para execução, etc."></textarea>
           </div>
         </div>
