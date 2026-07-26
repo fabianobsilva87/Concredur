@@ -437,6 +437,29 @@ async function carregarConfigPlano() {
   } catch (e) { console.warn('Config do plano não carregada:', e); }
 }
 
+// ── Blocos ────────────────────────────────────────────────────────────────
+// Carregado à parte de _planoEqs porque o cadastro de equipamentos só conhece os
+// blocos que POSSUEM ativos. Para declarar honestamente o escopo do PMOC é preciso
+// conhecer também os blocos registrados na estrutura de locais que NÃO possuem
+// nenhum ativo cadastrado — hipótese em que o documento estaria omitindo parte do
+// estabelecimento sem sinalizar (Lei nº 13.589/2018, que exige o plano para a
+// totalidade do estabelecimento, não para parte dele).
+let _planoBlocos = [];
+
+async function carregarBlocosPlano() {
+  const { data, error } = await db
+    .from('blocos')
+    .select('id, nome, instituicoes(nome), setores(id, salas(id))')
+    .order('nome', { ascending: true });
+  if (error) { _planoBlocos = []; return; }
+  _planoBlocos = (data || []).map(b => ({
+    nome: b.nome,
+    instituicao: b.instituicoes?.nome || '—',
+    setores: (b.setores || []).length,
+    salas: (b.setores || []).reduce((acc, st) => acc + ((st.salas || []).length), 0),
+  }));
+}
+
 // ── Equipamentos ──────────────────────────────────────────────────────────
 let _planoEqs = [];
 
@@ -499,7 +522,60 @@ function gerarDocumentoPMOC() {
       <div class="capa-emissao">${escapeHTML(cfg.local_emissao || '')}${cfg.local_emissao ? ', ' : ''}${emissaoBR}</div>
     </div>`;
 
-  // ── 1. Identificação do estabelecimento ──
+  // ── 1. Identificação do estabelecimento + DELIMITAÇÃO DE ESCOPO ──
+  //
+  // NOTA TÉCNICA (auditoria 2026): a capa e esta seção identificam o ESTABELECIMENTO
+  // (razão social + CNPJ) e o documento é assinado sob ART. Sem declaração expressa de
+  // escopo, o PMOC afirma implicitamente cobrir a totalidade do parque do estabelecimento.
+  // Caso o cadastro contemple apenas parte dos blocos, essa afirmação implícita é
+  // inexata. A tabela abaixo é gerada automaticamente e torna o escopo explícito,
+  // sinalizando blocos registrados na estrutura de locais sem nenhum ativo cadastrado.
+  const blocosComAtivos = {};
+  _planoEqs.forEach(e => {
+    const b = e.bloco || '(sem bloco)';
+    if (!blocosComAtivos[b]) blocosComAtivos[b] = { total: 0, ac: 0, ven: 0 };
+    blocosComAtivos[b].total++;
+    const c = planoNormCat(e.categoria);
+    if (c === 'AC')  blocosComAtivos[b].ac++;
+    if (c === 'VEN') blocosComAtivos[b].ven++;
+  });
+
+  const nomesBlocos = [...new Set([
+    ..._planoBlocos.map(b => b.nome),
+    ...Object.keys(blocosComAtivos),
+  ])].sort((a, b) => a.localeCompare(b));
+
+  let blocosSemCadastro = 0;
+  const linhasEscopo = nomesBlocos.map(nome => {
+    const est = _planoBlocos.find(b => b.nome === nome);
+    const at  = blocosComAtivos[nome] || { total: 0, ac: 0, ven: 0 };
+    const semCadastro = at.total === 0;
+    if (semCadastro) blocosSemCadastro++;
+    return `<tr${semCadastro ? ' style="background:#fff5f5;"' : ''}>
+      <td>${escapeHTML(nome)}</td>
+      <td style="text-align:center;">${est ? est.setores : '—'}</td>
+      <td style="text-align:center;">${est ? est.salas : '—'}</td>
+      <td style="text-align:center;">${at.ac}</td>
+      <td style="text-align:center;">${at.ven}</td>
+      <td style="text-align:center;">${at.total}</td>
+      <td>${semCadastro
+        ? '<strong style="color:#9b2c2c;">NÃO COBERTO — sem ativos cadastrados</strong>'
+        : 'Coberto por este plano'}</td>
+    </tr>`;
+  }).join('');
+
+  const alertaEscopo = blocosSemCadastro > 0
+    ? `<p class="texto" style="font-size:9px;color:#9b2c2c;border-left:3px solid #9b2c2c;padding-left:8px;">
+       <strong>RESSALVA DE ESCOPO.</strong> ${blocosSemCadastro === 1 ? 'Há 1 bloco registrado' : `Há ${blocosSemCadastro} blocos registrados`}
+       na estrutura de locais do estabelecimento sem nenhum ativo cadastrado. Enquanto essa condição
+       persistir, <strong>este plano não abrange a totalidade do estabelecimento</strong>. A Lei nº 13.589/2018
+       exige a elaboração e execução do PMOC para o estabelecimento, não para parte dele. Providências
+       obrigatórias: (a) confirmar em campo se os blocos assinalados possuem ambientes climatizados;
+       (b) havendo climatização, realizar o cadastro e reemitir este plano; (c) não havendo, registrar
+       formalmente a inexistência para fins de comprovação perante a autoridade sanitária.</p>`
+    : `<p class="texto" style="font-size:9px;color:#4a5568;">Todos os blocos registrados na estrutura de
+       locais do estabelecimento possuem ativos cadastrados e estão cobertos por este plano.</p>`;
+
   const sec1 = `
     <div class="sec">
       <div class="sec-titulo">1. IDENTIFICAÇÃO DO ESTABELECIMENTO (PROPRIETÁRIO)</div>
@@ -510,6 +586,19 @@ function gerarDocumentoPMOC() {
         <tr><td class="lbl">Telefone</td><td>${escapeHTML(cfg.telefone || '—')}</td>
             <td class="lbl">Responsável Legal</td><td>${escapeHTML(cfg.resp_legal || '—')}${cfg.resp_cargo ? ' — ' + escapeHTML(cfg.resp_cargo) : ''}</td></tr>
       </table>
+
+      <div class="cat-titulo">1.1 Delimitação do Escopo</div>
+      <p class="texto">Relação dos blocos registrados na estrutura de locais do estabelecimento e sua
+      cobertura por este plano, apurada a partir do cadastro de ativos vigente na data de emissão.</p>
+      <table class="tb-lista">
+        <thead><tr>
+          <th>Bloco</th><th style="width:9%;">Setores</th><th style="width:9%;">Salas</th>
+          <th style="width:9%;">Ativos AC</th><th style="width:9%;">Ativos VEN</th>
+          <th style="width:9%;">Total</th><th style="width:28%;">Situação</th>
+        </tr></thead>
+        <tbody>${linhasEscopo || '<tr><td colspan="7">Nenhum bloco registrado.</td></tr>'}</tbody>
+      </table>
+      ${alertaEscopo}
     </div>`;
 
   // ── 2. Responsável técnico ──
@@ -617,36 +706,70 @@ function gerarDocumentoPMOC() {
     </div>`;
 
   // ── 5. Memorial descritivo do sistema (item 12) — gerado a partir do parque cadastrado ──
-  // Descreve, por bloco/setor, o tipo de sistema de climatização predominante, a existência
-  // de renovação/tomada de ar externo ou exaustão, e se os sistemas são independentes
-  // (splits por ambiente) ou centralizados (água gelada, VRF, dutado).
+  // Descreve, por bloco/setor, a TIPOLOGIA CONSTRUTIVA dos sistemas de climatização, seus
+  // componentes de tratamento e distribuição de ar, e a existência de renovação de ar exterior.
+  //
+  // NOTA TÉCNICA (auditoria 2026): a classificação binária anterior ("centralizado" x "splits
+  // individuais") era tecnicamente incorreta — enquadrava unidades Cassete e unidades comerciais
+  // de maior porte como sistemas sem componentes de distribuição de ar, o que dispensava
+  // indevidamente as rotinas da série DUT. A classificação passou a ser tipológica, vinculante
+  // para a Seção 6.
+  const AC_TIPOLOGIA_MEMORIAL = {
+    'VRF':                                          'Fluxo de refrigerante variável (VRF/VRV) — sistema de maior porte com distribuição por plenum/duto e automação centralizada',
+    'Split Duto':                                   'Expansão direta dutada — rede de dutos, plenum de insuflamento e bocas de ar remotas',
+    'Self-Contained':                               'Self-contained — sistema compacto com plenum e rede de dutos',
+    'Split Cassete':                                'Cassete embutido em forro — caixa de plenum de retorno, difusor multidirecional e flange de ar exterior',
+    'Água Gelada (Chiller)':                        'Expansão indireta por água gelada (chiller) — circuito de água e unidades tratadoras de ar',
+    'Torre de Resfriamento/Condensador Evaporativo':'Sistema com água aberta (torre de resfriamento / condensador evaporativo)',
+    'Split Hi-Wall':                                'Expansão direta de ambiente único (hi-wall) — insuflamento e retorno diretos no gabinete, sem plenum',
+    'Split Piso-Teto':                              'Expansão direta de ambiente único (piso-teto) — insuflamento e retorno diretos no gabinete, sem plenum',
+    'Janela':                                       'Condicionador de janela — unidade compacta de ambiente único',
+    'Portátil':                                     'Condicionador portátil — unidade móvel de ambiente único',
+  };
+
   let memorialCorpo = '';
   Object.entries(grupos).sort((a, b) => a[0].localeCompare(b[0])).forEach(([grupo, eqs]) => {
     const eqsACGrupo = eqs.filter(e => planoNormCat(e.categoria) === 'AC');
     const instalacoesGrupo = eqsACGrupo.map(e => parseExtras(e.extras_tecnico)['instalacao-ac']).filter(Boolean);
     const tiposUnicos = [...new Set(instalacoesGrupo)];
-    const possuiCentralizado = instalacoesGrupo.some(v => AC_INSTALACOES_PORTE_MAIOR.includes(v));
-    const possuiRenovacaoAr = instalacoesGrupo.some(v => AC_INSTALACOES_AGUA_ABERTA.includes(v)) ||
-      eqs.some(e => planoNormCat(e.categoria) === 'VEN');
+    const possuiPlenum = instalacoesGrupo.some(v => AC_INSTALACOES_COM_PLENUM.includes(v));
+    const possuiRenovacaoAr = eqs.some(e => planoNormCat(e.categoria) === 'VEN');
     const categoriasGrupo = [...new Set(eqs.map(e => PLANO_CAT_LABEL[planoNormCat(e.categoria)]))];
+
+    const tipologias = tiposUnicos.length
+      ? tiposUnicos.map(t => `<li>${escapeHTML(AC_TIPOLOGIA_MEMORIAL[t] || t)}</li>`).join('')
+      : '<li>Não informado / sem equipamento AC cadastrado</li>';
+
+    const rotulaRenovacao = possuiRenovacaoAr
+      ? 'Presente — verificar vazão efetiva no item DUT-05'
+      : '<strong style="color:#9b2c2c;">AUSENTE — não conformidade de projeto (submeter ao Plano de Contingência, Seção 7)</strong>';
 
     memorialCorpo += `
       <div class="cat-titulo">📍 ${escapeHTML(grupo)}</div>
       <table class="tb-ident">
         <tr><td class="lbl">Sistemas Presentes</td><td colspan="3">${escapeHTML(categoriasGrupo.join(', ') || '—')}</td></tr>
-        <tr><td class="lbl">Tipo(s) de Instalação AC</td><td colspan="3">${escapeHTML(tiposUnicos.join(', ') || 'Não informado / sem equipamento AC')}</td></tr>
-        <tr><td class="lbl">Configuração</td><td>${possuiCentralizado ? 'Sistema(s) centralizado(s)/de maior porte' : 'Sistemas independentes (splits individuais)'}</td>
-            <td class="lbl">Renovação/Exaustão de Ar</td><td>${possuiRenovacaoAr ? 'Presente (verificar item DUT-05 / VEN)' : 'Não identificada — verificar necessidade conforme uso do ambiente'}</td></tr>
+        <tr><td class="lbl">Tipologia Construtiva</td><td colspan="3"><ul style="margin:0;padding-left:14px;">${tipologias}</ul></td></tr>
+        <tr><td class="lbl">Componentes de Distribuição de Ar</td>
+            <td>${possuiPlenum ? 'Presentes (plenum, dutos e/ou bocas de ar remotas) — rotinas DUT-01 a DUT-05 aplicáveis' : 'Ausentes — insuflamento e retorno diretos no gabinete'}</td>
+            <td class="lbl">Renovação/Exaustão de Ar</td><td>${rotulaRenovacao}</td></tr>
       </table>`;
   });
 
   const sec5Memorial = `
     <div class="sec">
       <div class="sec-titulo">5. MEMORIAL DESCRITIVO DO SISTEMA</div>
-      <p class="texto">Descrição geral, por ambiente/setor, dos sistemas de climatização instalados, sua
-      configuração (independente ou centralizada) e a existência de renovação de ar externo ou exaustão,
-      conforme o cadastro de equipamentos vigente.</p>
+      <p class="texto">Descrição, por ambiente/setor, da tipologia construtiva dos sistemas de climatização
+      instalados, de seus componentes de tratamento e distribuição de ar e da existência de renovação de ar
+      exterior ou exaustão, conforme o cadastro de equipamentos vigente. <strong>A classificação tipológica
+      aqui estabelecida é vinculante para a determinação de aplicabilidade das atividades da Seção 6.</strong></p>
       ${memorialCorpo || '<p class="texto">Nenhum equipamento cadastrado para compor o memorial descritivo.</p>'}
+      <p class="texto" style="font-size:9px;color:#4a5568;border-left:3px solid #1e3a5f;padding-left:8px;">
+      <strong>Regime de aplicabilidade.</strong> A marcação <strong>NA (Não Aplicável)</strong> somente é admitida
+      quando o componente objeto da rotina <strong>inexiste fisicamente</strong> no ativo inspecionado, com justificativa
+      registrada em campo. É vedado: (a) atribuir NA por decorrência automática do campo cadastral de tipo de
+      instalação, sem verificação em campo; (b) atribuir NA ao item DUT-05 em ambiente de ocupação permanente
+      desprovido de tomada de ar exterior — hipótese que constitui <strong>NC por deficiência de projeto</strong>,
+      com abertura obrigatória de Ordem de Serviço de adequação.</p>
     </div>`;
 
   // ── 6. Plano de atividades (fonte única: CHECKLIST_PMOC_DEFS do app.js) ──
@@ -656,6 +779,7 @@ function gerarDocumentoPMOC() {
   const instalacoesAC = eqsAC.map(e => parseExtras(e.extras_tecnico)['instalacao-ac']).filter(Boolean);
   const temAguaAberta  = instalacoesAC.some(v => AC_INSTALACOES_AGUA_ABERTA.includes(v));
   const temPorteMaior  = instalacoesAC.some(v => AC_INSTALACOES_PORTE_MAIOR.includes(v));
+  const temPlenum      = instalacoesAC.some(v => AC_INSTALACOES_COM_PLENUM.includes(v));
 
   let sec5Corpo = '';
   catsPresentes.forEach(cat => {
@@ -670,8 +794,12 @@ function gerarDocumentoPMOC() {
         const avaliacao = `<div class="avaliacao-opcoes"><span>C</span><span>NC</span><span>NA</span></div>`;
         if (condicional === 'agua_aberta' && !temAguaAberta) {
           linhas += `<tr style="color:#a0aec0;"><td>${escapeHTML(label)} <em>(não aplicável — nenhum sistema de água aberto cadastrado: torre de resfriamento, condensador evaporativo ou água gelada)</em></td><td style="text-align:center;width:82px;">N/A</td><td style="text-align:center;width:76px;">—</td></tr>`;
+        } else if (condicional === 'plenum' && !temPlenum) {
+          linhas += `<tr style="color:#a0aec0;"><td>${escapeHTML(label)} <em>(não aplicável — nenhum equipamento com plenum, rede de dutos ou bocas de ar remotas cadastrado)</em></td><td style="text-align:center;width:82px;">N/A</td><td style="text-align:center;width:76px;">—</td></tr>`;
+        } else if (condicional === 'plenum') {
+          linhas += `<tr><td>${escapeHTML(label)}</td><td style="text-align:center;width:82px;">${PLANO_PERIODO_LABEL[p.key]}</td><td style="width:76px;">${avaliacao}</td></tr>`;
         } else if (condicional === 'porte_maior' && !temPorteMaior) {
-          linhas += `<tr style="color:#a0aec0;"><td>${escapeHTML(label)} <em>(não aplicável — nenhum equipamento de maior porte cadastrado)</em></td><td style="text-align:center;width:82px;">N/A</td><td style="text-align:center;width:76px;">—</td></tr>`;
+          linhas += `<tr style="color:#a0aec0;"><td>${escapeHTML(label)} <em>(não aplicável — nenhum equipamento com transmissão por correias/polias cadastrado)</em></td><td style="text-align:center;width:82px;">N/A</td><td style="text-align:center;width:76px;">—</td></tr>`;
         } else if (condicional === 'porte_maior') {
           linhas += `<tr><td>${escapeHTML(label)} <em>(quando aplicável)</em></td><td style="text-align:center;width:82px;">${PLANO_PERIODO_LABEL[p.key]}</td><td style="width:76px;">${avaliacao}</td></tr>`;
         } else {
@@ -715,22 +843,77 @@ function gerarDocumentoPMOC() {
             <td class="lbl">Qtd. de Amostras</td><td>${escapeHTML(cfg.qai_qtd_amostras || '—')}</td></tr>
         <tr><td class="lbl">Pontos de Coleta</td><td colspan="3">${escapeHTML(cfg.qai_pontos_coleta || '—')}</td></tr>
       </table>
-      <div class="cat-titulo">Critérios de Aceitação por Parâmetro</div>
+      <div class="cat-titulo">7.1 Parâmetros Obrigatórios e Critérios de Aceitação</div>
       <table class="tb-lista">
-        <thead><tr><th>Parâmetro</th><th>Referência</th></tr></thead>
+        <thead><tr><th>Parâmetro</th><th style="width:52%;">Valor Máximo Recomendável / Faixa</th><th style="width:20%;">Referência</th></tr></thead>
         <tbody>
-          <tr><td>Temperatura</td><td>Verão: 23°C a 26°C · Inverno: 20°C a 22°C (NBR 16401)</td></tr>
-          <tr><td>Umidade Relativa</td><td>40% a 65%</td></tr>
-          <tr><td>CO₂ (dióxido de carbono)</td><td>Máximo de 1.000 ppm, ou diferencial ≤ 700 ppm em relação ao ar externo</td></tr>
-          <tr><td>Velocidade do Ar (zona de ocupação)</td><td>Até 0,25 m/s</td></tr>
-          <tr><td>Diferencial de Pressão em Filtros</td><td>Conforme especificação do fabricante do filtro/equipamento</td></tr>
-          <tr><td>Taxa de Renovação de Ar Externo</td><td>Conforme uso do ambiente (referência: NBR 16401 / ASHRAE 62.1)</td></tr>
-          <tr><td>Contagem Microbiológica do Ar</td><td>Concentração de fungos no ambiente interno não superior à do ambiente externo (RE ANVISA nº 09/2003)</td></tr>
+          <tr><td>Dióxido de carbono (CO₂)</td><td><strong>≤ 1.000 ppm</strong>; adicionalmente, diferencial interno-externo ≤ 700 ppm</td><td>RE ANVISA nº 09/2003</td></tr>
+          <tr><td>Aerodispersóides totais (PTS)</td><td><strong>≤ 80 µg/m³</strong></td><td>RE ANVISA nº 09/2003</td></tr>
+          <tr><td>Contagem fúngica</td><td><strong>≤ 750 UFC/m³</strong> <em>e</em> relação Interior/Exterior (I/E) ≤ 1,5</td><td>RE ANVISA nº 09/2003</td></tr>
+          <tr><td>Identificação microbiológica</td><td><strong>Ausência</strong> de fungos patogênicos e toxigênicos — reprovação automática, independentemente da contagem</td><td>RE ANVISA nº 09/2003</td></tr>
+          <tr><td>Temperatura de bulbo seco</td><td>23 °C a 26 °C (verão) · 20 °C a 22 °C (inverno)</td><td>RE ANVISA nº 09/2003 · NBR 16401-2</td></tr>
+          <tr><td>Umidade relativa</td><td>40 % a 65 %</td><td>RE ANVISA nº 09/2003</td></tr>
+          <tr><td>Velocidade do ar na zona de ocupação</td><td>≤ 0,25 m/s</td><td>RE ANVISA nº 09/2003</td></tr>
+          <tr><td>Taxa de renovação de ar exterior</td><td><strong>≥ 27 m³/h·pessoa</strong>, ou valor superior resultante da NBR 16401-3 Nível 2 em setores assistenciais</td><td>Portaria MS nº 3.523/98 · NBR 16401-3</td></tr>
+          <tr><td>Diferencial de pressão em filtros</td><td>Conforme especificação do fabricante; troca obrigatória ao atingir o valor final</td><td>NBR 16401-1</td></tr>
         </tbody>
       </table>
-      <p class="texto" style="font-size:9px;color:#718096;">Valores de referência de caráter geral, conforme ABNT NBR 16401 e RE ANVISA nº 09/2003. Eventuais
-      parâmetros específicos exigidos para ambientes especiais (ex.: salas limpas, centros cirúrgicos) devem
-      ser tratados em documentação complementar.</p>
+      <p class="texto" style="font-size:9px;color:#4a5568;border-left:3px solid #1e3a5f;padding-left:8px;">
+      <strong>Nota técnica.</strong> O CO₂ não é, isoladamente, poluente de risco nas concentrações em análise:
+      é <strong>indicador substituto (proxy) da taxa de renovação de ar exterior</strong>. Valor acima de 1.000 ppm
+      indica, por relação direta, insuficiência de ar exterior — e, por consequência, acúmulo proporcional dos demais
+      bioefluentes e contaminantes do ambiente. Por essa razão, a reprovação em CO₂ <strong>não é corrigível por
+      higienização de equipamento</strong>: exige intervenção sobre a infraestrutura de renovação.</p>
+
+      <div class="cat-titulo">7.2 Condições de Validade da Amostragem</div>
+      <p class="texto">A amostragem deve ser realizada <strong>em regime de ocupação normal</strong>, com o sistema
+      em operação há no mínimo 2 horas, por laboratório com metodologia rastreável e instrumentos com certificado
+      de calibração vigente. <strong>Amostragem em ambiente desocupado é inválida para o parâmetro CO₂.</strong>
+      Os laudos integram o acervo do PMOC pelo prazo mínimo de 3 (três) anos e devem estar disponíveis à autoridade
+      sanitária. Ambientes com NC registrada em campanha anterior sofrem <strong>reamostragem em até 30 dias</strong>
+      após a ação corretiva.</p>
+
+      <div class="cat-titulo">7.3 Plano de Ação e Contingência — Escalonamento por Severidade (CO₂)</div>
+      <table class="tb-lista">
+        <thead><tr><th style="width:14%;">Nível</th><th style="width:18%;">Faixa medida</th><th style="width:12%;">Prazo</th><th>Ação determinada</th></tr></thead>
+        <tbody>
+          <tr><td><strong>N1 — Atenção</strong></td><td>800 a 1.000 ppm</td><td>15 dias</td><td>Ajuste operacional: abertura de dampers de ar exterior, revisão de setpoints e horários de operação, verificação de obstrução da tomada de ar. Reamostragem na campanha seguinte.</td></tr>
+          <tr><td><strong>N2 — Não Conformidade</strong></td><td>&gt; 1.000 e ≤ 1.400 ppm</td><td>30 dias</td><td>Diagnóstico de causa raiz. Causa <em>operacional</em> (damper fechado, tomada obstruída, filtro colmatado): correção imediata e reamostragem em 30 dias. Causa <em>estrutural</em>: aplica-se o item 7.4.</td></tr>
+          <tr><td><strong>N3 — NC Grave</strong></td><td>&gt; 1.400 ppm, <em>ou</em> qualquer valor &gt; 1.000 ppm em setor assistencial</td><td>Imediato</td><td>Aplicação imediata do item 7.4, sem prazo de diagnóstico prévio.</td></tr>
+        </tbody>
+      </table>
+
+      <div class="cat-titulo">7.4 Determinação Vinculante — Reprovação por Ausência de Infraestrutura de Renovação</div>
+      <p class="texto">Constatada a reprovação do laudo de CO₂ e <strong>identificada como causa a inexistência de
+      infraestrutura prévia de renovação de ar exterior</strong> no ambiente, fica determinado que o ambiente será
+      submetido, <strong>obrigatória e alternativamente</strong>, a uma das duas providências abaixo. <strong>Não é
+      admitida a manutenção do status quo, a reamostragem sucessiva sem intervenção, nem a justificativa por
+      indisponibilidade orçamentária.</strong></p>
+      <table class="tb-lista">
+        <thead><tr><th style="width:32%;">Providência</th><th>Conteúdo e prazos</th></tr></thead>
+        <tbody>
+          <tr><td><strong>(i) ADEQUAÇÃO MECÂNICA IMEDIATA</strong></td><td>Implantação de sistema de suprimento de ar exterior filtrado — e de exaustão, quando exigida — dimensionado conforme ABNT NBR 16401-3 (Nível 2 para setores assistenciais), observado o piso legal de 27 m³/h·pessoa, com filtragem mínima <strong>G4 + M5</strong>, comando intertravado ao funcionamento da climatização e balanceamento comprovado por anemometria. <strong>Prazos:</strong> projeto executivo em 30 dias · execução em 90 dias · laudo de comprovação por reamostragem em até 15 dias após o comissionamento.</td></tr>
+          <tr><td><strong>(ii) INTERDIÇÃO DE USO INTENSIVO</strong><br><em>(medida paliativa temporária)</em></td><td>Enquanto não concluída a adequação (i), restrição formal de uso com comunicado afixado e registro no acervo do PMOC, compreendendo cumulativamente: <strong>redução da densidade de ocupação</strong> ao máximo que mantenha o CO₂ abaixo de 1.000 ppm, determinado por medição em regime; <strong>limitação do tempo de permanência contínua</strong>, com intervalos obrigatórios de ventilação natural forçada (portas e janelas abertas, climatização desligada) de no mínimo 15 minutos a cada 2 horas de uso; e <strong>vedação de uso para atividades de ocupação máxima</strong> (turmas completas, atendimento simultâneo, eventos).</td></tr>
+        </tbody>
+      </table>
+      <p class="texto" style="font-size:9px;color:#9b2c2c;border-left:3px solid #9b2c2c;padding-left:8px;">
+      <strong>Vedação expressa.</strong> A medida (ii) <strong>não substitui</strong> a medida (i) e <strong>não pode
+      ser adotada em caráter permanente</strong>. Decorridos <strong>180 dias</strong> da primeira reprovação sem
+      conclusão da adequação mecânica, o ambiente fica <strong>interditado para uso assistencial</strong>, cabendo ao
+      responsável técnico registrar formalmente a recomendação de interdição à direção do estabelecimento —
+      comunicação que, uma vez emitida, transfere à administração a responsabilidade pela manutenção do uso.</p>
+
+      <div class="cat-titulo">7.5 Contingência para Reprovação Microbiológica</div>
+      <p class="texto"><strong>Contagem fúngica &gt; 750 UFC/m³ ou relação I/E &gt; 1,5:</strong> higienização e
+      desinfecção completa do sistema (serpentina, bandeja e dreno, <strong>plenum e bocas de ar</strong>, rede de dutos
+      quando existente), substituição integral dos elementos filtrantes e reamostragem em até 30 dias.
+      <strong>Identificação de fungo patogênico ou toxigênico:</strong> suspensão imediata do uso do ambiente,
+      higienização com produto saneante regularizado na ANVISA, investigação de fonte de umidade e infiltração, e
+      liberação <strong>condicionada a laudo de reamostragem aprovado</strong>.</p>
+      <p class="texto" style="font-size:9px;color:#718096;">Toda ação decorrente desta seção gera <strong>Ordem de
+      Serviço</strong> vinculada ao ambiente e ao ativo, com prazo, responsável e evidência de conclusão, integrando o
+      cômputo dos indicadores de desempenho. Parâmetros específicos de ambientes críticos (salas limpas, centros
+      cirúrgicos) são tratados em documentação complementar, conforme ABNT NBR 7256.</p>
     </div>`;
 
   // ── 8. Cronograma anual ──
@@ -786,10 +969,118 @@ function gerarDocumentoPMOC() {
       ${cfg.obs ? `<p class="texto"><strong>Observações específicas do estabelecimento:</strong> ${escapeHTML(cfg.obs)}</p>` : ''}
     </div>`;
 
+  // ── 10. Indicadores de desempenho (KPI) — introduzido pela auditoria técnica 2026 ──
+  // Define métricas obrigatórias de eficácia do plano. Apurados exclusivamente a partir de
+  // historico_manutencoes e das Ordens de Serviço — vedada a apuração por estimativa.
+  const secKpi = `
+    <div class="sec">
+      <div class="sec-titulo">10. INDICADORES DE DESEMPENHO (KPI)</div>
+      <p class="texto">Os indicadores abaixo destinam-se a <strong>demonstrar objetivamente a eficácia da execução
+      deste plano</strong> e a <strong>detectar degradação de desempenho antes da falha</strong>, constituindo evidência
+      de gestão perante a autoridade sanitária. Todos são apurados exclusivamente a partir dos registros de Ordens de
+      Serviço e do histórico de manutenções do sistema de gestão, sendo <strong>vedada a apuração por estimativa</strong>.</p>
+
+      <div class="cat-titulo">10.1 MTBF — Tempo Médio Entre Falhas</div>
+      <p class="texto">Intervalo médio de operação entre duas falhas funcionais consecutivas; mede a
+      <strong>confiabilidade</strong> do ativo e a eficácia da preventiva. <strong>MTBF = HO / NF</strong>, onde HO =
+      horas de operação disponíveis no período e NF = número de Ordens de Serviço corretivas não programadas. Apurado
+      por ativo e consolidado por classe de criticidade e por bloco/setor. Não computar preventivas programadas nem
+      chamados improcedentes.</p>
+      <table class="tb-lista">
+        <thead><tr><th style="width:26%;">Criticidade</th><th style="width:26%;">Meta de MTBF</th><th>Equivalência prática (base 2.100 h/ano)</th></tr></thead>
+        <tbody>
+          <tr><td><strong>A — Alta</strong></td><td>≥ 4.200 h</td><td>máx. 1 falha a cada 2 anos</td></tr>
+          <tr><td><strong>B — Média</strong></td><td>≥ 2.100 h</td><td>máx. 1 falha por ano</td></tr>
+          <tr><td><strong>C — Baixa</strong></td><td>≥ 1.050 h</td><td>máx. 2 falhas por ano</td></tr>
+        </tbody>
+      </table>
+      <p class="texto" style="font-size:9px;color:#718096;">MTBF em queda por dois trimestres consecutivos indica
+      subdimensionamento do plano preventivo ou ativo em fim de vida útil — exige revisão de periodicidade ou estudo
+      de substituição.</p>
+
+      <div class="cat-titulo">10.2 MTTR — Tempo Médio de Reparo</div>
+      <p class="texto">Tempo médio entre a abertura da O.S. corretiva e o restabelecimento da função do ativo; mede a
+      <strong>manutenibilidade</strong> e a capacidade de resposta. <strong>MTTR = ΣTR / NI</strong>, onde ΣTR = somatório
+      dos tempos de reparo (horas úteis) e NI = número de intervenções corretivas concluídas.
+      <strong>Segregação obrigatória:</strong> o tempo de espera por peça deve ser registrado em campo próprio e reportado
+      à parte do tempo de reparo efetivo, sob pena de o indicador medir logística de suprimentos em vez de desempenho
+      de manutenção.</p>
+      <table class="tb-lista">
+        <thead><tr><th style="width:34%;">Criticidade</th><th style="width:22%;">Meta de MTTR</th><th>Indicador derivado</th></tr></thead>
+        <tbody>
+          <tr><td><strong>A — Alta</strong> (setores assistenciais, laboratórios, salas técnicas)</td><td>≤ 8 h úteis</td><td rowspan="3"><strong>Disponibilidade:</strong> D (%) = MTBF / (MTBF + MTTR) × 100.<br>Meta: <strong>≥ 98 %</strong> para ativos de criticidade A.</td></tr>
+          <tr><td><strong>B — Média</strong></td><td>≤ 24 h úteis</td></tr>
+          <tr><td><strong>C — Baixa</strong></td><td>≤ 72 h úteis</td></tr>
+        </tbody>
+      </table>
+
+      <div class="cat-titulo">10.3 Percentual de Preventivas Concluídas (Cumprimento do Plano)</div>
+      <p class="texto">Aderência entre a preventiva programada e a efetivamente executada na janela prevista. É o
+      <strong>indicador de conformidade legal do PMOC</strong>: mede o cumprimento do próprio plano exigido pela
+      Lei nº 13.589/2018. <strong>%PC = (O.S. preventivas concluídas no prazo / O.S. preventivas programadas) × 100</strong>.
+      Considera-se concluída no prazo a O.S. executada dentro da <strong>janela de tolerância de ±15 % da
+      periodicidade</strong> (mensal: ±4 dias; trimestral: ±13 dias).</p>
+      <table class="tb-lista">
+        <thead><tr><th style="width:18%;">Faixa</th><th style="width:28%;">Classificação</th><th>Conduta</th></tr></thead>
+        <tbody>
+          <tr><td>≥ 95 %</td><td><strong>Conforme</strong></td><td>Manutenção do plano vigente.</td></tr>
+          <tr><td>90 % a 94,9 %</td><td><strong>Alerta</strong></td><td>Plano de ação com identificação de causa e prazo de recuperação em 30 dias.</td></tr>
+          <tr><td>&lt; 90 %</td><td><strong style="color:#9b2c2c;">Não Conformidade do PMOC</strong></td><td>Caracteriza descumprimento do plano. Comunicação formal à direção e ao responsável técnico, com plano de recuperação obrigatório.</td></tr>
+        </tbody>
+      </table>
+      <p class="texto" style="font-size:9px;color:#718096;">Apurar separadamente por categoria (AC, BEB, CLIM, VEN, OUT)
+      e por periodicidade: a média global tende a mascarar a inexecução sistemática das rotinas semestrais e anuais.</p>
+
+      <div class="cat-titulo">10.4 Eficiência Térmica (Delta T)</div>
+      <p class="texto">Diferencial de temperatura de bulbo seco entre o ar de retorno e o ar de insuflamento, em regime
+      permanente: <strong>ΔT = T<sub>retorno</sub> − T<sub>insuflamento</sub></strong>. É o indicador não invasivo de
+      saúde do ciclo de refrigeração. <strong>Método:</strong> termohigrômetro com certificado de calibração vigente;
+      medição na grelha de retorno e na boca de insuflamento (nas unidades Cassete, na saída de uma das vias, evitando
+      indução de ar ambiente); sistema em operação contínua há no mínimo 15 minutos, com setpoint em demanda plena.</p>
+      <table class="tb-lista">
+        <thead><tr><th style="width:16%;">ΔT medido</th><th style="width:50%;">Diagnóstico</th><th>Ação</th></tr></thead>
+        <tbody>
+          <tr><td><strong>8 °C a 12 °C</strong></td><td><strong>Conforme</strong> — ciclo em regime adequado</td><td>Registrar e manter</td></tr>
+          <tr><td>12 °C a 14 °C</td><td>Aceitável com atenção; monitorar tendência</td><td>Verificar vazão de ar e estado do filtro</td></tr>
+          <tr><td><strong>&lt; 8 °C</strong></td><td>Carga de fluido refrigerante insuficiente, vazamento na linha frigorígena, degradação do compressor, serpentina obstruída ou vazão de ar excessiva</td><td>Abrir O.S. de investigação; teste de estanqueidade</td></tr>
+          <tr><td><strong>&gt; 14 °C</strong></td><td><strong>Vazão de ar insuficiente</strong> — filtro colmatado, serpentina obstruída, ventilador degradado, correia frouxa, duto ou plenum obstruído. <strong>Risco de congelamento da serpentina</strong></td><td>Abrir O.S. imediata; higienização e verificação do conjunto de ventilação</td></tr>
+        </tbody>
+      </table>
+      <p class="texto" style="font-size:9px;color:#718096;">O ΔT deve ser medido e registrado em <strong>toda intervenção
+      preventiva</strong> de ativos de criticidade A e B, constituindo série histórica por ativo. Variação superior a
+      <strong>2 °C</strong> em relação à média histórica do próprio ativo caracteriza alerta, ainda que o valor absoluto
+      permaneça na faixa de conformidade.</p>
+
+      <div class="cat-titulo">10.5 Indicadores Complementares e Governança</div>
+      <table class="tb-lista">
+        <thead><tr><th style="width:32%;">Indicador</th><th style="width:44%;">Fórmula</th><th>Meta</th></tr></thead>
+        <tbody>
+          <tr><td>Backlog de manutenção</td><td>Σ h de serviços pendentes / h disponíveis da equipe no período</td><td>≤ 1,0</td></tr>
+          <tr><td>Taxa de retrabalho</td><td>(O.S. corretivas reincidentes no mesmo ativo em 90 dias / total de O.S. corretivas) × 100</td><td>≤ 5 %</td></tr>
+          <tr><td>Índice de conformidade QAI</td><td>(Pontos aprovados / pontos amostrados) × 100</td><td>100 %</td></tr>
+          <tr><td>Relação Preventiva/Corretiva</td><td>h preventivas / h corretivas</td><td>≥ 4:1</td></tr>
+          <tr><td>Índice de adequação térmica</td><td>(Ambientes com capacidade instalada adequada à carga térmica / total) × 100</td><td>≥ 95 %</td></tr>
+        </tbody>
+      </table>
+      <table class="tb-lista">
+        <thead><tr><th style="width:52%;">Atividade de governança</th><th style="width:20%;">Periodicidade</th><th>Responsável</th></tr></thead>
+        <tbody>
+          <tr><td>Coleta e registro dos dados-fonte (O.S., histórico, medições)</td><td>Contínua</td><td>Equipe de manutenção</td></tr>
+          <tr><td>Apuração e publicação dos indicadores</td><td><strong>Mensal</strong></td><td>Gestor do contrato</td></tr>
+          <tr><td>Análise crítica e plano de ação sobre desvios</td><td><strong>Trimestral</strong></td><td>Gestor + Responsável Técnico</td></tr>
+          <tr><td>Revisão de metas e periodicidades do plano</td><td><strong>Semestral</strong></td><td>Responsável Técnico (ART)</td></tr>
+          <tr><td>Consolidação anual e revisão do PMOC</td><td><strong>Anual</strong></td><td>Responsável Técnico (ART)</td></tr>
+        </tbody>
+      </table>
+      <p class="texto" style="font-size:9px;color:#718096;">Todo indicador fora de meta gera <strong>registro de análise
+      crítica</strong> com identificação de causa raiz, ação corretiva, responsável e prazo, integrando o acervo
+      documental do PMOC.</p>
+    </div>`;
+
   // ── 8. Termo de responsabilidade e assinaturas ──
   const sec8 = `
     <div class="sec sec-termo">
-      <div class="sec-titulo">10. TERMO DE RESPONSABILIDADE TÉCNICA</div>
+      <div class="sec-titulo">11. TERMO DE RESPONSABILIDADE TÉCNICA</div>
       <p class="texto">Declaro, na qualidade de responsável técnico, que o presente Plano de Manutenção,
       Operação e Controle foi elaborado em conformidade com a legislação e as normas técnicas vigentes,
       responsabilizando-me pela sua implantação, acompanhamento e atualização durante o período de vigência.</p>
@@ -865,7 +1156,7 @@ function gerarDocumentoPMOC() {
       ${guiaCorpo}
     </div>`;
 
-  const html = capa + sec1 + sec2 + sec3 + sec4 + sec5Memorial + sec5 + secQai + sec6 + sec7 + sec8 + sec9Guia + rodape;
+  const html = capa + sec1 + sec2 + sec3 + sec4 + sec5Memorial + sec5 + secQai + sec6 + sec7 + secKpi + sec8 + sec9Guia + rodape;
 
   // ── Popup de impressão (mesma técnica das demais impressões do sistema) ──
   const win = window.open('', '_blank', 'width=1000,height=760');
@@ -1000,6 +1291,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Carrega config salva e inventário
   await carregarConfigPlano();
   await carregarEquipamentosPlano();
+  await carregarBlocosPlano();
 });
 </script>
 </body>
