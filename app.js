@@ -2097,6 +2097,33 @@ function _assinaturaImg(url, style) {
 // ===================== CHECKLISTS PMOC — definições completas por categoria/periodicidade =====================
 // Espelha exatamente os itens cadastrados no formulário (pmoc.html), para reconstruir o laudo
 // agrupado por periodicidade (Mensal/Trimestral/Semestral/Anual), igual ao modelo de referência.
+// Valores do select #eq-instalacao-ac (Novo Ativo) que caracterizam sistema de água aberto —
+// usados no memorial descritivo e no plano de atividades do Plano PMOC para aplicar/dispensar
+// itens do checklist ligados a controle microbiológico de água (torre de resfriamento,
+// condensador evaporativo, chiller com circuito de água), conforme RE ANVISA nº 09/2003.
+const AC_INSTALACOES_AGUA_ABERTA = ['Água Gelada (Chiller)', 'Torre de Resfriamento/Condensador Evaporativo'];
+
+// Valores do select #eq-instalacao-ac que caracterizam sistema centralizado/de maior porte
+// (dutado, VRF/VRV, self-contained, chiller, torre de resfriamento) — usados para aplicar/
+// dispensar itens do checklist ligados a dutos, plenum e componentes mecânicos de maior porte
+// (correias/polias), que não existem em splits individuais (Hi-Wall, Cassete, Piso-Teto,
+// Janeleiro, Portátil).
+const AC_INSTALACOES_PORTE_MAIOR = ['Split Duto', 'Self-Contained', 'VRF', 'Água Gelada (Chiller)', 'Torre de Resfriamento/Condensador Evaporativo'];
+
+// Mapa de itens do checklist PMOC (categoria AC) cuja aplicabilidade depende do tipo de
+// instalação cadastrado no parque de equipamentos. Chaves idênticas às de CHECKLIST_PMOC_DEFS.AC.
+// Valores: 'agua_aberta' (só se aplica quando há sistema de água aberto) ou 'porte_maior'
+// (só se aplica a sistemas dutados/centralizados/de maior porte).
+const CHECKLIST_ITEM_CONDICIONAL = {
+  bio_04: 'agua_aberta',
+  dut_01: 'porte_maior',
+  dut_02: 'porte_maior',
+  dut_03: 'porte_maior',
+  dut_04: 'porte_maior',
+  dut_05: 'porte_maior',
+  mec_03: 'porte_maior',
+};
+
 const CHECKLIST_PMOC_DEFS = {
   AC: {
     mensal: [
@@ -2223,6 +2250,114 @@ const CHECKLIST_PMOC_DEFS = {
     trimestral: [], semestral: [], anual: [],
   },
 };
+
+// Guia de execução dos itens de verificação (Anexo POP-PMOC-001 do Plano PMOC).
+// Keyed identicamente a CHECKLIST_PMOC_DEFS (mesmas chaves, cross-validadas contra os 79 itens).
+// Cada entrada: exec (como executar), c/nc/na (critérios objetivos de avaliação),
+// ferramenta e seguranca (opcionais). Fonte única — usada apenas pelo Plano PMOC (documento).
+const CHECKLIST_EXECUCAO_GUIA = {
+  // ── AC — mensal ──
+  bio_01: { exec: 'Remover a bandeja, retirar resíduos e biofilme com escova/pano, lavar com solução sanitizante compatível (ex.: quaternário de amônio) e reinstalar verificando o escoamento livre.', c: 'Bandeja limpa, sem biofilme, sanitizante aplicado e escoamento livre.', nc: 'Presença de sujidade, lodo, mau odor ou escoamento obstruído.', na: 'Equipamento sem bandeja de condensados no momento da vistoria.', ferramenta: 'Escova de cerdas macias, pano, sanitizante próprio para superfícies', seguranca: 'Desligar o equipamento antes de manusear componentes internos.' },
+  bio_02: { exec: 'Verificar mangueira/tubulação de dreno quanto a dobras, sujeira ou obstrução; testar o escoamento despejando água na bandeja e observando o fluxo até a saída.', c: 'Escoamento livre e contínuo, sem retenção de água.', nc: 'Dreno obstruído, com retorno de água ou vazamento na conexão.', na: 'Sistema sem geração relevante de condensado — registrar justificativa.' },
+  fil_01: { exec: 'Remover o(s) filtro(s), avaliar o grau de sujidade, lavar (quando lavável) ou substituir por filtro de mesma classe de eficiência, e reinstalar corretamente.', c: 'Filtro limpo/substituído, sem rasgos, bem vedado na moldura.', nc: 'Filtro saturado, rasgado, mal vedado ou ausente.', na: 'Equipamento sem filtro de ar próprio.' },
+  mec_01: { exec: 'Ligar o equipamento e ouvir ruídos anormais (atrito, folga); verificar coxins de borracha/antivibratórios e reapertar parafusos/fixadores do motoventilador.', c: 'Funcionamento silencioso, coxins íntegros, fixação firme.', nc: 'Ruído anormal, vibração excessiva, coxim rompido ou fixador solto.', na: '—' },
+  // ── AC — trimestral ──
+  amb_01: { exec: 'Inspecionar visualmente o ambiente quanto a acúmulo de poeira/sujidade nas grelhas e superfícies, identificar odores anormais e possíveis fontes de ruído do sistema.', c: 'Ambiente limpo, sem odores anormais e sem ruído perceptível do sistema.', nc: 'Sujidade visível, odor desagradável ou ruído incômodo identificado.', na: '—' },
+  amb_02: { exec: 'Verificar manchas de umidade/infiltração em paredes e teto próximos ao equipamento, e checar se há produtos químicos voláteis armazenados no ambiente climatizado.', c: 'Sem sinais de infiltração e sem armazenagem inadequada de produtos químicos.', nc: 'Infiltração identificada ou produtos químicos voláteis próximos à captação de ar.', na: '—' },
+  amb_03: { exec: 'Identificar possíveis fontes de radiação (equipamentos eletrônicos, impressoras a laser) ou outros riscos à QAI próximos à tomada de ar do sistema.', c: 'Nenhuma fonte de risco relevante identificada próxima à captação de ar.', nc: 'Fonte de risco identificada — registrar e comunicar ao responsável pelo ambiente.', na: '—' },
+  amb_04: { exec: 'Avaliar de forma geral a limpeza, conservação de forros, piso e mobiliário do ambiente climatizado.', c: 'Ambiente em boas condições gerais de limpeza e conservação.', nc: 'Condições inadequadas identificadas — registrar detalhes.', na: '—' },
+  bio_03: { exec: 'Aplicar produto de limpeza específico para serpentinas (alcalino ou neutro conforme material), deixar agir e enxaguar com água a baixa pressão, sem danificar as aletas.', c: 'Serpentina visualmente limpa, aletas alinhadas, sem obstrução por sujidade.', nc: 'Serpentina suja/obstruída, aletas amassadas ou com corrosão visível.', na: '—', ferramenta: 'Produto de limpeza para serpentinas, pente de aletas, EPI (luvas, óculos)', seguranca: 'Usar EPI ao manusear produto químico; desligar o equipamento.' },
+  ele_01: { exec: 'Medir corrente elétrica (amperímetro) e tensão de alimentação dos compressores e motores em operação, comparando com os valores nominais de placa.', c: 'Valores medidos dentro da faixa nominal (±10%).', nc: 'Valores fora da faixa nominal — investigar causa (sobrecarga, desbalanceamento de fase).', na: '—', ferramenta: 'Alicate amperímetro / multímetro', seguranca: 'Medição com equipamento energizado — usar EPI adequado e seguir a NR-10.' },
+  ele_02: { exec: 'Com o equipamento desenergizado, reapertar todos os parafusos de bornes de comando e potência no painel elétrico.', c: 'Todos os bornes firmes, sem sinais de superaquecimento (oxidação/enegrecimento).', nc: 'Borne solto, oxidado ou com marca de superaquecimento.', na: '—', seguranca: 'Bloquear e sinalizar (LOTO) antes de qualquer intervenção elétrica.' },
+  fil_02: { exec: 'Medir a diferença de pressão antes/depois do filtro com manômetro diferencial e comparar com o limite de saturação do fabricante.', c: 'ΔP dentro do limite recomendado pelo fabricante.', nc: 'ΔP acima do limite — indicativo de filtro saturado, providenciar troca.', na: 'Sistema sem ponto de medição de pressão diferencial instalado.', ferramenta: 'Manômetro diferencial' },
+  mec_02: { exec: 'Aplicar graxa/óleo lubrificante nos pontos de lubrificação do motoventilador conforme especificação do fabricante.', c: 'Pontos lubrificados, sem ruído de atrito seco.', nc: 'Ponto de lubrificação sem graxa/óleo ou ruído de atrito identificado.', na: 'Rolamentos selados/sem ponto de lubrificação (motor blindado).' },
+  // ── AC — semestral ──
+  bio_04: { exec: 'Coletar amostra de água do sistema (torre de resfriamento/condensador evaporativo/água gelada) em frasco estéril, seguindo protocolo do laboratório, e enviar para análise microbiológica (Legionella e contagem bacteriana).', c: 'Amostra coletada e enviada dentro do prazo, resultado dentro dos limites da RE ANVISA nº 09/2003.', nc: 'Resultado fora dos limites — acionar tratamento biocida e nova coleta de confirmação.', na: 'Sistema não possui circuito de água aberto.', ferramenta: 'Frasco estéril de coleta, EPI' },
+  dut_01: { exec: 'Inspecionar visualmente (por pontos de inspeção) o interior dos dutos e caixa de plenum quanto a acúmulo de poeira, danos mecânicos e corrosão.', c: 'Dutos limpos internamente, sem danos ou corrosão relevante.', nc: 'Sujidade significativa, dano estrutural ou corrosão identificada.', na: 'Sistema sem rede de dutos (splits individuais).' },
+  dut_02: { exec: 'Verificar vedação das portas de inspeção e juntas das conexões dos dutos, checando infiltração de ar não filtrado.', c: 'Vedações íntegras, sem infiltração de ar externo.', nc: 'Vedação rompida ou porta de inspeção com folga/vazamento de ar.', na: 'Sistema sem rede de dutos.' },
+  dut_03: { exec: 'Inspecionar o isolamento térmico externo dos dutos quanto a rasgos, umidade ou descolamento, reparando conforme necessário.', c: 'Isolamento íntegro, sem pontos de condensação externa.', nc: 'Isolamento danificado, úmido ou ausente em trechos.', na: 'Sistema sem rede de dutos ou trecho sem isolamento previsto (ex.: retorno).' },
+  dut_04: { exec: 'Limpar grelhas/difusores de insuflamento e retorno, verificar fixação e medir a vazão de ar com anemômetro em cada boca.', c: 'Bocas limpas, bem fixadas e vazão compatível com o projeto/balanceamento.', nc: 'Sujidade acumulada, fixação solta ou vazão fora do esperado.', na: 'Sistema sem dutos/bocas de ar dedicadas.', ferramenta: 'Anemômetro' },
+  dut_05: { exec: 'Testar a movimentação dos registros/dampers manuais ou motorizados e verificar a tomada de ar externo quanto a bloqueios (folhas, sujeira, insetos).', c: 'Dampers funcionando livremente, tomada de ar externo desobstruída.', nc: 'Damper travado ou tomada de ar externo obstruída.', na: 'Sistema sem dampers ou sem tomada de ar externo dedicada.' },
+  ele_03: { exec: 'Medir a resistência de isolamento entre enrolamentos e carcaça dos motores com megôhmetro, com o motor desenergizado.', c: 'Resistência de isolamento acima de 1 MΩ (ou valor mínimo do fabricante).', nc: 'Resistência abaixo do mínimo — risco de falha elétrica, motor deve ser avaliado.', na: '—', ferramenta: 'Megôhmetro', seguranca: 'Motor totalmente desenergizado e descarregado antes do teste.' },
+  ele_04: { exec: 'Testar a atuação dos pressostatos de alta/baixa pressão e termostatos de segurança, simulando condição de disparo quando possível.', c: 'Dispositivos atuam corretamente dentro do setpoint especificado.', nc: 'Dispositivo não atua, atua fora do setpoint ou está bypassado.', na: '—' },
+  ins_01: { exec: 'Verificar suportes e fixações das unidades (condensadora/evaporadora) e o isolamento térmico das linhas frigorígenas quanto a integridade.', c: 'Suportes firmes, isolamento das linhas íntegro e sem degradação.', nc: 'Suporte comprometido, corrosão estrutural ou isolamento das linhas danificado.', na: '—' },
+  mec_03: { exec: 'Verificar tensão, alinhamento e desgaste de correias e polias do motoventilador, substituindo quando necessário.', c: 'Correias com tensão correta, sem trincas, polias alinhadas.', nc: 'Correia frouxa, trincada ou polia desalinhada/desgastada.', na: 'Sistema com transmissão direta (sem correias/polias) — comum em splits individuais.' },
+  ref_01: { exec: 'Conectar manifold ao sistema e medir as pressões de alta e baixa em operação, comparando com a tabela PT do gás refrigerante utilizado.', c: 'Pressões dentro da faixa esperada para o gás e condição ambiente.', nc: 'Pressão baixa (indício de vazamento/carga insuficiente) ou alta (excesso de carga/restrição).', na: '—', ferramenta: 'Manifold, termômetro, tabela PT do gás', seguranca: 'Manuseio de gás refrigerante sob pressão — usar óculos e luvas de proteção.' },
+  ref_02: { exec: 'Percorrer todo o circuito frigorífico com detector eletrônico de vazamento, verificando conexões, válvulas e solda.', c: 'Nenhum vazamento detectado.', nc: 'Vazamento detectado — localizar ponto, reparar e recarregar o sistema.', na: '—', ferramenta: 'Detector eletrônico de vazamento de gás' },
+  // ── AC — anual ──
+  bio_05: { exec: 'Realizar higienização completa de todos os componentes do sistema de climatização (serpentinas, bandejas, dutos acessíveis) e emitir laudo microbiológico do ar conforme RE ANVISA nº 09/2003.', c: 'Higienização concluída e laudo dentro dos padrões aceitáveis.', nc: 'Laudo fora do padrão — repetir higienização e nova coleta.', na: '—' },
+  ele_05: { exec: 'Inspecionar capacitores (estufamento, vazamento) e contatores (contatos queimados, desgaste mecânico), substituindo os comprometidos.', c: 'Capacitores e contatores sem sinais de desgaste ou falha iminente.', nc: 'Capacitor estufado/vazando ou contator com contatos queimados.', na: '—' },
+  ele_06: { exec: 'Realizar varredura termográfica com câmera infravermelha no painel elétrico e cabos de alimentação, em plena carga, identificando pontos quentes anormais.', c: 'Sem pontos quentes anormais (diferença de temperatura dentro do aceitável).', nc: 'Ponto quente identificado — indicativo de mau contato/sobrecarga, requer intervenção imediata.', na: '—', ferramenta: 'Câmera termográfica' },
+  ins_02: { exec: 'Revisar toda a documentação do PMOC (plano, fichas, histórico), atualizar o cadastro de equipamentos e renovar/emitir nova ART/TRT quando aplicável.', c: 'Documentação atualizada e ART vigente.', nc: 'Documentação desatualizada ou ART vencida/ausente.', na: '—' },
+  ins_03: { exec: 'Medir temperaturas de entrada/saída de ar no evaporador (Delta T) e calcular indicadores de eficiência (COP aproximado) comparando com valores de projeto/fabricante.', c: 'Delta T e eficiência dentro da faixa esperada para o equipamento.', nc: 'Delta T ou eficiência abaixo do esperado — investigar causa (carga de gás, sujidade, dimensionamento).', na: '—', ferramenta: 'Termômetro/termo-higrômetro' },
+  mec_04: { exec: 'Substituir rolamentos, buchas e selos mecânicos que apresentem desgaste identificado nas inspeções anteriores.', c: 'Componentes substituídos, funcionamento sem ruído/vibração.', nc: 'Componente com desgaste não substituído.', na: 'Nenhum componente com desgaste identificado no período.' },
+  mec_05: { exec: 'Limpar externamente o compressor, verificar nível e aspecto do óleo através do visor (quando existente) e checar vazamentos na carcaça.', c: 'Óleo em nível e aspecto adequados, sem vazamentos aparentes.', nc: 'Óleo baixo, contaminado (espumoso/escuro) ou vazamento identificado.', na: 'Compressor hermético sem visor de óleo.' },
+  ref_03: { exec: 'Quando indicado por vazamento ou carga insuficiente confirmada, recolher o gás remanescente, evacuar o sistema, recarregar com a quantidade correta e registrar em boletim/ART.', c: 'Sistema recarregado com carga correta e boletim/ART emitido.', nc: 'Recarga sem registro de boletim ou carga incorreta.', na: 'Sistema com carga de gás adequada, sem necessidade de substituição no período.', seguranca: 'Recolhimento do gás em recipiente adequado — não liberar refrigerante para a atmosfera.' },
+
+  // ── BEB — mensal ──
+  beb_01: { exec: 'Limpar externamente o gabinete, torneiras e bica com pano úmido e detergente neutro, sem uso de produtos abrasivos.', c: 'Superfícies externas limpas, sem resíduos ou oxidação visível.', nc: 'Sujidade acumulada ou resíduo de calcário nas torneiras/bica.', na: '—' },
+  beb_02: { exec: 'Medir a temperatura da água na saída e comparar com a faixa recomendada (aproximadamente 8–12°C).', c: 'Temperatura dentro da faixa recomendada.', nc: 'Temperatura fora da faixa — verificar termostato/gás/compressor.', na: '—', ferramenta: 'Termômetro' },
+  beb_03: { exec: 'Verificar visualmente conexões hidráulicas e tubulações internas quanto a vazamentos ou umidade.', c: 'Sem vazamentos ou umidade identificada.', nc: 'Vazamento ou umidade identificada — reparar conexão.', na: '—' },
+  beb_04: { exec: 'Remover e higienizar a bandeja coletora de respingos com solução sanitizante.', c: 'Bandeja limpa e sanitizada, sem acúmulo de resíduos.', nc: 'Bandeja suja ou com acúmulo de sujidade/mau odor.', na: '—' },
+  // ── BEB — trimestral ──
+  beb_05: { exec: "Drenar o reservatório, aplicar solução clorada (hipoclorito de sódio em concentração apropriada) internamente, deixar agir pelo tempo indicado e enxaguar bem antes de recolocar em uso.", c: 'Higienização realizada, sistema enxaguado e sem cloro residual perceptível.', nc: 'Higienização não realizada no prazo previsto ou resíduo de cloro perceptível na água.', na: '—', seguranca: 'Interromper o consumo de água durante a higienização; usar EPI ao manusear hipoclorito.' },
+  beb_06: { exec: 'Abrir o reservatório interno, remover eventual sedimento/biofilme e limpar as paredes internas.', c: 'Reservatório limpo, sem sedimento ou biofilme visível.', nc: 'Sedimento, biofilme ou corpo estranho identificado no reservatório.', na: '—' },
+  beb_07: { exec: 'Verificar o funcionamento do compressor (ciclos de acionamento, ruído) e, se necessário, medir pressões do circuito.', c: 'Compressor funcionando normalmente, temperatura de saída atendida.', nc: 'Compressor com ciclo anormal, ruído excessivo ou temperatura não atingida.', na: '—' },
+  beb_08: { exec: 'Verificar a data de instalação/validade do elemento filtrante e seu estado de saturação.', c: 'Filtro dentro da validade e em bom estado.', nc: 'Filtro vencido ou saturado.', na: 'Equipamento sem filtro instalado.' },
+  // ── BEB — semestral ──
+  beb_09: { exec: 'Substituir o(s) elemento(s) filtrante(s) por peça nova compatível, registrando a data da troca.', c: 'Filtro substituído e data registrada.', nc: 'Filtro não substituído dentro do prazo previsto.', na: 'Equipamento sem sistema de filtragem.' },
+  beb_10: { exec: 'Coletar amostra de água na saída do bebedouro em frasco estéril e enviar para laboratório credenciado para análise microbiológica (coliformes e demais parâmetros exigidos).', c: 'Amostra coletada e laudo dentro dos padrões de potabilidade.', nc: 'Laudo fora do padrão — interditar o uso e providenciar higienização/correção imediata.', na: '—' },
+  beb_11: { exec: 'Medir a temperatura de saída e ajustar o termostato conforme necessário para atingir a faixa recomendada.', c: 'Temperatura ajustada dentro da faixa recomendada.', nc: 'Temperatura fora da faixa mesmo após ajuste — investigar componente com falha.', na: '—' },
+  beb_12: { exec: 'Após a higienização, aplicar lacre de segurança no equipamento e registrar o número de protocolo/data no livro de controle.', c: 'Lacre aplicado e protocolo registrado corretamente.', nc: 'Lacre ausente ou protocolo não registrado.', na: '—' },
+  // ── BEB — anual ──
+  beb_13: { exec: 'Realizar revisão completa dos componentes de refrigeração: testar compressor, termostato e limpar serpentina de condensação.', c: 'Todos os componentes revisados e em condição adequada de funcionamento.', nc: 'Componente com falha ou desgaste identificado durante a revisão.', na: '—' },
+  beb_14: { exec: 'Substituir vedações, O-rings e torneiras que apresentem desgaste, ressecamento ou vazamento.', c: 'Componentes substituídos conforme necessidade identificada.', nc: 'Componente desgastado identificado e não substituído.', na: 'Nenhum componente com desgaste identificado.' },
+  beb_15: { exec: 'Consolidar e arquivar toda a documentação sanitária do ano (laudos, protocolos de higienização) no livro de controle exigido pela vigilância sanitária.', c: 'Documentação anual consolidada e arquivada corretamente.', nc: 'Documentação incompleta ou não arquivada.', na: '—' },
+
+  // ── CLIM — mensal ──
+  clm_01: { exec: 'Drenar o reservatório, remover lodo/calcário acumulado com escova e produto de limpeza apropriado, enxaguar bem antes de reabastecer.', c: 'Reservatório limpo, sem lodo ou incrustação visível.', nc: 'Lodo, calcário ou biofilme presente no reservatório.', na: '—' },
+  clm_02: { exec: 'Limpar o painel evaporativo com água em baixa pressão, sem escova rígida, evitando danificar as células de celulose.', c: 'Painel limpo, células íntegras, sem obstrução.', nc: 'Painel obstruído, com incrustação ou células danificadas/rompidas.', na: '—' },
+  clm_03: { exec: 'Verificar o nível de água no reservatório e testar o acionamento da boia/válvula de reposição automática.', c: 'Boia funcionando corretamente, nível de água adequado.', nc: 'Boia travada, com vazamento ou nível fora do especificado.', na: '—' },
+  clm_04: { exec: "Ligar a bomba e verificar o fluxo de água nos distribuidores/aspersores, checando ruído e vazamentos.", c: 'Bomba funcionando normalmente, fluxo de distribuição uniforme.', nc: 'Bomba com ruído anormal, vazamento ou fluxo insuficiente.', na: '—' },
+  clm_05: { exec: 'Ligar o ventilador e observar ruídos, vibração excessiva e verificar a fixação da hélice/pás.', c: 'Funcionamento silencioso, sem vibração excessiva, hélice bem fixada.', nc: 'Ruído/vibração anormal ou hélice com folga/desbalanceamento.', na: '—' },
+  // ── CLIM — trimestral ──
+  clm_06: { exec: 'Aplicar produto descalcificante específico no reservatório, seguindo tempo de contato indicado, e enxaguar completamente.', c: 'Reservatório descalcificado, sem resíduo do produto.', nc: 'Incrustação de calcário não removida ou resíduo de produto químico remanescente.', na: '—', seguranca: 'Usar EPI ao manusear produto químico descalcificante.' },
+  clm_07: { exec: 'Remover e limpar bicos/aspersores dos distribuidores de água, desobstruindo furos entupidos.', c: 'Distribuidores limpos, distribuição uniforme de água sobre o painel.', nc: 'Bico entupido ou distribuição irregular de água.', na: '—' },
+  clm_08: { exec: 'Medir a corrente elétrica do motor do ventilador e da bomba d\'água com amperímetro, comparando com a placa de identificação.', c: 'Corrente dentro da faixa nominal de placa.', nc: 'Corrente acima do nominal — possível sobrecarga ou desgaste mecânico.', na: '—', ferramenta: 'Alicate amperímetro' },
+  clm_09: { exec: 'Aplicar lubrificante nos pontos de lubrificação do motor do ventilador e da bomba conforme especificação do fabricante.', c: 'Pontos lubrificados, sem ruído de atrito.', nc: 'Ponto sem lubrificação ou ruído de atrito identificado.', na: 'Componentes com rolamentos selados/sem ponto de lubrificação.' },
+  // ── CLIM — semestral ──
+  clm_10: { exec: 'Avaliar o estado geral do painel evaporativo (rigidez, incrustação, integridade das células) e definir necessidade de substituição.', c: 'Painel em condições adequadas de uso, sem necessidade de troca.', nc: 'Painel degradado, quebradiço ou com incrustação severa — recomendar substituição.', na: '—' },
+  clm_11: { exec: 'Coletar amostra de água do reservatório e enviar para análise microbiológica de Legionella e contagem bacteriana em laboratório credenciado.', c: 'Resultado dentro dos limites aceitáveis.', nc: 'Resultado fora do limite — aplicar tratamento de choque e realizar nova coleta.', na: '—' },
+  clm_12: { exec: 'Inspecionar o quadro elétrico do climatizador, testar contactores e verificar dispositivos de proteção (térmico/disjuntor).', c: 'Quadro em bom estado, contactores e proteções funcionando corretamente.', nc: 'Contactor com contatos queimados ou proteção não atuando conforme especificado.', na: '—' },
+  clm_13: { exec: 'Aplicar produto biocida/antiincrustante na água do reservatório conforme dosagem recomendada pelo fabricante.', c: 'Tratamento aplicado e registrado.', nc: 'Tratamento não realizado dentro do prazo previsto.', na: '—', seguranca: 'Usar EPI ao manusear produto biocida.' },
+  // ── CLIM — anual ──
+  clm_14: { exec: 'Remover o painel evaporativo antigo e instalar painel novo de especificação equivalente (celulose ou polipropileno).', c: 'Painel substituído e instalado corretamente.', nc: 'Painel não substituído apesar de estado crítico identificado.', na: 'Painel avaliado em bom estado, sem necessidade de substituição no período.' },
+  clm_15: { exec: 'Desmontar a bomba d\'água para inspeção do impelidor, eixo e vedação mecânica, substituindo peças desgastadas.', c: 'Bomba revisada, sem vazamento ou desgaste relevante identificado.', nc: 'Impelidor desgastado, eixo com folga excessiva ou vedação vazando.', na: '—' },
+  clm_16: { exec: 'Consolidar os laudos de qualidade da água do ano em relatório técnico anual, arquivando junto à documentação do PMOC.', c: 'Relatório anual elaborado e arquivado.', nc: 'Relatório não elaborado ou incompleto.', na: '—' },
+
+  // ── VEN — mensal ──
+  ven_01: { exec: 'Limpar as pás/hélice e a grelha de proteção com pano/escova, removendo poeira e sujidade acumulada.', c: 'Pás e grelha limpas, sem acúmulo de poeira.', nc: 'Acúmulo de poeira/sujidade nas pás ou grelha.', na: '—' },
+  ven_02: { exec: 'Ligar o equipamento e verificar ruídos anormais, vibração excessiva e folgas em componentes mecânicos.', c: 'Funcionamento normal, sem ruído ou vibração excessiva.', nc: 'Ruído, vibração ou folga mecânica identificada.', na: '—' },
+  ven_03: { exec: 'Verificar e reapertar parafusos, buchas e suportes de fixação do equipamento.', c: 'Fixação firme, sem folgas.', nc: 'Parafuso solto, bucha desgastada ou suporte comprometido.', na: '—' },
+  // ── VEN — trimestral ──
+  ven_04: { exec: 'Aplicar graxa adequada nos pontos de lubrificação dos rolamentos/buchas conforme especificação do fabricante.', c: 'Pontos lubrificados, sem ruído de atrito.', nc: 'Ponto sem lubrificação ou ruído de atrito identificado.', na: 'Rolamentos selados sem ponto de lubrificação.' },
+  ven_05: { exec: 'Medir a corrente do motor em operação com amperímetro e comparar com o valor nominal de placa.', c: 'Corrente medida dentro da faixa nominal.', nc: 'Corrente acima do nominal — possível sobrecarga.', na: '—', ferramenta: 'Alicate amperímetro' },
+  ven_06: { exec: 'Com o equipamento desenergizado, reapertar as conexões elétricas no quadro de comando.', c: 'Conexões firmes, sem sinais de superaquecimento.', nc: 'Conexão solta ou com sinal de superaquecimento.', na: '—', seguranca: 'Bloquear e sinalizar (LOTO) antes da intervenção.' },
+  // ── VEN — semestral ──
+  ven_07: { exec: 'Medir a resistência de isolamento do motor com megôhmetro, motor desenergizado.', c: 'Resistência acima do mínimo especificado pelo fabricante.', nc: 'Resistência abaixo do mínimo — motor requer avaliação/reparo.', na: '—', ferramenta: 'Megôhmetro' },
+  ven_08: { exec: 'Medir os níveis de vibração com acelerômetro em pontos padronizados do equipamento, avaliando desbalanceamento.', c: 'Níveis de vibração dentro do padrão aceitável (ISO 10816 ou similar).', nc: 'Nível de vibração acima do aceitável — indicativo de desbalanceamento/desgaste.', na: '—', ferramenta: 'Acelerômetro/analisador de vibração' },
+  // ── VEN — anual ──
+  ven_09: { exec: 'Substituir rolamentos e buchas que apresentem desgaste identificado nas inspeções do período.', c: 'Componentes substituídos conforme necessidade.', nc: 'Componente desgastado não substituído.', na: 'Nenhum componente com desgaste identificado no período.' },
+  ven_10: { exec: 'Realizar balanceamento dinâmico das pás/hélice utilizando equipamento próprio, corrigindo desbalanceamentos identificados.', c: 'Pás/hélice balanceadas, vibração dentro do aceitável após o serviço.', nc: 'Desbalanceamento não corrigido.', na: 'Equipamento sem hélice/pás passíveis de balanceamento dinâmico.' },
+
+  // ── OUT — mensal ──
+  ger_01: { exec: 'Realizar inspeção visual geral do equipamento verificando estado de conservação, corrosão e integridade da estrutura.', c: 'Equipamento em bom estado de conservação, sem danos aparentes.', nc: 'Dano estrutural, corrosão ou deterioração identificada.', na: '—' },
+  ger_02: { exec: 'Limpar externamente o equipamento, removendo poeira, oxidação superficial e sujidades acumuladas.', c: 'Equipamento limpo, sem acúmulo de sujidade.', nc: 'Sujidade ou oxidação significativa identificada.', na: '—' },
+  ger_03: { exec: 'Verificar e reapertar suportes, parafusos e elementos estruturais de fixação do equipamento.', c: 'Fixação firme e estrutura estável.', nc: 'Parafuso solto ou estrutura de fixação comprometida.', na: '—' },
+  ger_04: { exec: 'Verificar conexões elétricas, chave geral e dispositivos de proteção do equipamento.', c: 'Conexões firmes, chave geral e proteções funcionando corretamente.', nc: 'Conexão solta, chave com defeito ou proteção não atuante.', na: 'Equipamento sem alimentação elétrica própria.' },
+  ger_05: { exec: 'Ligar o equipamento e verificar o funcionamento geral e os parâmetros operacionais especificados pelo fabricante.', c: 'Equipamento funcionando normalmente, parâmetros dentro do especificado.', nc: 'Falha de funcionamento ou parâmetro fora do especificado.', na: '—' },
+};
+
 const CHECKLIST_PERIODICIDADE_INFO = [
   { key: 'mensal',     freqLetra: 'M', titulo: '🔧 Rotinas Mensais'     },
   { key: 'trimestral', freqLetra: 'T', titulo: '📅 Rotinas Trimestrais' },
