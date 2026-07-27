@@ -1019,13 +1019,15 @@ function parseCapacidadeBTU(str) {
 // da Sala pode sobrescrever essa sugestão (coluna salas.exige_exaustao = 'sim' | 'nao').
 const TIPOS_AMBIENTE_SALA = [
   // Criticidade Alta (A)
-  { value: 'cpd_servidores',   label: 'CPD / Sala de Servidores / TI',              classe: 'Alta' },
-  { value: 'telecom',          label: 'Telecomunicações / Sala de Nobreak',         classe: 'Alta',
-    exaustao: 'Sala de baterias/nobreak — dissipação de hidrogênio e de calor exige renovação forçada de ar' },
-  { value: 'laboratorio',      label: 'Laboratório (análises, ensino ou pesquisa)', classe: 'Alta',
+  { value: 'cpd_servidores',   label: 'CPD / Data Center / Sala de Servidores',     classe: 'Alta' },
+  { value: 'telecom',          label: 'Telecomunicações — Sala Técnica (PABX, rack, distribuição)', classe: 'Alta' },
+  { value: 'sala_baterias',    label: 'Sala de Baterias / Nobreak com Baterias Ventiladas', classe: 'Alta',
+    exaustao: 'Baterias ventiladas (chumbo-ácido abertas) liberam hidrogênio — exaustão mecânica obrigatória. Baterias VRLA seladas dispensam' },
+  { value: 'laboratorio',      label: 'Laboratório Químico / Biológico (análises, pesquisa, saúde)', classe: 'Alta',
     exaustao: 'Manipulação de reagentes e agentes biológicos — exaustão/capela obrigatória' },
-  { value: 'farmacia',         label: 'Farmácia',                                   classe: 'Alta',
-    exaustao: 'Manipulação e guarda de medicamentos — controle de vapores e renovação de ar' },
+  { value: 'farmacia',         label: 'Farmácia — Dispensação / Estoque de Medicamentos', classe: 'Alta' },
+  { value: 'farmacia_manipulacao', label: 'Farmácia de Manipulação / Laboratório Farmacotécnico', classe: 'Alta',
+    exaustao: 'Manipulação de insumos farmacêuticos — captação de pós e vapores (RDC ANVISA 67/2007)' },
   { value: 'camara_fria',      label: 'Câmara Fria / Frigorífica',                  classe: 'Alta' },
   { value: 'insumo_biologico', label: 'Insumos Biológicos / Banco de Sangue',       classe: 'Alta',
     exaustao: 'Ambiente de contenção biológica — renovação de ar e controle de pressão' },
@@ -1041,7 +1043,9 @@ const TIPOS_AMBIENTE_SALA = [
   { value: 'refeitorio',       label: 'Refeitório / Cantina',                       classe: 'Média',
     exaustao: 'Cocção e higienização — captação de vapores, calor e gordura (coifa/exaustor)' },
   { value: 'sala_professores', label: 'Sala de Professores / Reunião',              classe: 'Média' },
+  { value: 'sala_tecnica_ti',  label: 'Sala Técnica de TI / Rack de Andar / Suporte', classe: 'Média' },
   { value: 'consultorio',      label: 'Consultório / Atendimento Clínico',          classe: 'Média' },
+  { value: 'laboratorio_seco', label: 'Laboratório sem Agentes Químicos/Biológicos (Psicologia, Fonoaudiologia, Informática)', classe: 'Média' },
   { value: 'sala_espera',      label: 'Sala de Espera / Recepção',                  classe: 'Média' },
   { value: 'deposito_quimico', label: 'Depósito de Produtos Químicos / Saneantes / Inflamáveis', classe: 'Média',
     exaustao: 'Guarda de produtos químicos, saneantes ou inflamáveis — renovação de ar para dispersão de vapores' },
@@ -1050,8 +1054,9 @@ const TIPOS_AMBIENTE_SALA = [
   { value: 'banheiro',         label: 'Banheiro / Vestiário',                       classe: 'Baixa',
     exaustao: 'Sanitário/vestiário — exaustão mecânica obrigatória sem ventilação natural suficiente' },
   { value: 'deposito',         label: 'Depósito / Almoxarifado (materiais gerais)',  classe: 'Baixa' },
-  { value: 'copa',             label: 'Copa',                                       classe: 'Baixa',
-    exaustao: 'Preparo de alimentos — captação de vapores e odores' },
+  { value: 'copa',             label: 'Copa sem Cocção (micro-ondas, bebedouro, pia)', classe: 'Baixa' },
+  { value: 'copa_coccao',      label: 'Copa / Cozinha com Cocção (fogão, cooktop, forno)', classe: 'Baixa',
+    exaustao: 'Cocção de alimentos — captação de vapores, calor e gordura (coifa ou exaustor)' },
   { value: 'estacionamento',   label: 'Estacionamento Descoberto / Área Externa',   classe: 'Baixa' },
   { value: 'garagem_fechada',  label: 'Garagem / Estacionamento Fechado (subsolo)', classe: 'Baixa',
     exaustao: 'Garagem fechada — exaustão de monóxido de carbono' },
@@ -1093,8 +1098,18 @@ function obterCriticidadeSugeridaSala(sala) {
 // (registros antigos) ou o tipo é "Outro". NÃO substitui a Matriz de Criticidade por ativo
 // (equipamentos.html / calcularCriticidadeFluxograma) — é apenas um indicativo para o gestor.
 const SUGESTAO_CRITICIDADE_SALA_REGRAS = [
+  // ATENÇÃO: a avaliação é sequencial e o PRIMEIRO match vence. Esta regra precisa vir antes da
+  // regra 'Alta', que contém a palavra genérica "laboratorio" — sem ela, "Laboratório de
+  // Psicologia" seria classificado como Alta por conter o termo, apesar de não manipular
+  // agentes químicos ou biológicos. Vale apenas como fallback: o Tipo de Ambiente cadastrado
+  // na sala sempre prevalece sobre esta heurística de nome.
+  { classe: 'Média', motivo: 'Laboratório sem manipulação de agentes químicos ou biológicos', palavras: [
+    'psicologia', 'fonoaudiologia', 'fonoaudiologa', 'informatica', 'computacao',
+    'laboratorio de idiomas', 'laboratorio de linguas', 'brinquedoteca', 'ludoteca',
+  ]},
   { classe: 'Alta', motivo: 'Ambiente com equipamentos/insumos críticos (TI, saúde ou cadeia fria)', palavras: [
     'cpd', 'data center', 'datacenter', 'servidor', 'telecom', 'nobreak', 'no-break',
+    'sala de baterias', 'banco de baterias', 'sala de bateria',
     'farmacia', 'camara fria', 'camara frigorifica', 'camara refrigerada',
     'laboratorio', 'bioquimica', 'microbiologia', 'patologia', 'anatomia', 'hemocentro',
     'banco de sangue', 'banco de dados', 'uti', 'cti', 'centro cirurgico', 'sala de cirurgia',
@@ -1106,7 +1121,7 @@ const SUGESTAO_CRITICIDADE_SALA_REGRAS = [
     'sala de aula', 'auditorio', 'biblioteca', 'secretaria', 'coordenacao', 'administra',
     'recepcao', 'sala de espera', 'reuniao', 'diretoria', 'financeiro', 'recursos humanos', 'refeitorio',
     'cantina', 'restaurante', 'sala de professores', 'sala de estudo', 'tesouraria', 'protocolo',
-    'consultorio',
+    'consultorio', 'sala tecnica', 'rack', 'suporte tecnico', 'help desk', 'helpdesk',
   ]},
   { classe: 'Baixa', motivo: 'Ambiente de circulação, apoio ou permanência eventual, sem criticidade operacional', palavras: [
     'corredor', 'banheiro', 'sanitario', 'deposito', 'almoxarifado', 'copa', 'vestiario',
