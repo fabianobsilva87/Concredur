@@ -609,7 +609,7 @@ const EQ_CAMPOS_EXTRAS = {
   AC:   ['eq-ciclo','eq-tensao','eq-gas','eq-gas-qtd','eq-tec-compressor','eq-instalacao-ac','eq-validade'],
   BEB:  ['eq-cap-beb','eq-tipo-beb','eq-filtro-beb','eq-validade-filtro-beb','eq-lacre-beb','eq-validade-lacre-beb'],
   CLIM: ['eq-vazao-clim','eq-tipo-clim','eq-painel-clim','eq-validade-painel-clim','eq-tensao-clim','eq-consumo-clim'],
-  VEN:  ['eq-potencia-ven','eq-tipo-ven','eq-diametro-ven','eq-tensao-ven'],
+  VEN:  ['eq-funcao-ven','eq-potencia-ven','eq-tipo-ven','eq-diametro-ven','eq-tensao-ven'],
   OUT:  [],
 };
 const EQ_CATEGORIA_LABEL = {
@@ -665,24 +665,31 @@ if ($('btn-salvar')) {
     if (!tag || !cat) { msgForm('msg-equipamento', 'TAG e Categoria são obrigatórias.', 'red'); return; }
 
     // ── Gate de exaustão ──────────────────────────────────────────────────────────────────
-    // Exaustor só deve ser cadastrado em ambiente cuja exaustão mecânica seja obrigatória
-    // (exigência informada na Sala ou herdada do Tipo de Ambiente). Fora desses casos o
-    // cadastro exige confirmação explícita do gestor, registrando a exceção conscientemente.
-    if (cat === 'VEN' && _normalizarTextoSugestaoCriticidade($('eq-tipo-ven')?.value || '').includes('exaustor')) {
-      const salaSel = obterSalaSelecionadaEquipamento();
-      if (!salaSel) {
-        msgForm('msg-equipamento', 'Selecione a Sala onde o exaustor será instalado antes de salvar.', 'red');
+    // A Função é obrigatória em VEN porque é ela que determina se o ativo conta como exaustor
+    // nos relatórios de conformidade. Sem ela, um exaustor centrífugo seria contabilizado como
+    // ventilador comum e a sala continuaria aparecendo como pendente.
+    if (cat === 'VEN') {
+      const funcaoVen = _normalizarTextoSugestaoCriticidade($('eq-funcao-ven')?.value || '');
+      if (!funcaoVen) {
+        msgForm('msg-equipamento', 'Informe a Função do ativo (Exaustão, Ventilação ou Insuflamento) antes de salvar.', 'red');
         return;
       }
-      const exig = obterExigenciaExaustaoSala(salaSel);
-      if (exig.exige !== true) {
-        const aviso = exig.exige === false
-          ? `A sala "${salaSel.nome}" não exige exaustão mecânica.\n${exig.motivo}`
-          : `A sala "${salaSel.nome}" não possui Tipo de Ambiente nem exigência de exaustão cadastrados.`;
-        const ok = confirm(`${aviso}\n\nExaustores devem ser cadastrados apenas em ambientes com exaustão obrigatória.\n\nDeseja registrar esta exceção mesmo assim?`);
-        if (!ok) {
-          msgForm('msg-equipamento', 'Cadastro cancelado. Ajuste a exigência de exaustão da sala em Locais → Salas.', 'red');
+      if (funcaoVen.includes('exaust')) {
+        const salaSel = obterSalaSelecionadaEquipamento();
+        if (!salaSel) {
+          msgForm('msg-equipamento', 'Selecione a Sala onde o exaustor será instalado antes de salvar.', 'red');
           return;
+        }
+        const exig = obterExigenciaExaustaoSala(salaSel);
+        if (exig.exige !== true) {
+          const aviso = exig.exige === false
+            ? `A sala "${salaSel.nome}" não exige exaustão mecânica.\n${exig.motivo}`
+            : `A sala "${salaSel.nome}" não possui Tipo de Ambiente nem exigência de exaustão cadastrados.`;
+          const ok = confirm(`${aviso}\n\nExaustores devem ser cadastrados apenas em ambientes com exaustão obrigatória.\n\nDeseja registrar esta exceção mesmo assim?`);
+          if (!ok) {
+            msgForm('msg-equipamento', 'Cadastro cancelado. Ajuste a exigência de exaustão da sala em Locais → Salas.', 'red');
+            return;
+          }
         }
       }
     }
@@ -1240,16 +1247,27 @@ function obterExigenciaExaustaoSala(sala) {
     : { exige: false, origem: 'tipo', motivo: `Tipo de Ambiente "${tipo.label}" não demanda exaustão mecânica dedicada` };
 }
 
-// Identifica se um ativo é um EXAUSTOR (e não um ventilador comum). Categoria VEN é
-// compartilhada entre os dois; a distinção vem do campo técnico "Tipo" (extras_tecnico.tipo-ven,
-// opções "Exaustor-Parede"/"Exaustor-Teto") e, como rede de segurança, do texto de produto/TAG.
+// Identifica se um ativo cumpre FUNÇÃO DE EXAUSTÃO. A categoria VEN é compartilhada entre
+// ventiladores, exaustores e insufladores, e o campo "Tipo construtivo" não resolve a questão:
+// "Centrífugo" e "Axial" descrevem o rotor, não a função — um centrífugo pode ser tanto caixa
+// de exaustão quanto insuflador. Por isso a fonte primária é o campo "Função"
+// (extras_tecnico['funcao-ven']), preenchido explicitamente no cadastro.
+//
+// A heurística por Tipo/texto permanece apenas como FALLBACK para registros legados,
+// cadastrados antes da criação do campo Função.
 function ehEquipamentoExaustor(eq) {
   if (!eq || eq.categoria !== 'VEN') return false;
-  const extras  = parseExtras(eq.extras_tecnico);
+  const extras = parseExtras(eq.extras_tecnico);
+
+  // 1) Função declarada — decisão explícita, encerra a avaliação nos dois sentidos.
+  const funcao = _normalizarTextoSugestaoCriticidade(extras['funcao-ven'] || extras['funcao_ven'] || '');
+  if (funcao) return funcao.includes('exaust');
+
+  // 2) Fallback para registros legados (sem Função preenchida).
   const tipoVen = _normalizarTextoSugestaoCriticidade(extras['tipo-ven'] || extras['tipo_ven'] || '');
   if (tipoVen.includes('exaustor')) return true;
   const texto = _normalizarTextoSugestaoCriticidade(`${eq.produto || ''} ${eq.tag || ''}`);
-  return texto.includes('exaust');
+  return texto.includes('exaust') || /\bexr\b/.test(texto);
 }
 
 // Confronta cada sala com os exaustores nela cadastrados. Não faz I/O.
@@ -1554,7 +1572,7 @@ async function emitirRelatorioExaustaoSalas() {
         <span style="color:#dc2626;font-weight:700;">Pendente</span> = ambiente exige exaustão e não possui exaustor cadastrado.
         <span style="color:#1e40af;font-weight:700;">Sem exigência</span> = há exaustor instalado em ambiente que não a demanda — conferir vínculo de sala ou revisar a exigência.
         <span style="color:#d97706;font-weight:700;">Não avaliada</span> = sala sem Tipo de Ambiente e sem exigência informada.
-        Considera exaustores os ativos de categoria Ventilador/Exaustor (VEN) com Tipo "Exaustor de Parede" ou "Exaustor de Teto".
+        Considera exaustores os ativos de categoria Ventilador/Exaustor (VEN) cuja <strong>Função</strong> cadastrada seja "Exaustão". Registros antigos, sem Função preenchida, são reconhecidos pelo Tipo construtivo ("Exaustor de Parede"/"Exaustor de Teto") ou pelo texto da TAG.
       </div>
       <div style="margin-top:8px;font-size:9px;color:#a0aec0;">Documento gerado pelo Sistema de Gestão Univag · ${new Date().toLocaleString('pt-BR')}</div>
     </div>
@@ -2135,7 +2153,10 @@ function atualizarAvisoExaustaoSala() {
   if (cat !== 'VEN' || !sala) { el.style.display = 'none'; el.innerHTML = ''; return; }
 
   const tipoVen  = $('eq-tipo-ven')?.value || '';
-  const exaustor = _normalizarTextoSugestaoCriticidade(tipoVen).includes('exaustor');
+  const funcao   = _normalizarTextoSugestaoCriticidade($('eq-funcao-ven')?.value || '');
+  // Mesma precedência de ehEquipamentoExaustor(): Função declarada vence; Tipo é só fallback.
+  const exaustor = funcao ? funcao.includes('exaust')
+                          : _normalizarTextoSugestaoCriticidade(tipoVen).includes('exaustor');
   const r        = obterExigenciaExaustaoSala(sala);
 
   let cor = '', texto = '';

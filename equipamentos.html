@@ -282,7 +282,16 @@
             <div class="eq-section-title eq-section-ven">💨 Dados Técnicos — Ventilador / Exaustor</div>
             <div class="form-grid">
               <div class="form-group">
-                <label for="eq-tipo-ven">Tipo</label>
+                <label for="eq-funcao-ven">Função <span style="color:#dc2626;">*</span> <small style="color:#a0aec0;font-weight:400;">(define a conformidade de exaustão)</small></label>
+                <select id="eq-funcao-ven" class="form-input-style" onchange="atualizarAvisoExaustaoSala()">
+                  <option value="">— Selecione —</option>
+                  <option value="Exaustao">Exaustão (retirada de ar do ambiente)</option>
+                  <option value="Ventilacao">Ventilação / Circulação de ar</option>
+                  <option value="Insuflamento">Insuflamento (ar de reposição)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="eq-tipo-ven">Tipo construtivo</label>
                 <select id="eq-tipo-ven" class="form-input-style" onchange="atualizarAvisoExaustaoSala()">
                   <option value="">— Selecione —</option>
                   <option value="Axial">Axial (Hélice)</option>
