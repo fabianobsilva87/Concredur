@@ -579,15 +579,73 @@ function parseExtras(extras) {
   }
 }
 
-function calcularCriticidadeFluxograma() {
-  if (!$('crit-interrupcao')) return 'Média';
-  const i = $('crit-interrupcao').value, s = $('crit-seguranca').value;
-  const o = $('crit-operacao').value,    r = $('crit-reserva').value;
+// ----- Matriz de criticidade por ativo -----
+// AUDITORIA 2026. Antes, apenas a CLASSE final era gravada; as quatro respostas que a
+// produziram se perdiam. Como carregarEquipamentoParaEdicao() não reidratava os selects,
+// qualquer edição de qualquer campo do ativo recalculava a criticidade a partir dos
+// defaults do formulário ("não" em tudo) e REBAIXAVA silenciosamente o ativo para Baixa.
+// Agora as respostas são persistidas em extras_tecnico.crit_respostas e reidratadas na
+// edição, tornando a classificação auditável (exigência da Seção 10 do Plano PMOC).
+const CRIT_CAMPOS = ['crit-interrupcao', 'crit-seguranca', 'crit-operacao', 'crit-reserva'];
+
+// Lê as quatro respostas do formulário no formato persistido: { i, s, o, r }.
+function lerRespostasCriticidade() {
+  if (!$('crit-interrupcao')) return null;
+  return {
+    i: $('crit-interrupcao').value,
+    s: $('crit-seguranca').value,
+    o: $('crit-operacao').value,
+    r: $('crit-reserva').value,
+  };
+}
+
+// Fluxograma puro: recebe as respostas e devolve a classe ('Alta' | 'Média' | 'Baixa').
+// Isolado do DOM para poder ser testado e reaproveitado fora do formulário.
+function classificarCriticidadeFluxograma({ i, s, o, r }) {
   const res = (i === 'sim' || s === 'sim')
     ? (r === 'nao' ? 'Alta (A)' : 'Média (B)')
     : (o === 'sim' ? (r === 'nao' ? 'Média (B)' : 'Baixa (C)') : 'Baixa (C)');
-  if ($('label-criticidade-calculada')) $('label-criticidade-calculada').textContent = 'Classe ' + res;
-  return res.split(' ')[0];
+  return { classe: res.split(' ')[0], rotulo: res };
+}
+
+function calcularCriticidadeFluxograma() {
+  const respostas = lerRespostasCriticidade();
+  if (!respostas) return 'Média';
+  const { classe, rotulo } = classificarCriticidadeFluxograma(respostas);
+  if ($('label-criticidade-calculada')) $('label-criticidade-calculada').textContent = 'Classe ' + rotulo;
+  return classe;
+}
+
+// Repõe no formulário as respostas gravadas no ativo. Se o ativo é anterior a esta versão
+// (não tem crit_respostas), NÃO assume os defaults: deduz o conjunto de respostas mais
+// conservador compatível com a classe já gravada, preservando a classificação existente.
+const CRIT_RESPOSTAS_EQUIVALENTES = {
+  Alta:   { i: 'sim', s: 'nao', o: 'nao', r: 'nao' },
+  'Média':{ i: 'sim', s: 'nao', o: 'nao', r: 'sim' },
+  Baixa:  { i: 'nao', s: 'nao', o: 'nao', r: 'nao' },
+};
+function reidratarCriticidadeFluxograma(eq) {
+  if (!$('crit-interrupcao')) return;
+  const extras = parseExtras(eq?.extras_tecnico);
+  let r = extras.crit_respostas;
+  if (typeof r === 'string') { try { r = JSON.parse(r); } catch { r = null; } }
+  const legado = !r || typeof r !== 'object';
+  if (legado) r = CRIT_RESPOSTAS_EQUIVALENTES[eq?.criticidade] || CRIT_RESPOSTAS_EQUIVALENTES['Média'];
+
+  if ($('crit-interrupcao')) $('crit-interrupcao').value = r.i === 'sim' ? 'sim' : 'nao';
+  if ($('crit-seguranca'))   $('crit-seguranca').value   = r.s === 'sim' ? 'sim' : 'nao';
+  if ($('crit-operacao'))    $('crit-operacao').value    = r.o === 'sim' ? 'sim' : 'nao';
+  if ($('crit-reserva'))     $('crit-reserva').value     = r.r === 'sim' ? 'sim' : 'nao';
+  calcularCriticidadeFluxograma();
+
+  const aviso = $('crit-aviso-legado');
+  if (aviso) {
+    aviso.style.display = legado ? 'block' : 'none';
+    if (legado) aviso.textContent =
+      `⚠️ Este ativo foi cadastrado antes do registro das respostas da matriz. As opções abaixo foram ` +
+      `pré-preenchidas para reproduzir a classe já gravada (${eq?.criticidade || 'Média'}). ` +
+      `Revise-as e salve para tornar a classificação auditável.`;
+  }
 }
 
 const FREQ_HIERARQUIA = { M: ['M'], T: ['M','T'], S: ['M','T','S'], A: ['M','T','S','A'] };
@@ -609,7 +667,7 @@ const EQ_CAMPOS_EXTRAS = {
   AC:   ['eq-ciclo','eq-tensao','eq-gas','eq-gas-qtd','eq-tec-compressor','eq-instalacao-ac','eq-validade'],
   BEB:  ['eq-cap-beb','eq-tipo-beb','eq-filtro-beb','eq-validade-filtro-beb','eq-lacre-beb','eq-validade-lacre-beb'],
   CLIM: ['eq-vazao-clim','eq-tipo-clim','eq-painel-clim','eq-validade-painel-clim','eq-tensao-clim','eq-consumo-clim'],
-  VEN:  ['eq-funcao-ven','eq-potencia-ven','eq-tipo-ven','eq-diametro-ven','eq-tensao-ven'],
+  VEN:  ['eq-potencia-ven','eq-tipo-ven','eq-diametro-ven','eq-tensao-ven'],
   OUT:  [],
 };
 const EQ_CATEGORIA_LABEL = {
@@ -655,7 +713,6 @@ function toggleCamposEquipamento() {
   if (!cat) return;
   document.querySelectorAll(`.eq-campo-${cat}`).forEach(el => el.style.display = 'block');
   document.querySelectorAll('.eq-campo-localizacao, .eq-campo-criticidade').forEach(el => el.style.display = 'block');
-  atualizarAvisoExaustaoSala();
 }
 
 
@@ -663,37 +720,6 @@ if ($('btn-salvar')) {
   $('btn-salvar').addEventListener('click', async () => {
     const tag = $('eq-tag')?.value.trim(); const cat = $('eq-categoria')?.value;
     if (!tag || !cat) { msgForm('msg-equipamento', 'TAG e Categoria são obrigatórias.', 'red'); return; }
-
-    // ── Gate de exaustão ──────────────────────────────────────────────────────────────────
-    // A Função é obrigatória em VEN porque é ela que determina se o ativo conta como exaustor
-    // nos relatórios de conformidade. Sem ela, um exaustor centrífugo seria contabilizado como
-    // ventilador comum e a sala continuaria aparecendo como pendente.
-    if (cat === 'VEN') {
-      const funcaoVen = _normalizarTextoSugestaoCriticidade($('eq-funcao-ven')?.value || '');
-      if (!funcaoVen) {
-        msgForm('msg-equipamento', 'Informe a Função do ativo (Exaustão, Ventilação ou Insuflamento) antes de salvar.', 'red');
-        return;
-      }
-      if (funcaoVen.includes('exaust')) {
-        const salaSel = obterSalaSelecionadaEquipamento();
-        if (!salaSel) {
-          msgForm('msg-equipamento', 'Selecione a Sala onde o exaustor será instalado antes de salvar.', 'red');
-          return;
-        }
-        const exig = obterExigenciaExaustaoSala(salaSel);
-        if (exig.exige !== true) {
-          const aviso = exig.exige === false
-            ? `A sala "${salaSel.nome}" não exige exaustão mecânica.\n${exig.motivo}`
-            : `A sala "${salaSel.nome}" não possui Tipo de Ambiente nem exigência de exaustão cadastrados.`;
-          const ok = confirm(`${aviso}\n\nExaustores devem ser cadastrados apenas em ambientes com exaustão obrigatória.\n\nDeseja registrar esta exceção mesmo assim?`);
-          if (!ok) {
-            msgForm('msg-equipamento', 'Cadastro cancelado. Ajuste a exigência de exaustão da sala em Locais → Salas.', 'red');
-            return;
-          }
-        }
-      }
-    }
-
     msgForm('msg-equipamento', 'Salvando...', 'blue');
     // Localização agora vem de catálogos (instituicoes / blocos / setores / salas) selecionados, não mais texto livre.
     // setor/sala (texto) são mantidos em sincronia automaticamente para compatibilidade
@@ -723,6 +749,10 @@ if ($('btn-salvar')) {
       const el = $(id); if (!el || !el.value.trim()) return;
       extras[id.replace('eq-','')] = el.value.trim();
     });
+    // Persiste as respostas da matriz de criticidade junto do ativo: sem elas a classe
+    // gravada não é auditável e a edição posterior do ativo a sobrescreve indevidamente.
+    const critRespostas = lerRespostasCriticidade();
+    if (critRespostas) extras.crit_respostas = critRespostas;
     if (Object.keys(extras).length) payload.extras_tecnico = extras;
     // Capacidade (BTU/h) do AC vem do select + campo "Outro"; demais categorias usam eq-potencia normalmente
     if (cat === 'AC') {
@@ -793,12 +823,16 @@ async function carregarEquipamentoParaEdicao() {
   }
   if ($('eq-validade') && eq.validade) $('eq-validade').value = eq.validade;
 
-  // Preenche os campos técnicos extras (extras_tecnico, armazenado como text)
+  // Preenche os campos técnicos extras (extras_tecnico)
   const extras = parseExtras(eq.extras_tecnico);
   Object.entries(extras).forEach(([k, v]) => {
+    if (k === 'crit_respostas') return; // tratado por reidratarCriticidadeFluxograma()
     const el = $('eq-' + k);
-    if (el) el.value = v;
+    if (el && typeof v !== 'object') el.value = v;
   });
+
+  // Restaura a matriz de criticidade — sem isto, salvar rebaixa o ativo para Baixa.
+  reidratarCriticidadeFluxograma(eq);
 
   // Atualiza o título e o botão para refletir o modo edição
   const btn = $('btn-salvar');
@@ -1016,30 +1050,17 @@ function parseCapacidadeBTU(str) {
 
 // ----- Tipo de Ambiente da Sala (cadastro explícito em locais.html) -----
 // Catálogo único (single source of truth) que associa cada Tipo de Ambiente a uma classe de
-// criticidade sugerida e à exigência normativa de exaustão mecânica. Usado para popular o
-// <select id="sala-tipo-ambiente">, para orientar o relatório de Adequação de Carga por Sala
-// sem depender apenas do nome digitado da sala, e para as duas rotinas de consistência
-// Ativo × Ambiente (divergência de criticidade e conformidade de exaustão).
-//
-// Campo `exaustao`: quando presente (string), indica que o ambiente EXIGE exaustão mecânica e
-// descreve o motivo técnico/normativo. Ausente = exaustão não obrigatória por tipo. O cadastro
-// da Sala pode sobrescrever essa sugestão (coluna salas.exige_exaustao = 'sim' | 'nao').
+// criticidade sugerida. Usado para popular o <select id="sala-tipo-ambiente"> e para orientar
+// o relatório de Adequação de Carga por Sala sem depender apenas do nome digitado da sala.
 const TIPOS_AMBIENTE_SALA = [
   // Criticidade Alta (A)
-  { value: 'cpd_servidores',   label: 'CPD / Data Center / Sala de Servidores',     classe: 'Alta' },
-  { value: 'telecom',          label: 'Telecomunicações — Sala Técnica (PABX, rack, distribuição)', classe: 'Alta' },
-  { value: 'sala_baterias',    label: 'Sala de Baterias / Nobreak com Baterias Ventiladas', classe: 'Alta',
-    exaustao: 'Baterias ventiladas (chumbo-ácido abertas) liberam hidrogênio — exaustão mecânica obrigatória. Baterias VRLA seladas dispensam' },
-  { value: 'laboratorio',      label: 'Laboratório Químico / Biológico (análises, pesquisa, saúde)', classe: 'Alta',
-    exaustao: 'Manipulação de reagentes e agentes biológicos — exaustão/capela obrigatória' },
-  { value: 'farmacia',         label: 'Farmácia — Dispensação / Estoque de Medicamentos', classe: 'Alta' },
-  { value: 'farmacia_manipulacao', label: 'Farmácia de Manipulação / Laboratório Farmacotécnico', classe: 'Alta',
-    exaustao: 'Manipulação de insumos farmacêuticos — captação de pós e vapores (RDC ANVISA 67/2007)' },
+  { value: 'cpd_servidores',   label: 'CPD / Sala de Servidores / TI',              classe: 'Alta' },
+  { value: 'telecom',          label: 'Telecomunicações / Sala de Nobreak',         classe: 'Alta' },
+  { value: 'laboratorio',      label: 'Laboratório (análises, ensino ou pesquisa)', classe: 'Alta' },
+  { value: 'farmacia',         label: 'Farmácia',                                   classe: 'Alta' },
   { value: 'camara_fria',      label: 'Câmara Fria / Frigorífica',                  classe: 'Alta' },
-  { value: 'insumo_biologico', label: 'Insumos Biológicos / Banco de Sangue',       classe: 'Alta',
-    exaustao: 'Ambiente de contenção biológica — renovação de ar e controle de pressão' },
-  { value: 'centro_cirurgico', label: 'Centro Cirúrgico / UTI / Emergência',        classe: 'Alta',
-    exaustao: 'Ambiente crítico assistencial — exaustão dedicada (ABNT NBR 7256)' },
+  { value: 'insumo_biologico', label: 'Insumos Biológicos / Banco de Sangue',       classe: 'Alta' },
+  { value: 'centro_cirurgico', label: 'Centro Cirúrgico / UTI / Emergência',        classe: 'Alta' },
   { value: 'arquivo_medico',   label: 'Arquivo Médico / Prontuários',               classe: 'Alta' },
   { value: 'raio_x',           label: 'Sala de Raio-X / Diagnóstico por Imagem',    classe: 'Alta' },
   // Criticidade Média (B)
@@ -1047,26 +1068,16 @@ const TIPOS_AMBIENTE_SALA = [
   { value: 'auditorio',        label: 'Auditório',                                  classe: 'Média' },
   { value: 'biblioteca',       label: 'Biblioteca',                                 classe: 'Média' },
   { value: 'administrativo',   label: 'Administrativo / Secretaria / Coordenação',  classe: 'Média' },
-  { value: 'refeitorio',       label: 'Refeitório / Cantina',                       classe: 'Média',
-    exaustao: 'Cocção e higienização — captação de vapores, calor e gordura (coifa/exaustor)' },
+  { value: 'refeitorio',       label: 'Refeitório / Cantina',                       classe: 'Média' },
   { value: 'sala_professores', label: 'Sala de Professores / Reunião',              classe: 'Média' },
-  { value: 'sala_tecnica_ti',  label: 'Sala Técnica de TI / Rack de Andar / Suporte', classe: 'Média' },
   { value: 'consultorio',      label: 'Consultório / Atendimento Clínico',          classe: 'Média' },
-  { value: 'laboratorio_seco', label: 'Laboratório sem Agentes Químicos/Biológicos (Psicologia, Fonoaudiologia, Informática)', classe: 'Média' },
   { value: 'sala_espera',      label: 'Sala de Espera / Recepção',                  classe: 'Média' },
-  { value: 'deposito_quimico', label: 'Depósito de Produtos Químicos / Saneantes / Inflamáveis', classe: 'Média',
-    exaustao: 'Guarda de produtos químicos, saneantes ou inflamáveis — renovação de ar para dispersão de vapores' },
   // Criticidade Baixa (C)
   { value: 'corredor',         label: 'Corredor / Circulação',                      classe: 'Baixa' },
-  { value: 'banheiro',         label: 'Banheiro / Vestiário',                       classe: 'Baixa',
-    exaustao: 'Sanitário/vestiário — exaustão mecânica obrigatória sem ventilação natural suficiente' },
-  { value: 'deposito',         label: 'Depósito / Almoxarifado (materiais gerais)',  classe: 'Baixa' },
-  { value: 'copa',             label: 'Copa sem Cocção (micro-ondas, bebedouro, pia)', classe: 'Baixa' },
-  { value: 'copa_coccao',      label: 'Copa / Cozinha com Cocção (fogão, cooktop, forno)', classe: 'Baixa',
-    exaustao: 'Cocção de alimentos — captação de vapores, calor e gordura (coifa ou exaustor)' },
-  { value: 'estacionamento',   label: 'Estacionamento Descoberto / Área Externa',   classe: 'Baixa' },
-  { value: 'garagem_fechada',  label: 'Garagem / Estacionamento Fechado (subsolo)', classe: 'Baixa',
-    exaustao: 'Garagem fechada — exaustão de monóxido de carbono' },
+  { value: 'banheiro',         label: 'Banheiro / Vestiário',                       classe: 'Baixa' },
+  { value: 'deposito',         label: 'Depósito / Almoxarifado',                    classe: 'Baixa' },
+  { value: 'copa',             label: 'Copa',                                       classe: 'Baixa' },
+  { value: 'estacionamento',   label: 'Estacionamento / Área Externa',              classe: 'Baixa' },
   // Sem sugestão automática — usuário classifica manualmente cada ativo
   { value: 'outro',            label: 'Outro / Não classificado',                   classe: null },
 ];
@@ -1105,18 +1116,8 @@ function obterCriticidadeSugeridaSala(sala) {
 // (registros antigos) ou o tipo é "Outro". NÃO substitui a Matriz de Criticidade por ativo
 // (equipamentos.html / calcularCriticidadeFluxograma) — é apenas um indicativo para o gestor.
 const SUGESTAO_CRITICIDADE_SALA_REGRAS = [
-  // ATENÇÃO: a avaliação é sequencial e o PRIMEIRO match vence. Esta regra precisa vir antes da
-  // regra 'Alta', que contém a palavra genérica "laboratorio" — sem ela, "Laboratório de
-  // Psicologia" seria classificado como Alta por conter o termo, apesar de não manipular
-  // agentes químicos ou biológicos. Vale apenas como fallback: o Tipo de Ambiente cadastrado
-  // na sala sempre prevalece sobre esta heurística de nome.
-  { classe: 'Média', motivo: 'Laboratório sem manipulação de agentes químicos ou biológicos', palavras: [
-    'psicologia', 'fonoaudiologia', 'fonoaudiologa', 'informatica', 'computacao',
-    'laboratorio de idiomas', 'laboratorio de linguas', 'brinquedoteca', 'ludoteca',
-  ]},
   { classe: 'Alta', motivo: 'Ambiente com equipamentos/insumos críticos (TI, saúde ou cadeia fria)', palavras: [
     'cpd', 'data center', 'datacenter', 'servidor', 'telecom', 'nobreak', 'no-break',
-    'sala de baterias', 'banco de baterias', 'sala de bateria',
     'farmacia', 'camara fria', 'camara frigorifica', 'camara refrigerada',
     'laboratorio', 'bioquimica', 'microbiologia', 'patologia', 'anatomia', 'hemocentro',
     'banco de sangue', 'banco de dados', 'uti', 'cti', 'centro cirurgico', 'sala de cirurgia',
@@ -1128,7 +1129,7 @@ const SUGESTAO_CRITICIDADE_SALA_REGRAS = [
     'sala de aula', 'auditorio', 'biblioteca', 'secretaria', 'coordenacao', 'administra',
     'recepcao', 'sala de espera', 'reuniao', 'diretoria', 'financeiro', 'recursos humanos', 'refeitorio',
     'cantina', 'restaurante', 'sala de professores', 'sala de estudo', 'tesouraria', 'protocolo',
-    'consultorio', 'sala tecnica', 'rack', 'suporte tecnico', 'help desk', 'helpdesk',
+    'consultorio',
   ]},
   { classe: 'Baixa', motivo: 'Ambiente de circulação, apoio ou permanência eventual, sem criticidade operacional', palavras: [
     'corredor', 'banheiro', 'sanitario', 'deposito', 'almoxarifado', 'copa', 'vestiario',
@@ -1151,434 +1152,28 @@ function sugerirCriticidadeSala(nomeSala) {
   return null;
 }
 
-// ===================== CONSISTÊNCIA ATIVO × AMBIENTE =====================
-// Dois controles derivados do cruzamento entre o cadastro de Salas (Locais → Salas) e o
-// cadastro de Ativos (Novo Ativo / Gerenciamento de Ativos):
-//
-//   1) DIVERGÊNCIA DE CRITICIDADE — confronta a classe apurada pela Matriz de Criticidade
-//      Baseada em Riscos de cada ativo (equipamentos.criticidade) com a criticidade esperada
-//      do ambiente onde ele está instalado (Tipo de Ambiente da sala). O caso crítico é o
-//      ativo SUBCLASSIFICADO: classe menor que a do ambiente, o que reduz indevidamente a
-//      prioridade de atendimento e o MTTR-alvo de um ativo instalado em ambiente sensível.
-//
-//   2) CONFORMIDADE DE EXAUSTÃO — aponta salas que exigem exaustão mecânica e ainda não
-//      possuem exaustor cadastrado, e exaustores instalados em ambientes que não a exigem.
-//
-// Single source of truth: relatórios (impressoes.html) e painéis (dashboard.html) consomem
-// estas funções — nunca reimplementam a regra.
+// ----- Adequação térmica: fonte única de classificação -----
+// AUDITORIA 2026. O piso de adequação existia duplicado: plano-pmoc.html usava 0,96 e o
+// relatório de divergência usava 100% (app.js). Na faixa 96,0%–99,9% o MESMO ambiente saía
+// "Adequada" no documento entregue à fiscalização e "Subdimensionada" no relatório interno.
+// O piso de 96% é o adotado: ambientes raramente operam em carga de pico simultânea, e a
+// margem cobre o arredondamento das capacidades comerciais (9.000/12.000/18.000 BTU/h).
+const ADEQUACAO_TERMICA_PISO  = 0.96; // abaixo disto → Subdimensionada
+const ADEQUACAO_TERMICA_TETO  = 1.30; // acima disto  → Superdimensionada
 
-const EQ_CRITICIDADE_ORDEM = { 'Baixa': 1, 'Média': 2, 'Alta': 3 };
-
-// Normaliza a classe gravada no ativo ("Alta", "Alta (A)", "media", "B"...) para um dos três
-// rótulos canônicos. Retorna null quando o ativo não possui criticidade classificável.
-function normalizarClasseCriticidade(valor) {
-  const v = _normalizarTextoSugestaoCriticidade(valor).trim();
-  if (!v) return null;
-  if (v.startsWith('alta')  || v === 'a') return 'Alta';
-  if (v.startsWith('media') || v === 'b') return 'Média';
-  if (v.startsWith('baixa') || v === 'c') return 'Baixa';
-  return null;
-}
-
-// Situações possíveis no confronto ativo × ambiente. `ordem` define a prioridade de exibição
-// nos relatórios (menor primeiro): a divergência de risco aparece no topo da lista.
-const DIVERGENCIA_CRIT_STATUS = {
-  abaixo:     { rotulo: 'Subclassificado',           cls: 'danger',    ordem: 0, prioridade: true  },
-  sem_classe: { rotulo: 'Ativo sem criticidade',     cls: 'warning',   ordem: 1, prioridade: true  },
-  acima:      { rotulo: 'Superclassificado',         cls: 'andamento', ordem: 2, prioridade: false },
-  sala_indef: { rotulo: 'Ambiente não classificado', cls: '',          ordem: 3, prioridade: false },
-  sem_sala:   { rotulo: 'Sem sala vinculada',        cls: '',          ordem: 4, prioridade: false },
-  alinhado:   { rotulo: 'Alinhado',                  cls: 'success',   ordem: 5, prioridade: false },
-};
-
-// Confronta cada ativo com a criticidade esperada da sala onde está instalado.
-// Recebe as duas listas já carregadas (não faz I/O) para poder ser reutilizada por relatório,
-// dashboard e testes. Retorna um array de análises, uma por ativo, na ordem recebida.
-function analisarDivergenciaCriticidade(equipamentos, salas) {
-  const mapaSalas = {};
-  (salas || []).forEach(s => { mapaSalas[String(s.id)] = s; });
-
-  return (equipamentos || []).map(eq => {
-    const sala        = eq.sala_id ? mapaSalas[String(eq.sala_id)] : null;
-    const classeAtivo = normalizarClasseCriticidade(eq.criticidade);
-    const sugestao    = sala ? obterCriticidadeSugeridaSala(sala) : null;
-    const classeSala  = sugestao ? sugestao.classe : null;
-
-    let status;
-    if (!sala)             status = 'sem_sala';
-    else if (!classeAtivo) status = 'sem_classe';
-    else if (!classeSala)  status = 'sala_indef';
-    else {
-      const nAtivo = EQ_CRITICIDADE_ORDEM[classeAtivo] || 0;
-      const nSala  = EQ_CRITICIDADE_ORDEM[classeSala]  || 0;
-      status = nAtivo === nSala ? 'alinhado' : (nAtivo < nSala ? 'abaixo' : 'acima');
-    }
-    return { eq, sala, classeAtivo, classeSala, sugestao, status, info: DIVERGENCIA_CRIT_STATUS[status] };
-  });
-}
-
-// Consolida as análises em contadores por status (usado no dashboard e no quadro-resumo).
-function resumirDivergenciaCriticidade(analises) {
-  const resumo = { total: (analises || []).length, divergentes: 0 };
-  Object.keys(DIVERGENCIA_CRIT_STATUS).forEach(k => { resumo[k] = 0; });
-  (analises || []).forEach(a => {
-    resumo[a.status] = (resumo[a.status] || 0) + 1;
-    if (a.status === 'abaixo' || a.status === 'acima') resumo.divergentes++;
-  });
-  return resumo;
-}
-
-// ----- Exaustão mecânica -----
-// Resolve se uma sala exige exaustão. O cadastro explícito (salas.exige_exaustao) sempre
-// prevalece; na ausência dele, herda a regra do Tipo de Ambiente. Retorna:
-//   { exige: true|false|null, origem: 'cadastro'|'tipo'|'indefinido', motivo: string }
-// exige === null significa "não há informação suficiente" (sala sem tipo e sem cadastro).
-function obterExigenciaExaustaoSala(sala) {
-  const cadastro = (sala && sala.exige_exaustao ? String(sala.exige_exaustao) : '').toLowerCase();
-  if (cadastro === 'sim') return { exige: true,  origem: 'cadastro', motivo: 'Exigência informada no cadastro da Sala' };
-  if (cadastro === 'nao') return { exige: false, origem: 'cadastro', motivo: 'Dispensa informada no cadastro da Sala' };
-
-  const tipo = TIPOS_AMBIENTE_SALA.find(t => t.value === (sala && sala.tipo_ambiente));
-  if (!tipo || tipo.value === 'outro') {
-    return { exige: null, origem: 'indefinido', motivo: 'Sala sem Tipo de Ambiente cadastrado — exigência não avaliada' };
-  }
-  return tipo.exaustao
-    ? { exige: true,  origem: 'tipo', motivo: tipo.exaustao }
-    : { exige: false, origem: 'tipo', motivo: `Tipo de Ambiente "${tipo.label}" não demanda exaustão mecânica dedicada` };
-}
-
-// Identifica se um ativo cumpre FUNÇÃO DE EXAUSTÃO. A categoria VEN é compartilhada entre
-// ventiladores, exaustores e insufladores, e o campo "Tipo construtivo" não resolve a questão:
-// "Centrífugo" e "Axial" descrevem o rotor, não a função — um centrífugo pode ser tanto caixa
-// de exaustão quanto insuflador. Por isso a fonte primária é o campo "Função"
-// (extras_tecnico['funcao-ven']), preenchido explicitamente no cadastro.
-//
-// A heurística por Tipo/texto permanece apenas como FALLBACK para registros legados,
-// cadastrados antes da criação do campo Função.
-function ehEquipamentoExaustor(eq) {
-  if (!eq || eq.categoria !== 'VEN') return false;
-  const extras = parseExtras(eq.extras_tecnico);
-
-  // 1) Função declarada — decisão explícita, encerra a avaliação nos dois sentidos.
-  const funcao = _normalizarTextoSugestaoCriticidade(extras['funcao-ven'] || extras['funcao_ven'] || '');
-  if (funcao) return funcao.includes('exaust');
-
-  // 2) Fallback para registros legados (sem Função preenchida).
-  const tipoVen = _normalizarTextoSugestaoCriticidade(extras['tipo-ven'] || extras['tipo_ven'] || '');
-  if (tipoVen.includes('exaustor')) return true;
-  const texto = _normalizarTextoSugestaoCriticidade(`${eq.produto || ''} ${eq.tag || ''}`);
-  return texto.includes('exaust') || /\bexr\b/.test(texto);
-}
-
-// Confronta cada sala com os exaustores nela cadastrados. Não faz I/O.
-// Situações: 'pendente' (exige e não tem), 'conforme' (exige e tem), 'excedente' (não exige e
-// tem exaustor instalado) e 'nao_exige' / 'indefinido' (informativos).
-const EXAUSTAO_STATUS = {
-  pendente:   { rotulo: 'Pendente — exige e não possui', cls: 'danger',    ordem: 0 },
-  indefinido: { rotulo: 'Não avaliado',                  cls: 'warning',   ordem: 1 },
-  excedente:  { rotulo: 'Instalado sem exigência',       cls: 'andamento', ordem: 2 },
-  conforme:   { rotulo: 'Conforme',                      cls: 'success',   ordem: 3 },
-  nao_exige:  { rotulo: 'Não exige exaustão',            cls: '',          ordem: 4 },
-};
-
-function analisarConformidadeExaustao(salas, equipamentos) {
-  const exaustoresPorSala = {};
-  (equipamentos || []).forEach(eq => {
-    if (!eq.sala_id || !ehEquipamentoExaustor(eq)) return;
-    (exaustoresPorSala[String(eq.sala_id)] = exaustoresPorSala[String(eq.sala_id)] || []).push(eq);
-  });
-
-  return (salas || []).map(sala => {
-    const exigencia  = obterExigenciaExaustaoSala(sala);
-    const exaustores = exaustoresPorSala[String(sala.id)] || [];
-    let status;
-    if (exigencia.exige === true)       status = exaustores.length ? 'conforme' : 'pendente';
-    else if (exigencia.exige === false) status = exaustores.length ? 'excedente' : 'nao_exige';
-    else                                status = exaustores.length ? 'conforme'  : 'indefinido';
-    return { sala, exigencia, exaustores, qtd: exaustores.length, status, info: EXAUSTAO_STATUS[status] };
-  });
-}
-
-function resumirConformidadeExaustao(analises) {
-  const resumo = { total: (analises || []).length };
-  Object.keys(EXAUSTAO_STATUS).forEach(k => { resumo[k] = 0; });
-  (analises || []).forEach(a => { resumo[a.status] = (resumo[a.status] || 0) + 1; });
-  return resumo;
-}
-
-// ----- Carregamento compartilhado (respeita o filtro de local da Central de Impressões) -----
-// Devolve { salas, equipamentos } já recortados pelo filtro Instituição/Bloco/Setor/Sala
-// selecionado em impressoes.html (_gerirFiltroLocal), com os joins de hierarquia nas salas.
-async function _carregarBaseConsistenciaAtivoAmbiente(filtro) {
-  // Sem argumento, usa o filtro da Central de Impressões; o Dashboard passa o seu (_dashFiltro).
-  const f = filtro || _gerirFiltroLocal;
-
-  const rSalas = await db.from('salas')
-    .select('*, setores(id, nome, bloco_id, blocos(id, nome, instituicao_id, instituicoes(id, nome)))')
-    .order('nome', { ascending: true });
-  if (rSalas.error) throw rSalas.error;
-  let salas = rSalas.data || [];
-
-  if (f.salaId) {
-    salas = salas.filter(s => String(s.id) === String(f.salaId));
-  } else if (f.setorId) {
-    salas = salas.filter(s => String(s.setor_id) === String(f.setorId));
-  } else if (f.blocoId) {
-    salas = salas.filter(s => String(s.setores?.bloco_id || '') === String(f.blocoId));
-  } else if (f.instituicaoId) {
-    salas = salas.filter(s => String(s.setores?.blocos?.instituicao_id || '') === String(f.instituicaoId));
-  }
-
-  const rEq = await fetchAll(() => db.from('equipamentos')
-    .select('id, tag, produto, marca, categoria, criticidade, extras_tecnico, sala_id, sala, setor, bloco, instituicao_id, bloco_id, setor_id')
-    .order('tag', { ascending: true }));
-  if (rEq.error) throw rEq.error;
-  const equipamentos = rEq.data || [];
-
-  return { salas, equipamentos };
-}
-
-// Aplica o mesmo recorte de local aos ativos (usado quando globalEquipamentos não está
-// carregado na página — dashboard, por exemplo).
-function _filtrarEquipamentosPorFiltroLocal(equipamentos, filtro) {
-  return (equipamentos || []).filter(e =>
-    (!filtro.salaId        || String(e.sala_id || '')        === String(filtro.salaId)) &&
-    (!filtro.setorId       || String(e.setor_id || '')       === String(filtro.setorId)) &&
-    (!filtro.blocoId       || String(e.bloco_id || '')       === String(filtro.blocoId)) &&
-    (!filtro.instituicaoId || String(e.instituicao_id || '') === String(filtro.instituicaoId))
-  );
-}
-
-// ----- Relatório 1: Divergência de Criticidade (Ativo × Ambiente) — A4 paisagem -----
-async function emitirRelatorioDivergenciaCriticidade() {
-  let base;
-  try {
-    base = await _carregarBaseConsistenciaAtivoAmbiente();
-  } catch (err) {
-    toast('Erro ao carregar dados do relatório: ' + (err.message || err), 'erro');
-    return;
-  }
-
-  const equipamentos = _filtrarEquipamentosPorFiltroLocal(base.equipamentos, _gerirFiltroLocal);
-  if (!equipamentos.length) {
-    toast('Nenhum ativo encontrado para o local selecionado no filtro.');
-    return;
-  }
-
-  const analises = analisarDivergenciaCriticidade(equipamentos, base.salas);
-  const resumo   = resumirDivergenciaCriticidade(analises);
-
-  // O relatório lista apenas o que exige ação do gestor; os alinhados entram só no resumo.
-  const listadas = analises
-    .filter(a => a.status !== 'alinhado')
-    .sort((a, b) => a.info.ordem - b.info.ordem
-      || String(a.eq.sala || '').localeCompare(String(b.eq.sala || ''), 'pt-BR')
-      || String(a.eq.tag  || '').localeCompare(String(b.eq.tag  || ''), 'pt-BR'));
-
-  if (!listadas.length) {
-    toast('Nenhuma divergência encontrada: todos os ativos do escopo estão alinhados à criticidade do ambiente.');
-    return;
-  }
-
-  const CLS_BADGE = { Alta: 'danger', 'Média': 'warning', Baixa: 'success' };
-  const badgeClasse = (classe, origem) => classe
-    ? `<span class="tag-badge ${CLS_BADGE[classe] || ''}">${escapeHTML(classe)} (${EQ_CLASSE_LETRA[classe] || '?'})</span>${origem ? `<br><small style="color:#a0aec0;">${origem}</small>` : ''}`
-    : '<span style="color:#a0aec0;">—</span>';
-
-  const linhas = listadas.map(a => {
-    const tipoInfo = a.sala ? TIPOS_AMBIENTE_SALA.find(t => t.value === a.sala.tipo_ambiente) : null;
-    const local    = a.sala
-      ? [a.sala.setores?.blocos?.nome, a.sala.setores?.nome].filter(Boolean).join(' / ')
-      : [a.eq.bloco, a.eq.setor].filter(Boolean).join(' / ');
-    const acao = {
-      abaixo:     'Reavaliar a Matriz de Criticidade do ativo — classe inferior à do ambiente reduz indevidamente a prioridade de atendimento',
-      acima:      'Verificar se a classe elevada se justifica (ativo reserva, insumo sensível) ou se há excesso de rigor no plano',
-      sem_classe: 'Aplicar a Matriz de Criticidade Baseada em Riscos ao ativo',
-      sala_indef: 'Cadastrar o Tipo de Ambiente da sala em Locais → Salas',
-      sem_sala:   'Vincular o ativo a uma Sala em Gerenciamento de Ativos',
-    }[a.status] || '';
-    return `<tr>
-      <td><strong>${escapeHTML(a.eq.tag || '—')}</strong><br><small style="color:#a0aec0;">${escapeHTML(EQ_CATEGORIA_LABEL_PLANO[a.eq.categoria] || a.eq.categoria || '—')}</small></td>
-      <td>${escapeHTML(a.eq.produto || '—')}${a.eq.marca ? `<br><small style="color:#a0aec0;">${escapeHTML(a.eq.marca)}</small>` : ''}</td>
-      <td>${escapeHTML(a.sala?.nome || a.eq.sala || '— sem sala —')}<br><small style="color:#a0aec0;">${escapeHTML(local || '—')}</small></td>
-      <td>${tipoInfo ? escapeHTML(tipoInfo.label) : '<span style="color:#a0aec0;">— não cadastrado —</span>'}</td>
-      <td style="text-align:center;">${badgeClasse(a.classeAtivo, null)}</td>
-      <td style="text-align:center;">${badgeClasse(a.classeSala, a.sugestao ? (a.sugestao.origem === 'tipo' ? 'pelo tipo' : 'pelo nome') : null)}</td>
-      <td style="text-align:center;"><span class="tag-badge ${a.info.cls}">${a.info.rotulo}</span></td>
-      <td style="font-size:9px;color:#4a5568;">${escapeHTML(acao)}</td>
-    </tr>`;
-  }).join('');
-
-  const card = (cor, bg, valor, rotulo) =>
-    `<div style="flex:1;background:${bg};border:1px solid ${cor}44;border-radius:6px;padding:8px 10px;text-align:center;">
-       <div style="font-size:20px;font-weight:800;color:${cor};line-height:1;">${valor}</div>
-       <div style="font-size:9px;color:#4a5568;text-transform:uppercase;letter-spacing:.05em;margin-top:4px;">${rotulo}</div>
-     </div>`;
-  const quadro = `<div style="display:flex;gap:8px;margin:2px 0 12px;">
-    ${card('#dc2626', '#fef2f2', resumo.abaixo,     'Subclassificados')}
-    ${card('#d97706', '#fffbeb', resumo.sem_classe, 'Sem criticidade')}
-    ${card('#1e40af', '#eff6ff', resumo.acima,      'Superclassificados')}
-    ${card('#718096', '#f7fafc', resumo.sala_indef + resumo.sem_sala, 'Não avaliados')}
-    ${card('#059669', '#ecfdf5', resumo.alinhado,   'Alinhados')}
-  </div>`;
-
-  const pctAlinhado = resumo.total ? Math.round((resumo.alinhado / resumo.total) * 100) : 0;
-
-  const html = `
-  <div class="laudo-wrapper relatorio-livre">
-    <div class="laudo-header">
-      <div style="display:flex;align-items:center;gap:14px;"><img src="${LOGO_ETIQUETA}" alt="Logo" style="height:40px;width:auto;display:block;"><div><h1 style="font-size:16px;">Divergência de Criticidade — Ativo × Ambiente</h1><p>Classe apurada na Matriz de Riscos do ativo × criticidade esperada do ambiente onde está instalado</p></div></div>
-      <div class="laudo-header-meta">
-        <strong>Ativos avaliados: ${resumo.total}</strong><br>
-        Divergentes: <strong>${resumo.divergentes}</strong> · Sem classificação: <strong>${resumo.sem_classe}</strong><br>
-        Aderência ao ambiente: <strong>${pctAlinhado}%</strong><br>
-        Emitido em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}
-      </div>
-    </div>
-    <div class="laudo-section">
-      ${quadro}
-      <table class="laudo-checklist-table">
-        <thead>
-          <tr>
-            <th>TAG / Categoria</th>
-            <th>Equipamento</th>
-            <th>Sala / Bloco · Setor</th>
-            <th>Tipo de Ambiente</th>
-            <th style="text-align:center;">Criticidade<br>do Ativo</th>
-            <th style="text-align:center;">Esperada<br>do Ambiente</th>
-            <th style="text-align:center;">Situação</th>
-            <th>Ação recomendada</th>
-          </tr>
-        </thead>
-        <tbody>${linhas}</tbody>
-      </table>
-      <div style="margin-top:12px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:9px;color:#718096;line-height:1.6;">
-        <strong>Critério:</strong> a criticidade esperada do ambiente vem do <strong>Tipo de Ambiente</strong> cadastrado na Sala (Locais → Salas) e, na sua ausência, de palavras-chave no nome da sala.
-        <span style="color:#dc2626;font-weight:700;">Subclassificado</span> = ativo com classe INFERIOR à do ambiente — divergência de risco, pois reduz a prioridade de atendimento e o MTTR-alvo de um ativo instalado em ambiente sensível.
-        <span style="color:#1e40af;font-weight:700;">Superclassificado</span> = classe superior à do ambiente; legítimo quando justificado (ausência de reserva, insumo sensível), mas deve ser conferido para não inflar o plano de manutenção.
-        <span style="color:#d97706;font-weight:700;">Sem criticidade</span> = ativo sem a Matriz de Riscos aplicada.
-        Ativos alinhados não são listados — constam apenas no quadro-resumo.
-      </div>
-      <div style="margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:9px;color:#718096;line-height:1.6;">
-        <strong>Uso:</strong> este confronto é um instrumento de auditoria interna. A classe final de cada ativo permanece sendo a apurada pela Matriz de Criticidade Baseada em Riscos (impacto da interrupção, risco à segurança, criticidade operacional e existência de reserva), aplicada ativo a ativo — o Tipo de Ambiente é o indicativo de contexto, não a decisão.
-      </div>
-      <div style="margin-top:8px;font-size:9px;color:#a0aec0;">Documento gerado pelo Sistema de Gestão Univag · ${new Date().toLocaleString('pt-BR')}</div>
-    </div>
-  </div>`;
-
-  imprimir('area-relatorio-divergencia-criticidade', html, 'paisagem');
-}
-
-// ----- Relatório 2: Conformidade de Exaustão por Sala — A4 paisagem -----
-async function emitirRelatorioExaustaoSalas() {
-  let base;
-  try {
-    base = await _carregarBaseConsistenciaAtivoAmbiente();
-  } catch (err) {
-    toast('Erro ao carregar dados do relatório: ' + (err.message || err), 'erro');
-    return;
-  }
-  if (!base.salas.length) {
-    toast('Nenhuma sala encontrada para o local selecionado no filtro.');
-    return;
-  }
-
-  const analises = analisarConformidadeExaustao(base.salas, base.equipamentos);
-  const resumo   = resumirConformidadeExaustao(analises);
-
-  // Lista tudo que demanda ação ou conferência; salas sem exigência e sem exaustor ficam fora.
-  const listadas = analises
-    .filter(a => a.status !== 'nao_exige')
-    .sort((a, b) => a.info.ordem - b.info.ordem
-      || String(a.sala.nome || '').localeCompare(String(b.sala.nome || ''), 'pt-BR'));
-
-  if (!listadas.length) {
-    toast('Nenhuma sala do escopo exige exaustão mecânica nem possui exaustor cadastrado.');
-    return;
-  }
-
-  const linhas = listadas.map(a => {
-    const tipoInfo = TIPOS_AMBIENTE_SALA.find(t => t.value === a.sala.tipo_ambiente);
-    const local    = [a.sala.setores?.blocos?.nome, a.sala.setores?.nome].filter(Boolean).join(' / ') || '—';
-    const origem   = { cadastro: 'informado no cadastro', tipo: 'pelo Tipo de Ambiente', indefinido: 'não avaliado' }[a.exigencia.origem] || '';
-    const exigeTxt = a.exigencia.exige === true
-      ? `<span class="tag-badge danger">Sim</span><br><small style="color:#a0aec0;">${origem}</small>`
-      : a.exigencia.exige === false
-        ? `<span class="tag-badge success">Não</span><br><small style="color:#a0aec0;">${origem}</small>`
-        : '<span style="color:#a0aec0;">— não avaliado —</span>';
-    const tags = a.exaustores.length
-      ? a.exaustores.map(e => escapeHTML(e.tag || '—')).join(', ')
-      : '<span style="color:#a0aec0;">nenhum</span>';
-    const acao = {
-      pendente:   'Instalar/cadastrar exaustor no ambiente e abrir O.S. de adequação',
-      excedente:  'Conferir se o exaustor pertence a esta sala ou marcar a exigência no cadastro',
-      indefinido: 'Cadastrar o Tipo de Ambiente ou informar a exigência de exaustão em Locais → Salas',
-      conforme:   'Manter o exaustor no escopo do PMOC (limpeza e verificação de vazão)',
-    }[a.status] || '';
-    return `<tr>
-      <td><strong>${escapeHTML(a.sala.nome || '—')}</strong></td>
-      <td>${escapeHTML(local)}</td>
-      <td>${tipoInfo ? escapeHTML(tipoInfo.label) : '<span style="color:#a0aec0;">— não cadastrado —</span>'}</td>
-      <td style="text-align:center;">${exigeTxt}</td>
-      <td style="text-align:center;">${a.qtd}</td>
-      <td style="font-size:9px;">${tags}</td>
-      <td style="text-align:center;"><span class="tag-badge ${a.info.cls}">${a.info.rotulo}</span></td>
-      <td style="font-size:9px;color:#4a5568;">${escapeHTML(acao)}</td>
-    </tr>`;
-  }).join('');
-
-  const card = (cor, bg, valor, rotulo) =>
-    `<div style="flex:1;background:${bg};border:1px solid ${cor}44;border-radius:6px;padding:8px 10px;text-align:center;">
-       <div style="font-size:20px;font-weight:800;color:${cor};line-height:1;">${valor}</div>
-       <div style="font-size:9px;color:#4a5568;text-transform:uppercase;letter-spacing:.05em;margin-top:4px;">${rotulo}</div>
-     </div>`;
-  const quadro = `<div style="display:flex;gap:8px;margin:2px 0 12px;">
-    ${card('#dc2626', '#fef2f2', resumo.pendente,   'Pendentes')}
-    ${card('#059669', '#ecfdf5', resumo.conforme,   'Conformes')}
-    ${card('#1e40af', '#eff6ff', resumo.excedente,  'Sem exigência')}
-    ${card('#d97706', '#fffbeb', resumo.indefinido, 'Não avaliadas')}
-    ${card('#718096', '#f7fafc', resumo.nao_exige,  'Dispensadas')}
-  </div>`;
-
-  const html = `
-  <div class="laudo-wrapper relatorio-livre">
-    <div class="laudo-header">
-      <div style="display:flex;align-items:center;gap:14px;"><img src="${LOGO_ETIQUETA}" alt="Logo" style="height:40px;width:auto;display:block;"><div><h1 style="font-size:16px;">Conformidade de Exaustão Mecânica por Sala</h1><p>Ambientes que exigem exaustão × exaustores efetivamente cadastrados</p></div></div>
-      <div class="laudo-header-meta">
-        <strong>Salas avaliadas: ${resumo.total}</strong><br>
-        Exigem exaustão: <strong>${resumo.pendente + resumo.conforme}</strong> · Pendentes: <strong>${resumo.pendente}</strong><br>
-        Emitido em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}
-      </div>
-    </div>
-    <div class="laudo-section">
-      ${quadro}
-      <table class="laudo-checklist-table">
-        <thead>
-          <tr>
-            <th>Sala</th>
-            <th>Bloco / Setor</th>
-            <th>Tipo de Ambiente</th>
-            <th style="text-align:center;">Exige<br>exaustão?</th>
-            <th style="text-align:center;">Exaustores</th>
-            <th>TAGs</th>
-            <th style="text-align:center;">Situação</th>
-            <th>Ação recomendada</th>
-          </tr>
-        </thead>
-        <tbody>${linhas}</tbody>
-      </table>
-      <div style="margin-top:12px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:9px;color:#718096;line-height:1.6;">
-        <strong>Critério:</strong> a exigência de exaustão vem do campo <strong>Exaustão mecânica</strong> do cadastro da Sala (Locais → Salas); quando deixado em "Herdar do Tipo de Ambiente", é inferida do Tipo cadastrado.
-        <span style="color:#dc2626;font-weight:700;">Pendente</span> = ambiente exige exaustão e não possui exaustor cadastrado.
-        <span style="color:#1e40af;font-weight:700;">Sem exigência</span> = há exaustor instalado em ambiente que não a demanda — conferir vínculo de sala ou revisar a exigência.
-        <span style="color:#d97706;font-weight:700;">Não avaliada</span> = sala sem Tipo de Ambiente e sem exigência informada.
-        Considera exaustores os ativos de categoria Ventilador/Exaustor (VEN) cuja <strong>Função</strong> cadastrada seja "Exaustão". Registros antigos, sem Função preenchida, são reconhecidos pelo Tipo construtivo ("Exaustor de Parede"/"Exaustor de Teto") ou pelo texto da TAG.
-      </div>
-      <div style="margin-top:8px;font-size:9px;color:#a0aec0;">Documento gerado pelo Sistema de Gestão Univag · ${new Date().toLocaleString('pt-BR')}</div>
-    </div>
-  </div>`;
-
-  imprimir('area-relatorio-exaustao-salas', html, 'paisagem');
+// Classifica a capacidade instalada de um ambiente contra a carga térmica calculada.
+// Retorna { status, cls, ordem, pct }. Os limites são parametrizáveis (a tela permite
+// ajustá-los), mas o PADRÃO é único e compartilhado por todos os documentos do sistema.
+function classificarAdequacaoCarga(prevista, instalada, pisoRatio, tetoRatio) {
+  const p = parseFloat(prevista)  || 0;
+  const q = parseFloat(instalada) || 0;
+  const piso = Number.isFinite(pisoRatio) && pisoRatio > 0 ? pisoRatio : ADEQUACAO_TERMICA_PISO;
+  const teto = Number.isFinite(tetoRatio) && tetoRatio >= piso ? tetoRatio : ADEQUACAO_TERMICA_TETO;
+  const pct  = p > 0 ? (q / p) * 100 : 0;
+  if (q <= 0)         return { status: 'Sem climatização',  cls: '',          ordem: 1, pct };
+  if (q < p * piso)   return { status: 'Subdimensionada',   cls: 'danger',    ordem: 0, pct };
+  if (q > p * teto)   return { status: 'Superdimensionada', cls: 'andamento', ordem: 3, pct };
+  return                     { status: 'Adequada',          cls: 'success',   ordem: 2, pct };
 }
 
 // Relatório de Adequação da Carga Térmica por Sala (impressão/PDF, A4 paisagem).
@@ -1631,12 +1226,14 @@ async function emitirRelatorioAdequacaoSalas() {
     capMap[e.sala_id]     = (capMap[e.sala_id] || 0) + parseCapacidadeBTU(e.potencia);
   });
 
-  // Intervalos de classificação definidos pelo usuário (em % da carga prevista), com
-  // validação e valores padrão (100% a 130%) caso os campos estejam ausentes/ inválidos.
+  // Intervalos de classificação definidos pelo usuário (em % da carga prevista). O PADRÃO
+  // vem de ADEQUACAO_TERMICA_PISO/TETO — as mesmas constantes usadas na Seção 5.4 do Plano
+  // PMOC — para que relatório e documento oficial nunca classifiquem o ambiente de formas
+  // diferentes. Antes o padrão daqui era 100%, divergindo do 96% do plano.
   let minPct = parseInt($('adeq-limite-min')?.value);
   let maxPct = parseInt($('adeq-limite-max')?.value);
-  if (!Number.isFinite(minPct) || minPct < 1)      minPct = 100;
-  if (!Number.isFinite(maxPct) || maxPct < minPct) maxPct = Math.max(minPct, 130);
+  if (!Number.isFinite(minPct) || minPct < 1)      minPct = Math.round(ADEQUACAO_TERMICA_PISO * 100);
+  if (!Number.isFinite(maxPct) || maxPct < minPct) maxPct = Math.max(minPct, Math.round(ADEQUACAO_TERMICA_TETO * 100));
   const minRatio = minPct / 100;
   const maxRatio = maxPct / 100;
 
@@ -1645,12 +1242,11 @@ async function emitirRelatorioAdequacaoSalas() {
     const prevista  = Math.round(parseFloat(s.carga_termica_btu) || 0);
     const instalada = Math.round(capMap[s.id] || 0);
     const nAC       = acCountMap[s.id] || 0;
-    const pct       = prevista > 0 ? (instalada / prevista) * 100 : 0;
-    let status, cls, ordem;
-    if (instalada <= 0)                          { status = 'Sem climatização';  cls = '';          ordem = 1; nSem++;   }
-    else if (instalada < prevista * minRatio)    { status = 'Subdimensionada';   cls = 'danger';    ordem = 0; nSub++;   }
-    else if (instalada > prevista * maxRatio)    { status = 'Superdimensionada'; cls = 'andamento'; ordem = 3; nSuper++; }
-    else                                         { status = 'Adequada';          cls = 'success';   ordem = 2; nOk++;    }
+    const { status, cls, ordem, pct } = classificarAdequacaoCarga(prevista, instalada, minRatio, maxRatio);
+    if      (status === 'Sem climatização')  nSem++;
+    else if (status === 'Subdimensionada')   nSub++;
+    else if (status === 'Superdimensionada') nSuper++;
+    else                                     nOk++;
     const local     = [s.setores?.blocos?.nome, s.setores?.nome].filter(Boolean).join(' / ') || '—';
     const sugestao  = obterCriticidadeSugeridaSala(s);
     return { s, prevista, instalada, nAC, pct, status, cls, ordem, local, sugestao, saldo: instalada - prevista };
@@ -2121,63 +1717,10 @@ async function popularSelectSalas(setorId, selectId) {
     sel.disabled = true;
     return;
   }
-  // tipo_ambiente e exige_exaustao viajam como data-attributes da <option> para que o cadastro
-  // de Ativos possa validar a instalação de exaustores sem uma segunda consulta ao banco.
-  const { data } = await fetchAll(() => db.from('salas').select('id, nome, tipo_ambiente, exige_exaustao').eq('setor_id', setorId).order('nome', { ascending: true }));
+  const { data } = await fetchAll(() => db.from('salas').select('id, nome').eq('setor_id', setorId).order('nome', { ascending: true }));
   sel.disabled = false;
   sel.innerHTML = '<option value="">— Selecione —</option>'
-    + (data || []).map(s => `<option value="${s.id}" data-tipo-ambiente="${escapeHTML(s.tipo_ambiente || '')}" data-exige-exaustao="${escapeHTML(s.exige_exaustao || '')}">${escapeHTML(s.nome)}</option>`).join('');
-}
-
-// Lê a sala selecionada no cadastro de Ativos a partir dos data-attributes da <option>,
-// devolvendo um objeto no mesmo formato consumido por obterExigenciaExaustaoSala().
-function obterSalaSelecionadaEquipamento() {
-  const sel = $('eq-sala-id');
-  const opt = sel && sel.value ? sel.selectedOptions[0] : null;
-  if (!opt) return null;
-  return {
-    id:             sel.value,
-    nome:           opt.textContent,
-    tipo_ambiente:  opt.dataset.tipoAmbiente  || null,
-    exige_exaustao: opt.dataset.exigeExaustao || null,
-  };
-}
-
-// Aviso em tela (equipamentos.html) quando um EXAUSTOR está sendo cadastrado em uma sala que
-// não exige exaustão mecânica — ou quando a sala escolhida a exige e o ativo não é exaustor.
-// Não bloqueia por si só: a confirmação obrigatória acontece no clique de salvar.
-function atualizarAvisoExaustaoSala() {
-  const el = $('aviso-exaustao-sala'); if (!el) return;
-  const cat  = $('eq-categoria')?.value || '';
-  const sala = obterSalaSelecionadaEquipamento();
-  if (cat !== 'VEN' || !sala) { el.style.display = 'none'; el.innerHTML = ''; return; }
-
-  const tipoVen  = $('eq-tipo-ven')?.value || '';
-  const funcao   = _normalizarTextoSugestaoCriticidade($('eq-funcao-ven')?.value || '');
-  // Mesma precedência de ehEquipamentoExaustor(): Função declarada vence; Tipo é só fallback.
-  const exaustor = funcao ? funcao.includes('exaust')
-                          : _normalizarTextoSugestaoCriticidade(tipoVen).includes('exaustor');
-  const r        = obterExigenciaExaustaoSala(sala);
-
-  let cor = '', texto = '';
-  if (exaustor && r.exige === true) {
-    cor = '#059669';
-    texto = `✓ Ambiente com exaustão obrigatória. ${escapeHTML(r.motivo)}`;
-  } else if (exaustor && r.exige === false) {
-    cor = '#c2410c';
-    texto = `⚠ A sala <strong>${escapeHTML(sala.nome)}</strong> não está marcada como ambiente que exige exaustão mecânica. ${escapeHTML(r.motivo)} Ajuste o cadastro da sala em Locais → Salas ou confirme a exceção ao salvar.`;
-  } else if (exaustor && r.exige === null) {
-    cor = '#b45309';
-    texto = `⚠ A sala <strong>${escapeHTML(sala.nome)}</strong> não tem Tipo de Ambiente nem exigência de exaustão cadastrados — não é possível validar a obrigatoriedade.`;
-  } else if (!exaustor && r.exige === true) {
-    cor = '#1e40af';
-    texto = `ℹ Este ambiente exige exaustão mecânica. ${escapeHTML(r.motivo)}`;
-  } else {
-    el.style.display = 'none'; el.innerHTML = ''; return;
-  }
-  el.style.display = 'block';
-  el.style.color   = cor;
-  el.innerHTML     = texto;
+    + (data || []).map(s => `<option value="${s.id}">${escapeHTML(s.nome)}</option>`).join('');
 }
 
 // Disparado pelo onchange do select de Bloco em equipamentos.html
@@ -2196,7 +1739,6 @@ async function atualizarSelectSalasCascata(manterValor) {
   const salaAnterior = manterValor ? $('eq-sala-id')?.value : '';
   await popularSelectSalas(setorId, 'eq-sala-id');
   if (salaAnterior) $('eq-sala-id').value = salaAnterior;
-  atualizarAvisoExaustaoSala();
 }
 
 // ----- CRUD: Instituições / Unidades -----
@@ -2480,6 +2022,49 @@ function calcularCargaTermicaBTU({ area_m2, pessoas_previstas, equip_watts, inci
   return Math.round(total);
 }
 
+// ----- Validação de plausibilidade dos dados de carga térmica -----
+// AUDITORIA 2026. calcularCargaTermicaBTU() aceitava qualquer entrada: área negativa
+// produzia carga negativa, e um erro de digitação na área (300 em vez de 30) ou na
+// ocupação virava dado oficial no PMOC sem nenhum aviso. A densidade resultante
+// (BTU/h por m²) é o indicador que detecta esses casos: ambientes climatizados reais
+// ficam entre ~400 e ~2.500 BTU/h·m² mesmo em clima 5B (Cuiabá-MT).
+const CARGA_DENSIDADE_MIN = 400;   // BTU/h·m² — abaixo disto, provável área superestimada
+const CARGA_DENSIDADE_MAX = 2500;  // BTU/h·m² — acima disto, provável área subestimada
+const CARGA_AREA_MAX_M2   = 2000;  // m²  — acima disto, provável erro de digitação
+const CARGA_PESSOAS_MAX   = 500;   // pessoas — acima disto, provável erro de digitação
+
+// Retorna { erros: [], avisos: [] }. "erros" impedem o salvamento (dado impossível);
+// "avisos" apenas alertam o usuário, que decide se confirma (dado improvável, mas legítimo).
+function validarPlausibilidadeSala({ area_m2, pessoas_previstas, equip_watts, carga_termica_btu }) {
+  const erros = [], avisos = [];
+  const area    = parseFloat(area_m2) || 0;
+  const pessoas = parseInt(pessoas_previstas) || 0;
+  const watts   = parseFloat(equip_watts) || 0;
+  const btu     = parseFloat(carga_termica_btu) || 0;
+
+  if (area < 0)    erros.push('A área não pode ser negativa.');
+  if (pessoas < 0) erros.push('A ocupação prevista não pode ser negativa.');
+  if (watts < 0)   erros.push('A carga de equipamentos não pode ser negativa.');
+  if (btu < 0)     erros.push('A carga térmica calculada ficou negativa — revise os valores informados.');
+
+  if (area > CARGA_AREA_MAX_M2)
+    avisos.push(`Área de ${area.toLocaleString('pt-BR')} m² é atípica para um ambiente climatizado — confira se não há erro de digitação.`);
+  if (pessoas > CARGA_PESSOAS_MAX)
+    avisos.push(`Ocupação de ${pessoas.toLocaleString('pt-BR')} pessoas é atípica — confira o valor.`);
+
+  if (area > 0 && btu > 0) {
+    const dens = btu / area;
+    if (dens > CARGA_DENSIDADE_MAX)
+      avisos.push(`Densidade de ${Math.round(dens).toLocaleString('pt-BR')} BTU/h·m² acima da faixa técnica usual (até ${CARGA_DENSIDADE_MAX.toLocaleString('pt-BR')}). Verifique se a área está subestimada ou se a ocupação/carga de equipamentos está superestimada.`);
+    else if (dens < CARGA_DENSIDADE_MIN)
+      avisos.push(`Densidade de ${Math.round(dens).toLocaleString('pt-BR')} BTU/h·m² abaixo da faixa técnica usual (a partir de ${CARGA_DENSIDADE_MIN.toLocaleString('pt-BR')}). Verifique se a área não foi informada em excesso.`);
+  }
+  if (area <= 0 && btu > 0)
+    avisos.push('Área não informada: a carga foi calculada sem o componente de envoltória e o ambiente será excluído do indicador de adequação térmica no PMOC.');
+
+  return { erros, avisos };
+}
+
 // ----- Lista de equipamentos por Sala (carga interna com fator de uso) -----
 // Cada item: { nome, potencia, quantidade, fator_uso }. A carga efetiva de um item é
 // potencia × quantidade × fator_uso, e a soma alimenta o campo equip_watts do cálculo de BTU.
@@ -2570,10 +2155,8 @@ async function carregarSalas() {
     const nJan = parseInt(s.num_janelas) || 0;
     const nEquip = parseEquipCarga(s.equipamentos_carga).length;
     const tipoInfo = TIPOS_AMBIENTE_SALA.find(t => t.value === s.tipo_ambiente);
-    const exaust   = obterExigenciaExaustaoSala(s);
     const infos = [];
     if (tipoInfo)   infos.push(`🏷️ ${escapeHTML(tipoInfo.label)}`);
-    if (exaust.exige === true) infos.push(`💨 <strong style="color:#c2410c;">exige exaustão</strong>`);
     if (nJan > 0)   infos.push(`🪟 ${nJan} janela${nJan > 1 ? 's' : ''}`);
     if (nEquip > 0) infos.push(`💡 ${nEquip} equip.`);
     const sub = infos.length ? `<br><small style="color:#a0aec0;">${infos.join(' · ')}</small>` : '';
@@ -2604,8 +2187,6 @@ function editarSala(id) {
   if ($('sala-area-janelas')) $('sala-area-janelas').value = s.area_janelas_m2 ?? 0;
   if ($('sala-incidencia-janelas')) $('sala-incidencia-janelas').value = s.incidencia_janelas || 'sem';
   if ($('sala-tipo-ambiente')) $('sala-tipo-ambiente').value = s.tipo_ambiente || '';
-  if ($('sala-exige-exaustao')) $('sala-exige-exaustao').value = s.exige_exaustao || '';
-  atualizarDicaExaustaoSala();
 
   // Lista de equipamentos: usa equipamentos_carga se existir; caso contrário, migra o valor
   // antigo de equip_watts para um único item genérico (compatibilidade retroativa).
@@ -2634,34 +2215,11 @@ function resetarFormSala() {
   if ($('sala-area-janelas')) $('sala-area-janelas').value = 0;
   if ($('sala-incidencia-janelas')) $('sala-incidencia-janelas').value = 'sem';
   if ($('sala-tipo-ambiente')) $('sala-tipo-ambiente').value = '';
-  if ($('sala-exige-exaustao')) $('sala-exige-exaustao').value = '';
-  atualizarDicaExaustaoSala();
   _salaEquipCarga = [];
   renderSalaEquipCarga();
   atualizarPreviaCargaTermicaSala();
   $('btn-salvar-sala').textContent = '💾 Salvar Sala';
   $('btn-cancelar-sala').style.display = 'none';
-}
-
-// Atualiza, em tempo real, a dica exibida sob o campo "Exaustão mecânica" no formulário de Sala
-// (locais.html). Mostra exatamente o que valerá para os relatórios: a decisão explícita do gestor
-// quando informada, ou a regra herdada do Tipo de Ambiente selecionado.
-function atualizarDicaExaustaoSala() {
-  const el = $('sala-exaustao-dica'); if (!el) return;
-  const r = obterExigenciaExaustaoSala({
-    tipo_ambiente:  $('sala-tipo-ambiente')?.value  || null,
-    exige_exaustao: $('sala-exige-exaustao')?.value || null,
-  });
-  if (r.exige === true) {
-    el.style.color = '#c2410c';
-    el.innerHTML = `💨 <strong>Exige exaustão mecânica.</strong> ${escapeHTML(r.motivo)}${r.origem === 'tipo' ? ' <em>(herdado do Tipo de Ambiente)</em>' : ''}`;
-  } else if (r.exige === false) {
-    el.style.color = '#718096';
-    el.innerHTML = `✓ Não exige exaustão mecânica. ${escapeHTML(r.motivo)}`;
-  } else {
-    el.style.color = '#a0aec0';
-    el.innerHTML = 'Selecione o Tipo de Ambiente ou informe a exigência manualmente para que a sala entre no relatório de Conformidade de Exaustão.';
-  }
 }
 
 // Recalcula e exibe em tempo real a prévia da carga térmica no formulário de Sala (locais.html)
@@ -2703,9 +2261,6 @@ if ($('btn-salvar-sala')) {
     const area_janelas_m2   = parseFloat($('sala-area-janelas')?.value) || 0;
     const incidencia_janelas = $('sala-incidencia-janelas')?.value || 'sem';
     const tipo_ambiente      = $('sala-tipo-ambiente')?.value || null;
-    // Exaustão mecânica: '' = herda a regra do Tipo de Ambiente (grava NULL); 'sim'/'nao' = decisão
-    // explícita do gestor, que sempre prevalece sobre a sugestão do tipo.
-    const exige_exaustao     = $('sala-exige-exaustao')?.value || null;
 
     // Normaliza a lista de equipamentos e recalcula a carga interna efetiva (equip_watts).
     const equipamentos_carga = _salaEquipCarga
@@ -2719,7 +2274,18 @@ if ($('btn-salvar-sala')) {
     const equip_watts = Math.round(equipamentos_carga.reduce((s, it) => s + wattsEfetivosItem(it), 0));
 
     const carga_termica_btu = calcularCargaTermicaBTU({ area_m2, pessoas_previstas, equip_watts, incidencia_solar, btu_m2_base, cobertura, num_janelas, area_janelas_m2, incidencia_janelas });
-    const payload = { setor_id, nome, area_m2, pessoas_previstas, equip_watts, incidencia_solar, cobertura, btu_m2_base, num_janelas, area_janelas_m2, incidencia_janelas, tipo_ambiente, exige_exaustao, equipamentos_carga, carga_termica_btu };
+
+    // Barreira de plausibilidade: a carga térmica alimenta a Seção 5.4 do PMOC e o
+    // relatório de divergência. Dado impossível é bloqueado; dado improvável exige
+    // confirmação explícita do usuário antes de virar registro oficial.
+    const { erros, avisos } = validarPlausibilidadeSala({ area_m2, pessoas_previstas, equip_watts, carga_termica_btu });
+    if (erros.length) { msgForm('msg-sala', erros.join(' '), 'red'); return; }
+    if (avisos.length && !confirm('Verifique os pontos abaixo antes de salvar:\n\n• ' + avisos.join('\n\n• ') + '\n\nDeseja salvar assim mesmo?')) {
+      msgForm('msg-sala', 'Salvamento cancelado — revise os dados do ambiente.', 'red');
+      return;
+    }
+
+    const payload = { setor_id, nome, area_m2, pessoas_previstas, equip_watts, incidencia_solar, cobertura, btu_m2_base, num_janelas, area_janelas_m2, incidencia_janelas, tipo_ambiente, equipamentos_carga, carga_termica_btu };
     const idEd = $('sala-id-edicao')?.value;
     const { error } = idEd
       ? await db.from('salas').update(payload).eq('id', idEd)
@@ -2954,6 +2520,13 @@ const CHECKLIST_PMOC_DEFS = {
       ['dut_03', '[DUT-03] Isolamento Térmico de Dutos, Plenums e Linhas Frigorígenas — Integridade e Condensação'],
       ['dut_04', '[DUT-04] Bocas de Ar e Difusores (Insuflamento/Retorno) — Sujidade, Fixação e Medição de Vazão'],
       ['dut_05', '[DUT-05] Tomada de Ar Exterior, Registros (Dampers) e Automação VRF — Existência, Vazão e Funcionamento'],
+      // AUDITORIA 2026 — item movido de "anual" para "semestral".
+      // A Seção 7 do Plano PMOC fixa periodicidade SEMESTRAL para o monitoramento da QAI
+      // (RE ANVISA nº 09/2003). Manter a amostragem microbiológica no bloco anual criava
+      // contradição interna no documento: a Seção 6 prometia anual e a Seção 7 exigia semestral.
+      // A higienização completa do sistema — que é atividade de periodicidade anual — foi
+      // desmembrada para o item BIO-06, abaixo.
+      ['bio_05', '[BIO-05] Avaliação da Qualidade do Ar Interior (QAI) — Amostragem e Laudos Microbiológicos'],
       ['ele_03', '[ELE-03] Medição de Isolamento Elétrico (Megôhmetro) dos Motores'],
       ['ele_04', '[ELE-04] Teste dos Dispositivos de Proteção (Pressostatos e Termostatos)'],
       ['ins_01', '[INS-01] Inspeção Estrutural — Suportes, Fixações e Isolamento Térmico das Linhas'],
@@ -2962,7 +2535,9 @@ const CHECKLIST_PMOC_DEFS = {
       ['ref_02', '[REF-02] Verificação de Vazamentos no Circuito Frigorífico (Detector de Gás)'],
     ],
     anual: [
-      ['bio_05', '[BIO-05] Higienização Completa e Laudos Microbiológicos do Sistema de Ar'],
+      // AUDITORIA 2026 — desmembrado do antigo BIO-05. A higienização completa permanece
+      // anual; a amostragem/laudo de QAI passou a ser semestral (ver BIO-05, bloco semestral).
+      ['bio_06', '[BIO-06] Higienização Completa do Sistema de Ar (Serpentinas, Bandejas, Plenums e Dutos)'],
       ['ele_05', '[ELE-05] Revisão de Capacitores e Contatores com Desgaste Visível'],
       ['ele_06', '[ELE-06] Termografia Elétrica do Painel de Comando e Cabos de Alimentação'],
       ['ins_02', '[INS-02] Revisão Geral do PMOC — Atualização de Documentação e ART'],
@@ -3089,7 +2664,8 @@ const CHECKLIST_EXECUCAO_GUIA = {
   ref_01: { exec: 'Conectar manifold ao sistema e medir as pressões de alta e baixa em operação, comparando com a tabela PT do gás refrigerante utilizado.', c: 'Pressões dentro da faixa esperada para o gás e condição ambiente.', nc: 'Pressão baixa (indício de vazamento/carga insuficiente) ou alta (excesso de carga/restrição).', na: '—', ferramenta: 'Manifold, termômetro, tabela PT do gás', seguranca: 'Manuseio de gás refrigerante sob pressão — usar óculos e luvas de proteção.' },
   ref_02: { exec: 'Percorrer todo o circuito frigorífico com detector eletrônico de vazamento, verificando conexões, válvulas e solda.', c: 'Nenhum vazamento detectado.', nc: 'Vazamento detectado — localizar ponto, reparar e recarregar o sistema.', na: '—', ferramenta: 'Detector eletrônico de vazamento de gás' },
   // ── AC — anual ──
-  bio_05: { exec: 'Realizar higienização completa de todos os componentes do sistema de climatização (serpentinas, bandejas, dutos acessíveis) e emitir laudo microbiológico do ar conforme RE ANVISA nº 09/2003.', c: 'Higienização concluída e laudo dentro dos padrões aceitáveis.', nc: 'Laudo fora do padrão — repetir higienização e nova coleta.', na: '—' },
+  bio_05: { exec: 'Coletar amostra de ar do ambiente climatizado e do ar exterior, com o sistema em operação há no mínimo 2 horas, por laboratório com metodologia rastreável e instrumentos calibrados. Medir CO₂, temperatura de bulbo seco, umidade relativa e velocidade do ar na zona de ocupação, e realizar contagem fúngica com identificação de gêneros. Confrontar com os padrões da Seção 7 do Plano PMOC.', c: 'Todos os parâmetros dentro dos limites da RE ANVISA nº 09/2003: CO₂ ≤ 1.000 ppm (e diferencial interno-externo ≤ 700 ppm), contagem fúngica ≤ 750 UFC/m³ com relação I/E ≤ 1,5 e ausência de fungos patogênicos/toxigênicos, temperatura, umidade e velocidade do ar em faixa.', nc: 'Qualquer parâmetro fora do limite. Reprovação em CO₂ caracteriza insuficiência de ar exterior e aciona o Plano de Ação e Contingência (item 7.4), não sendo sanável por higienização. Reprovação microbiológica aciona higienização completa (BIO-06) e reamostragem em até 30 dias.', na: 'Somente para ambiente sem ocupação permanente e fora do escopo de amostragem definido no plano de pontos de coleta — registrar a justificativa.', ferramenta: 'Analisador de CO₂, termohigrômetro e anemômetro com certificado de calibração vigente; amostrador de ar microbiológico (impactação em ágar)' },
+  bio_06: { exec: 'Realizar higienização completa de todos os componentes do sistema de climatização — serpentinas, bandeja de condensado e dreno, gabinete, ventilador, caixa de plenum de retorno das unidades Cassete e rede de dutos acessível — com saneante desinfetante regularizado na ANVISA, substituindo integralmente os elementos filtrantes.', c: 'Higienização concluída em todos os componentes, filtros substituídos e registro fotográfico antes/depois arquivado.', nc: 'Componente não higienizado, filtro não substituído ou ausência de registro de evidência.', na: '—', ferramenta: 'Saneante desinfetante regularizado na ANVISA, lavadora de baixa pressão, EPI (proteção respiratória, luvas, óculos)', seguranca: 'Desenergizar o equipamento; usar proteção respiratória ao remover deposição de plenum e serpentina.' },
   ele_05: { exec: 'Inspecionar capacitores (estufamento, vazamento) e contatores (contatos queimados, desgaste mecânico), substituindo os comprometidos.', c: 'Capacitores e contatores sem sinais de desgaste ou falha iminente.', nc: 'Capacitor estufado/vazando ou contator com contatos queimados.', na: '—' },
   ele_06: { exec: 'Realizar varredura termográfica com câmera infravermelha no painel elétrico e cabos de alimentação, em plena carga, identificando pontos quentes anormais.', c: 'Sem pontos quentes anormais (diferença de temperatura dentro do aceitável).', nc: 'Ponto quente identificado — indicativo de mau contato/sobrecarga, requer intervenção imediata.', na: '—', ferramenta: 'Câmera termográfica' },
   ins_02: { exec: 'Revisar toda a documentação do PMOC (plano, fichas, histórico), atualizar o cadastro de equipamentos e renovar/emitir nova ART/TRT quando aplicável.', c: 'Documentação atualizada e ART vigente.', nc: 'Documentação desatualizada ou ART vencida/ausente.', na: '—' },
@@ -4821,7 +4397,6 @@ function recarregarDashboardComFiltro() {
   carregarConformidadeFiltros();
   carregarCoberturaPMOC();
   carregarKpiCargaTermica();
-  carregarConsistenciaAtivoAmbiente();
 }
 
 // ===================== DASHBOARD — KPI: CARGA INSTALADA × CARGA NECESSÁRIA =====================
@@ -4884,78 +4459,6 @@ async function carregarKpiCargaTermica() {
         elBadge.style.color = '#ef4444';
       }
     }
-  }
-}
-
-// ===================== DASHBOARD — CONSISTÊNCIA ATIVO × AMBIENTE =====================
-// Painel de auditoria que cruza o cadastro de Ativos com o de Salas, respeitando o filtro de
-// localização ativo. Reaproveita integralmente as funções de análise (single source of truth)
-// usadas pelos relatórios impressos da Central de Impressões.
-async function carregarConsistenciaAtivoAmbiente() {
-  const elCrit  = $('dash-consist-criticidade');
-  const elExa   = $('dash-consist-exaustao');
-  const elLista = $('dash-consist-lista');
-  if (!elCrit && !elExa) return;
-
-  let base;
-  try {
-    base = await _carregarBaseConsistenciaAtivoAmbiente(_dashFiltro);
-  } catch (err) {
-    if (elCrit) elCrit.innerHTML = `<span style="color:#ef4444;">Erro ao carregar: ${escapeHTML(err.message || String(err))}</span>`;
-    return;
-  }
-
-  const equipamentos = _filtrarEquipamentosPorFiltroLocal(base.equipamentos, _dashFiltro);
-  const analisesCrit = analisarDivergenciaCriticidade(equipamentos, base.salas);
-  const resumoCrit   = resumirDivergenciaCriticidade(analisesCrit);
-  const analisesExa  = analisarConformidadeExaustao(base.salas, base.equipamentos);
-  const resumoExa    = resumirConformidadeExaustao(analisesExa);
-
-  const linha = (cor, rotulo, valor, sufixo) =>
-    `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f1f5f9;">
-       <span style="font-size:12px;color:#4a5568;"><span style="color:${cor};font-size:14px;">●</span> ${rotulo}</span>
-       <strong style="font-size:13px;color:${cor};">${valor}${sufixo || ''}</strong>
-     </div>`;
-
-  if (elCrit) {
-    const pct = resumoCrit.total ? Math.round((resumoCrit.alinhado / resumoCrit.total) * 100) : 0;
-    elCrit.innerHTML = resumoCrit.total
-      ? linha('#ef4444', 'Subclassificados <small style="color:#a0aec0;">(risco)</small>', resumoCrit.abaixo, '')
-        + linha('#f59e0b', 'Sem criticidade aplicada', resumoCrit.sem_classe, '')
-        + linha('#3b82f6', 'Superclassificados', resumoCrit.acima, '')
-        + linha('#94a3b8', 'Ambiente não classificado', resumoCrit.sala_indef + resumoCrit.sem_sala, '')
-        + linha('#10b981', 'Alinhados ao ambiente', `${resumoCrit.alinhado} (${pct}%)`, '')
-      : '<span style="color:#a0aec0;">Nenhum ativo no escopo do filtro atual.</span>';
-  }
-
-  if (elExa) {
-    elExa.innerHTML = resumoExa.total
-      ? linha('#ef4444', 'Exigem exaustão e não possuem', resumoExa.pendente, '')
-        + linha('#10b981', 'Exigem e possuem exaustor', resumoExa.conforme, '')
-        + linha('#3b82f6', 'Exaustor sem exigência', resumoExa.excedente, '')
-        + linha('#f59e0b', 'Sem tipo/exigência cadastrada', resumoExa.indefinido, '')
-        + linha('#94a3b8', 'Dispensadas de exaustão', resumoExa.nao_exige, '')
-      : '<span style="color:#a0aec0;">Nenhuma sala no escopo do filtro atual.</span>';
-  }
-
-  // Top 8 divergências de maior prioridade (subclassificados primeiro, depois sem criticidade).
-  if (elLista) {
-    const criticas = analisesCrit
-      .filter(a => a.info.prioridade)
-      .sort((a, b) => a.info.ordem - b.info.ordem)
-      .slice(0, 8);
-    elLista.innerHTML = criticas.length
-      ? criticas.map(a => `
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 10px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;">
-          <div style="min-width:0;">
-            <strong style="font-size:12px;color:#9a3412;">${escapeHTML(a.eq.tag || '—')}</strong>
-            <span style="font-size:11px;color:#78716c;"> · ${escapeHTML(a.sala?.nome || a.eq.sala || 'sem sala')}</span>
-          </div>
-          <span style="font-size:11px;font-weight:700;color:#c2410c;white-space:nowrap;">
-            ${a.classeAtivo ? escapeHTML(a.classeAtivo) : 'sem classe'} → ${a.classeSala ? escapeHTML(a.classeSala) : '—'}
-          </span>
-        </div>`).join('')
-      : '<span style="font-size:12px;color:#10b981;">✓ Nenhuma divergência de risco no escopo atual.</span>';
   }
 }
 

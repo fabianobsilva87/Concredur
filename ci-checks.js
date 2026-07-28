@@ -72,9 +72,59 @@ const menus={};
 for(const f of htmls){const s=fs.readFileSync(path.join(DIR,f),'utf8');
   const nav=(s.match(/<nav[\s\S]*?<\/nav>/)||[''])[0];
   menus[f]=(nav.match(/location\.href='([^']+)'/g)||[]).join('|');}
-const ref=menus[htmls[0]];const divergentes=htmls.filter(f=>menus[f]!==ref);
-ok('6. consistência dos itens de menu entre as páginas ('+(ref.split('|').length)+' itens)',divergentes.length===0);
+// Páginas públicas/utilitárias legitimamente não têm o menu do sistema: index (login),
+// verificar (QR público) e diagnostico (ferramenta isolada). Comparar só as que têm nav.
+const SEM_MENU=new Set(['index.html','verificar.html','diagnostico.html']);
+const comMenu=htmls.filter(f=>!SEM_MENU.has(f)&&menus[f]);
+const ref=menus[comMenu[0]];const divergentes=comMenu.filter(f=>menus[f]!==ref);
+ok('6. consistência dos itens de menu entre as páginas ('+(ref.split('|').length)+' itens, '+comMenu.length+' páginas)',divergentes.length===0);
 divergentes.forEach(f=>console.log('   diverge: '+f));
 
-console.log('\n'+(falhas?'⚠ '+falhas+' check(s) com falha':'LINHA DE BASE: 6/6 OK'));
+// 7 sincronia do checklist PMOC: defs (app.js) x formulário (pmoc.html) x guia de execução
+// AUDITORIA 2026 — este check existe porque 9 itens (AMB-01..04, DUT-01..05) estavam
+// declarados no plano e no guia mas NÃO tinham campo no formulário. O laudo os imprimia
+// como "N/A" automático, inclusive o DUT-05, cuja marcação NA o item 5.2 do plano veda.
+function blocoTopo(src,prefixo){
+  const L=src.split('\n');const i=L.findIndex(l=>l.startsWith(prefixo));
+  if(i<0)return null;
+  for(let j=i+1;j<L.length;j++)if(L[j]==='}'||L[j]==='};'||L[j]===']；'||L[j]==='];')return L.slice(i,j+1).join('\n');
+  return null;
+}
+let sincOK=false,sincMsg='';
+try{
+  const defsBloco=blocoTopo(appSrc,'const CHECKLIST_PMOC_DEFS');
+  const guiaBloco=blocoTopo(appSrc,'const CHECKLIST_EXECUCAO_GUIA');
+  const defs=eval('('+defsBloco.replace(/^const CHECKLIST_PMOC_DEFS\s*=\s*/,'').replace(/;$/,'')+')');
+  const guia=eval('('+guiaBloco.replace(/^const CHECKLIST_EXECUCAO_GUIA\s*=\s*/,'').replace(/;$/,'')+')');
+  const chaves=new Set();
+  for(const per of Object.values(defs))for(const arr of Object.values(per))for(const [k] of arr)chaves.add(k);
+  const formSrc=fs.readFileSync(path.join(DIR,'pmoc.html'),'utf8');
+  const campos=new Set();let mm;const rr=/<input type="radio" name="([a-z]{3}_[0-9]{2})"/g;
+  while((mm=rr.exec(formSrc)))campos.add(mm[1]);
+  const semCampo=[...chaves].filter(k=>!campos.has(k));
+  const semDef=[...campos].filter(k=>!chaves.has(k));
+  const semGuia=[...chaves].filter(k=>!(k in guia));
+  const guiaOrfa=Object.keys(guia).filter(k=>!chaves.has(k));
+  sincOK=!semCampo.length&&!semDef.length&&!semGuia.length&&!guiaOrfa.length;
+  sincMsg=`${chaves.size} itens definidos / ${campos.size} campos no formulário / ${Object.keys(guia).length} no guia`;
+  if(semCampo.length) console.log('   sem campo no formulário: '+semCampo.join(', '));
+  if(semDef.length)   console.log('   campo sem definição: '+semDef.join(', '));
+  if(semGuia.length)  console.log('   sem guia de execução: '+semGuia.join(', '));
+  if(guiaOrfa.length) console.log('   guia sem item correspondente: '+guiaOrfa.join(', '));
+}catch(e){sincMsg='erro ao avaliar: '+e.message;}
+ok('7. sincronia checklist PMOC: defs x formulário x guia ('+sincMsg+')',sincOK);
+
+// 8 fontes únicas: constantes que não podem ser redeclaradas como literal fora do app.js
+const FONTES_UNICAS=[
+  {nome:'ADEQUACAO_TERMICA_PISO',proibido:/const\s+PLANO_ADEQUACAO_MINIMA\s*=\s*0?\.\d+\s*;/,arquivo:'plano-pmoc.html'},
+];
+let dupConst=[];
+for(const c of FONTES_UNICAS){
+  const s=fs.readFileSync(path.join(DIR,c.arquivo),'utf8');
+  if(c.proibido.test(s))dupConst.push(c.arquivo+' redeclara literal em vez de usar '+c.nome+' (app.js)');
+}
+ok('8. piso de adequação térmica com fonte única',dupConst.length===0);
+dupConst.forEach(x=>console.log('   '+x));
+
+console.log('\n'+(falhas?'⚠ '+falhas+' check(s) com falha':'LINHA DE BASE: 8/8 OK'));
 process.exit(falhas?1:0);

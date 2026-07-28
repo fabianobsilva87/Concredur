@@ -499,7 +499,11 @@ const PLANO_RE_APOIO = /(almoxarifado|arquivo|dep[óo]sito|copa|coordena|recep[�
 const PLANO_AR_EXTERIOR_MIN_M3H_PESSOA = 27;
 
 // Piso de adequação térmica adotado para classificação "Adequada".
-const PLANO_ADEQUACAO_MINIMA = 0.96;
+// AUDITORIA 2026 — deixou de ser um literal local. O valor agora vem de
+// ADEQUACAO_TERMICA_PISO (app.js), a mesma constante usada pelo Relatório de Divergência
+// de Capacidade, para que documento oficial e relatório interno nunca divirjam.
+// O fallback 0.96 cobre apenas a hipótese de app.js não ter carregado.
+const PLANO_ADEQUACAO_MINIMA = (typeof ADEQUACAO_TERMICA_PISO === 'number') ? ADEQUACAO_TERMICA_PISO : 0.96;
 
 // ── Equipamentos ──────────────────────────────────────────────────────────
 let _planoEqs = [];
