@@ -197,7 +197,7 @@
         <div class="plano-grid">
           <div class="plano-field full">
             <label for="pp-qai-metodologia">Metodologia</label>
-            <textarea id="pp-qai-metodologia" placeholder="Ex: Medição de CO2/temperatura/UR/velocidade do ar com equipamento calibrado; contagem microbiológica por amostragem de ar comparando ambiente interno x externo, conforme RE ANVISA nº 09/2003."></textarea>
+            <textarea id="pp-qai-metodologia" placeholder="Ex: Medição de CO2/temperatura/UR/velocidade do ar com equipamento calibrado; contagem microbiológica por amostragem de ar comparando ambiente interno x externo, conforme ABNT NBR 17037."></textarea>
           </div>
           <div class="plano-field">
             <label for="pp-qai-laboratorio">Laboratório Responsável</label>
@@ -234,6 +234,16 @@
           <div class="plano-field">
             <label for="pp-data-emissao">Data de Emissão</label>
             <input type="date" id="pp-data-emissao">
+          </div>
+          <div class="plano-field full">
+            <label style="display:flex;align-items:flex-start;gap:8px;font-weight:600;">
+              <input type="checkbox" id="pp-incluir-54" style="margin-top:3px;width:auto;">
+              <span>Incluir a seção “5.4 Adequação da Capacidade Instalada” no PMOC</span>
+            </label>
+            <div class="plano-hint">Desmarcado por padrão. A comparação entre capacidade instalada e carga
+            térmica é matéria de <strong>projeto</strong> (ABNT NBR 16401-1) e não integra o conteúdo exigido
+            para o PMOC pela Lei 13.589/2018 nem pela Portaria MS 3.523/98. O relatório permanece disponível,
+            em maior detalhe, na Central de Impressões.</div>
           </div>
           <div class="plano-field full">
             <label for="pp-obs">Observações Gerais (impressas na seção de orientações)</label>
@@ -591,7 +601,7 @@ function gerarDocumentoPMOC() {
       <div class="capa-sub">PMOC — Sistemas de Climatização e Refrigeração</div>
       <div class="capa-legal">
         <span>Lei Federal nº 13.589/2018</span><span>Portaria MS nº 3.523/98</span>
-        <span>RE ANVISA nº 09/2003</span><span>ABNT NBR 16401</span>
+        <span>ABNT NBR 17037</span><span>ABNT NBR 16401</span>
       </div>
       <div class="capa-box">
         <div class="capa-box-header">Dados do Plano</div>
@@ -721,7 +731,7 @@ function gerarDocumentoPMOC() {
       abrangidos por este plano e demandam inclusão no cadastro e reemissão do documento.</p>
       <p class="texto">As atividades e periodicidades são as definidas na Seção 6 e o cronograma o da Seção 7,
       em atendimento à <strong>Lei Federal nº 13.589/2018</strong>, à <strong>Portaria MS nº 3.523/98</strong>,
-      à <strong>Resolução RE ANVISA nº 09/2003</strong> e às normas técnicas <strong>ABNT NBR 16401</strong>,
+      às normas técnicas <strong>ABNT NBR 17037</strong> (que substituiu a revogada RE ANVISA nº 09/2003), <strong>ABNT NBR 16401</strong>,
       <strong>ABNT NBR 7256</strong> e correlatas.</p>
       <p class="texto">A execução das atividades é registrada nas fichas de manutenção (laudos PMOC) do sistema
       de gestão, que ficam disponíveis para verificação pela fiscalização, acompanhadas das respectivas
@@ -1093,10 +1103,16 @@ function gerarDocumentoPMOC() {
   }
 
   // ── 5.4 Adequação da capacidade instalada (auditoria 2026) ──
-  // Relaciona exclusivamente os ambientes cuja capacidade instalada é inferior ao piso de
-  // adequação adotado. A Seção 4 permanece apresentando apenas a capacidade instalada, sem
-  // coluna de situação, conforme definição do responsável técnico.
-  const salasSub = _planoSalas
+  // OPCIONAL, desmarcada por padrão. A adequação entre capacidade instalada e carga térmica
+  // é matéria de PROJETO (ABNT NBR 16401-1) e não consta do conteúdo mínimo do PMOC exigido
+  // pela Lei 13.589/2018, pela Portaria MS 3.523/98 ou pela norma de qualidade do ar em
+  // vigor. Publicá-la em documento com ART, a partir de carga térmica estimada por método
+  // simplificado, expõe o responsável técnico sem obrigação legal que o justifique. O
+  // relatório de divergência de capacidade continua disponível na Central de Impressões,
+  // que é o instrumento de gestão interna adequado para o tema.
+  const incluir54 = !!($('pp-incluir-54') && $('pp-incluir-54').checked);
+
+  const salasSub = !incluir54 ? [] : _planoSalas
     .filter(s => s.carga > 0 && (acPorSala[s.id]?.btu || 0) > 0)
     .map(s => ({ ...s, inst: acPorSala[s.id].btu, pct: acPorSala[s.id].btu / s.carga }))
     .filter(s => s.pct < PLANO_ADEQUACAO_MINIMA)
@@ -1223,9 +1239,16 @@ function gerarDocumentoPMOC() {
       <div class="sec-titulo">7. MONITORAMENTO DA QUALIDADE DO AR INTERIOR (QAI)</div>
       <p class="texto">Independentemente da manutenção dos equipamentos descrita na Seção 6, o estabelecimento
       deve manter monitoramento periódico da qualidade do ar interior (QAI), com <strong>periodicidade
-      semestral</strong>, contemplando a medição de CO₂, temperatura, umidade relativa e velocidade do ar,
-      além da contagem microbiológica do ar (fungos e bactérias), comparando ambiente interno e externo,
-      conforme <strong>Resolução RE ANVISA nº 09/2003</strong>.</p>
+      semestral</strong>, contemplando a medição de CO₂, temperatura, umidade relativa, velocidade do ar e material
+      particulado, além da contagem microbiológica do ar (fungos e bactérias), comparando ambiente interno e externo,
+      conforme <strong>ABNT NBR 17037:2023 (Versão Corrigida 2:2024)</strong>.</p>
+      <p class="texto" style="font-size:9px;color:#4a5568;border-left:3px solid #1e3a5f;padding-left:8px;">
+      <strong>Atualização da base normativa.</strong> A Resolução RE ANVISA nº 09/2003 foi <strong>revogada</strong>
+      pela Resolução RDC ANVISA nº 886, de 10 de julho de 2024 (art. 3º, inciso XI), publicada no DOU de 12/07/2024,
+      com vigência a partir da publicação. A referência técnica para os padrões de qualidade do ar interior passou
+      a ser a <strong>ABNT NBR 17037</strong>, por força do art. 3º, parágrafo único, da Lei nº 13.589/2018. Os
+      valores adiante já refletem a norma vigente. A Portaria MS nº 3.523/1998 <strong>permanece em vigor</strong>,
+      por não ser ato da ANVISA e não integrar o rol revogado.</p>
       <table class="tb-ident">
         <tr><td class="lbl">Metodologia</td><td colspan="3">${escapeHTML(cfg.qai_metodologia || '—')}</td></tr>
         <tr><td class="lbl">Laboratório Responsável</td><td>${escapeHTML(cfg.qai_laboratorio || '—')}</td>
@@ -1234,41 +1257,75 @@ function gerarDocumentoPMOC() {
       </table>
       <div class="cat-titulo">7.1 Parâmetros Obrigatórios e Critérios de Aceitação</div>
       <table class="tb-lista">
-        <thead><tr><th>Parâmetro</th><th style="width:52%;">Valor Máximo Recomendável / Faixa</th><th style="width:20%;">Referência</th></tr></thead>
+        <thead><tr><th>Parâmetro</th><th style="width:52%;">Valor Máximo Aceitável (VMA) / Faixa</th><th style="width:20%;">Referência</th></tr></thead>
         <tbody>
-          <tr><td>Dióxido de carbono (CO₂)</td><td><strong>≤ 1.000 ppm</strong>; adicionalmente, diferencial interno-externo ≤ 700 ppm</td><td>RE ANVISA nº 09/2003</td></tr>
-          <tr><td>Aerodispersóides totais (PTS)</td><td><strong>≤ 80 µg/m³</strong></td><td>RE ANVISA nº 09/2003</td></tr>
-          <tr><td>Contagem fúngica</td><td><strong>≤ 750 UFC/m³</strong> <em>e</em> relação Interior/Exterior (I/E) ≤ 1,5</td><td>RE ANVISA nº 09/2003</td></tr>
-          <tr><td>Identificação microbiológica</td><td><strong>Ausência</strong> de fungos patogênicos e toxigênicos — reprovação automática, independentemente da contagem</td><td>RE ANVISA nº 09/2003</td></tr>
-          <tr><td>Temperatura de bulbo seco</td><td>23 °C a 26 °C (verão) · 20 °C a 22 °C (inverno)</td><td>RE ANVISA nº 09/2003 · NBR 16401-2</td></tr>
-          <tr><td>Umidade relativa</td><td>40 % a 65 %</td><td>RE ANVISA nº 09/2003</td></tr>
-          <tr><td>Velocidade do ar na zona de ocupação</td><td>≤ 0,25 m/s</td><td>RE ANVISA nº 09/2003</td></tr>
+          <tr><td>Dióxido de carbono (CO₂)</td><td><strong>Diferencial interno-externo ≤ 700 ppm.</strong> O padrão é a diferença entre a concentração no ambiente e a medida no ar exterior no mesmo período — não um valor absoluto. Com ar exterior típico de 400 ppm, o interior pode legitimamente alcançar valores acima de 1.100 ppm</td><td>NBR 17037, 5.2.1</td></tr>
+          <tr><td>Material particulado PM₁₀</td><td><strong>≤ 50 µg/m³</strong> (concentração média em 24 h)</td><td>NBR 17037, 5.2.2</td></tr>
+          <tr><td>Material particulado PM₂,₅</td><td><strong>≤ 25 µg/m³</strong> (concentração média em 24 h)</td><td>NBR 17037, 5.2.2</td></tr>
+          <tr><td>Contagem fúngica</td><td><strong>≤ 750 UFC/m³</strong> <em>e</em> relação Interior/Exterior (I/E) ≤ 1,5</td><td>NBR 17037, 5.1</td></tr>
+          <tr><td>Bactérias mesófilas (contagem total)</td><td><strong>≤ 500 UFC/m³</strong>, ressalvados valores fixados em regulamento específico. Análise indicada em ambientes de característica epidemiológica diferenciada, entre os quais os estabelecimentos assistenciais de saúde</td><td>NBR 17037, 5.1</td></tr>
+          <tr><td>Fungos patogênicos e toxigênicos</td><td>Identificados, devem ser <strong>avaliados quanto ao risco</strong>, considerando o perfil de ocupação e os fatores ambientais. A norma não estabelece reprovação automática: a decisão compete ao responsável técnico</td><td>NBR 17037, 6.5</td></tr>
+          <tr><td>Temperatura de bulbo seco</td><td>21 °C a 26 °C</td><td>NBR 17037, 5.2.3</td></tr>
+          <tr><td>Umidade relativa</td><td>35 % a 65 % (faixa recomendável)</td><td>NBR 17037, 5.2.3</td></tr>
+          <tr><td>Velocidade do ar na zona de ocupação</td><td><strong>≤ 0,20 m/s</strong></td><td>NBR 17037, 5.2.3</td></tr>
+          <tr><td>Contaminação microbiológica em bandeja e serpentina</td><td>Sem VMA pré-determinado — avaliação pelo <strong>histórico de análises do local</strong> com presença de água</td><td>NBR 17037, 5.1</td></tr>
           <tr><td>Taxa de renovação de ar exterior</td><td><strong>≥ 27 m³/h·pessoa</strong>, ou valor superior resultante da NBR 16401-3 Nível 2 em setores assistenciais</td><td>Portaria MS nº 3.523/98 · NBR 16401-3</td></tr>
           <tr><td>Diferencial de pressão em filtros</td><td>Conforme especificação do fabricante; troca obrigatória ao atingir o valor final</td><td>NBR 16401-1</td></tr>
         </tbody>
       </table>
       <p class="texto" style="font-size:9px;color:#4a5568;border-left:3px solid #1e3a5f;padding-left:8px;">
       <strong>Nota técnica.</strong> O CO₂ não é, isoladamente, poluente de risco nas concentrações em análise:
-      é <strong>indicador substituto (proxy) da taxa de renovação de ar exterior</strong>. Valor acima de 1.000 ppm
-      indica, por relação direta, insuficiência de ar exterior — e, por consequência, acúmulo proporcional dos demais
-      bioefluentes e contaminantes do ambiente. Por essa razão, a reprovação em CO₂ <strong>não é corrigível por
-      higienização de equipamento</strong>: exige intervenção sobre a infraestrutura de renovação.</p>
+      é <strong>indicador substituto (proxy) da taxa de renovação de ar exterior</strong>. Diferencial acima de
+      700 ppm sobre o ar exterior indica, por relação direta, insuficiência de ar exterior — e, por consequência,
+      acúmulo proporcional dos demais bioefluentes e contaminantes do ambiente. Por essa razão, a reprovação em CO₂
+      <strong>não é corrigível por higienização de equipamento</strong>: exige intervenção sobre a infraestrutura de
+      renovação. <strong>Atenção ao método:</strong> por ser um critério diferencial, toda campanha exige amostra
+      simultânea de ar exterior — laudo sem medição externa é inconclusivo para este parâmetro.</p>
 
       <div class="cat-titulo">7.2 Condições de Validade da Amostragem</div>
       <p class="texto">A amostragem deve ser realizada <strong>em regime de ocupação normal</strong>, com o sistema
-      em operação há no mínimo 2 horas, por laboratório com metodologia rastreável e instrumentos com certificado
-      de calibração vigente. <strong>Amostragem em ambiente desocupado é inválida para o parâmetro CO₂.</strong>
+      em operação há no mínimo 2 horas, por laboratório acreditado conforme a <strong>ABNT NBR ISO/IEC 17025</strong>
+      e com instrumentos calibrados. <strong>Amostragem em ambiente desocupado é inválida para o parâmetro CO₂.</strong>
       Os laudos integram o acervo do PMOC pelo prazo mínimo de 3 (três) anos e devem estar disponíveis à autoridade
       sanitária. Ambientes com NC registrada em campanha anterior sofrem <strong>reamostragem em até 30 dias</strong>
       após a ação corretiva.</p>
+      <p class="texto">Exige-se, no mínimo, <strong>uma amostra de ar exterior por campanha</strong>, colhida fora da
+      estrutura predial a 1,5 m do nível da rua, próxima à entrada de ar exterior do sistema e afastada de fontes
+      poluentes (depósito de resíduos, tráfego, jardins com terra, obras). Os pontos internos são distribuídos
+      uniformemente, coletados a 1,5 m do piso, no centro do ambiente e nas áreas de maior ocupação, com registro
+      fotográfico de cada local. As unidades funcionais de característica epidemiológica diferenciada — entre elas os
+      <strong>serviços de saúde</strong> — são avaliadas com amostras tomadas isolada e adicionalmente.</p>
+      <table class="tb-lista">
+        <thead><tr><th style="width:50%;">Área construída climatizada (m²)</th><th>Número mínimo de amostras de ar interior</th></tr></thead>
+        <tbody>
+          <tr><td>Até 1.000</td><td>1</td></tr>
+          <tr><td>1.000 a 2.000</td><td>3</td></tr>
+          <tr><td>2.000 a 3.000</td><td>5</td></tr>
+          <tr><td>3.000 a 5.000</td><td>8</td></tr>
+          <tr><td>5.000 a 10.000</td><td>12</td></tr>
+          <tr><td>10.000 a 15.000</td><td>15</td></tr>
+          <tr><td>15.000 a 20.000</td><td>18</td></tr>
+          <tr><td>20.000 a 30.000</td><td>21</td></tr>
+          <tr><td>Acima de 30.000</td><td>25</td></tr>
+        </tbody>
+      </table>
+      <p class="texto" style="font-size:9px;color:#718096;">Quantitativo mínimo por edificação e razão social, conforme
+      ABNT NBR 17037, Tabela 3 — acrescido das amostras isoladas das unidades de característica epidemiológica
+      diferenciada. Instrumentos e periodicidades de calibração seguem o Anexo A (normativo) da mesma norma:
+      calibração <strong>semestral</strong> para amostragem microbiológica e <strong>anual</strong> para CO₂ (NDIR),
+      material particulado (dispersão laser), temperatura, umidade relativa e velocidade do ar.</p>
 
       <div class="cat-titulo">7.3 Plano de Ação e Contingência — Escalonamento por Severidade (CO₂)</div>
+      <p class="texto" style="font-size:9px;color:#4a5568;">Os níveis abaixo são expressos como <strong>diferencial
+      (Δ) sobre a concentração medida no ar exterior na mesma campanha</strong>, em conformidade com o critério da
+      ABNT NBR 17037, 5.2.1. O VMA normativo é Δ ≤ 700 ppm; os patamares N1 e N3 são definição interna do responsável
+      técnico para escalonar a resposta, não constituindo parâmetro normativo.</p>
       <table class="tb-lista">
-        <thead><tr><th style="width:14%;">Nível</th><th style="width:18%;">Faixa medida</th><th style="width:12%;">Prazo</th><th>Ação determinada</th></tr></thead>
+        <thead><tr><th style="width:14%;">Nível</th><th style="width:22%;">Faixa medida (Δ sobre o ar exterior)</th><th style="width:12%;">Prazo</th><th>Ação determinada</th></tr></thead>
         <tbody>
-          <tr><td><strong>N1 — Atenção</strong></td><td>800 a 1.000 ppm</td><td>15 dias</td><td>Ajuste operacional: abertura de dampers de ar exterior, revisão de setpoints e horários de operação, verificação de obstrução da tomada de ar. Reamostragem na campanha seguinte.</td></tr>
-          <tr><td><strong>N2 — Não Conformidade</strong></td><td>&gt; 1.000 e ≤ 1.400 ppm</td><td>30 dias</td><td>Diagnóstico de causa raiz. Causa <em>operacional</em> (damper fechado, tomada obstruída, filtro colmatado): correção imediata e reamostragem em 30 dias. Causa <em>estrutural</em>: aplica-se o item 7.4.</td></tr>
-          <tr><td><strong>N3 — NC Grave</strong></td><td>&gt; 1.400 ppm, <em>ou</em> qualquer valor &gt; 1.000 ppm em setor assistencial</td><td>Imediato</td><td>Aplicação imediata do item 7.4, sem prazo de diagnóstico prévio.</td></tr>
+          <tr><td><strong>N1 — Atenção</strong></td><td>Δ de 500 a 700 ppm <em>(dentro do VMA, em aproximação)</em></td><td>15 dias</td><td>Ajuste operacional: abertura de dampers de ar exterior, revisão de setpoints e horários de operação, verificação de obstrução da tomada de ar. Reamostragem na campanha seguinte.</td></tr>
+          <tr><td><strong>N2 — Não Conformidade</strong></td><td>Δ &gt; 700 e ≤ 1.000 ppm</td><td>30 dias</td><td>Diagnóstico de causa raiz. Causa <em>operacional</em> (damper fechado, tomada obstruída, filtro colmatado): correção imediata e reamostragem em 30 dias. Causa <em>estrutural</em>: aplica-se o item 7.4.</td></tr>
+          <tr><td><strong>N3 — NC Grave</strong></td><td>Δ &gt; 1.000 ppm, <em>ou</em> qualquer Δ &gt; 700 ppm em setor assistencial</td><td>Imediato</td><td>Aplicação imediata do item 7.4, sem prazo de diagnóstico prévio.</td></tr>
         </tbody>
       </table>
 
@@ -1282,7 +1339,7 @@ function gerarDocumentoPMOC() {
         <thead><tr><th style="width:32%;">Providência</th><th>Conteúdo e prazos</th></tr></thead>
         <tbody>
           <tr><td><strong>(i) ADEQUAÇÃO MECÂNICA IMEDIATA</strong></td><td>Implantação de sistema de suprimento de ar exterior filtrado — e de exaustão, quando exigida — dimensionado conforme ABNT NBR 16401-3 (Nível 2 para setores assistenciais), observado o piso legal de 27 m³/h·pessoa, com filtragem mínima <strong>G4 + M5</strong>, comando intertravado ao funcionamento da climatização e balanceamento comprovado por anemometria. <strong>Prazos:</strong> projeto executivo em 30 dias · execução em 90 dias · laudo de comprovação por reamostragem em até 15 dias após o comissionamento.</td></tr>
-          <tr><td><strong>(ii) INTERDIÇÃO DE USO INTENSIVO</strong><br><em>(medida paliativa temporária)</em></td><td>Enquanto não concluída a adequação (i), restrição formal de uso com comunicado afixado e registro no acervo do PMOC, compreendendo cumulativamente: <strong>redução da densidade de ocupação</strong> ao máximo que mantenha o CO₂ abaixo de 1.000 ppm, determinado por medição em regime; <strong>limitação do tempo de permanência contínua</strong>, com intervalos obrigatórios de ventilação natural forçada (portas e janelas abertas, climatização desligada) de no mínimo 15 minutos a cada 2 horas de uso; e <strong>vedação de uso para atividades de ocupação máxima</strong> (turmas completas, atendimento simultâneo, eventos).</td></tr>
+          <tr><td><strong>(ii) INTERDIÇÃO DE USO INTENSIVO</strong><br><em>(medida paliativa temporária)</em></td><td>Enquanto não concluída a adequação (i), restrição formal de uso com comunicado afixado e registro no acervo do PMOC, compreendendo cumulativamente: <strong>redução da densidade de ocupação</strong> ao máximo que mantenha o diferencial de CO₂ abaixo de 700 ppm sobre o ar exterior, determinado por medição em regime; <strong>limitação do tempo de permanência contínua</strong>, com intervalos obrigatórios de ventilação natural forçada (portas e janelas abertas, climatização desligada) de no mínimo 15 minutos a cada 2 horas de uso; e <strong>vedação de uso para atividades de ocupação máxima</strong> (turmas completas, atendimento simultâneo, eventos).</td></tr>
         </tbody>
       </table>
       <p class="texto" style="font-size:9px;color:#9b2c2c;border-left:3px solid #9b2c2c;padding-left:8px;">
@@ -1296,9 +1353,7 @@ function gerarDocumentoPMOC() {
       <p class="texto"><strong>Contagem fúngica &gt; 750 UFC/m³ ou relação I/E &gt; 1,5:</strong> higienização e
       desinfecção completa do sistema (serpentina, bandeja e dreno, <strong>plenum e bocas de ar</strong>, rede de dutos
       quando existente), substituição integral dos elementos filtrantes e reamostragem em até 30 dias.
-      <strong>Identificação de fungo patogênico ou toxigênico:</strong> suspensão imediata do uso do ambiente,
-      higienização com produto saneante regularizado na ANVISA, investigação de fonte de umidade e infiltração, e
-      liberação <strong>condicionada a laudo de reamostragem aprovado</strong>.</p>
+      <strong>Identificação de fungo patogênico ou toxigênico:</strong> a ABNT NBR 17037 (6.5) não impõe reprovação automática — determina avaliação do risco à luz do perfil de ocupação e dos fatores ambientais. Fica estabelecido, por decisão do responsável técnico e em razão do caráter assistencial dos ambientes, o seguinte protocolo interno: suspensão do uso do ambiente, higienização com produto saneante regularizado na ANVISA, investigação da causa-raiz (fonte de umidade, infiltração ou material poroso contaminado) e liberação <strong>condicionada a laudo de reamostragem aprovado</strong>. Adicionalmente, <strong>contagem bacteriana &gt; 500 UFC/m³</strong> em ambiente assistencial enseja o mesmo ciclo de higienização e reamostragem.</p>
       <p class="texto" style="font-size:9px;color:#718096;">Toda ação decorrente desta seção gera <strong>Ordem de
       Serviço</strong> vinculada ao ambiente e ao ativo, com prazo, responsável e evidência de conclusão, integrando o
       cômputo dos indicadores de desempenho. Parâmetros específicos de ambientes críticos (salas limpas, centros
@@ -1344,7 +1399,7 @@ function gerarDocumentoPMOC() {
   // ── 7. Orientações ──
   const orientacoes = [
     'Todas as execuções devem ser registradas na ficha de manutenção (laudo PMOC) do respectivo equipamento, com identificação do executante, data e evidências fotográficas quando aplicável.',
-    'Utilizar exclusivamente produtos saneantes desinfetantes regularizados junto à ANVISA, conforme RE nº 09/2003, respeitando diluições e instruções dos fabricantes.',
+    'Utilizar exclusivamente produtos saneantes desinfetantes regularizados junto à ANVISA, respeitando diluições e instruções dos fabricantes.',
     'Filtros de ar substituídos e resíduos da limpeza devem ser acondicionados e descartados de forma a evitar a dispersão de particulados nos ambientes ocupados.',
     'Não conformidades identificadas durante as rotinas devem gerar Ordem de Serviço corretiva, com prazo de tratamento compatível com a criticidade do equipamento.',
     'Os executantes devem utilizar os EPIs adequados às atividades (proteção respiratória, luvas, óculos), especialmente em higienizações químicas e serviços em altura.',
