@@ -1070,6 +1070,14 @@ function parseCapacidadeBTU(str) {
 // Campo `exaustao`: quando presente (string), indica que o ambiente EXIGE exaustão mecânica e
 // descreve o motivo técnico/normativo. Ausente = exaustão não obrigatória por tipo. O cadastro
 // da Sala pode sobrescrever essa sugestão (coluna salas.exige_exaustao = 'sim' | 'nao').
+//
+// Campo `assistencial`: marca os ambientes que caracterizam prestação de assistência à saúde e,
+// portanto, atraem a RDC ANVISA nº 50/2002 e a ABNT NBR 7256:2021 (suprimento obrigatório de ar
+// exterior filtrado). É a fonte autoritativa do item 5.3 do Plano PMOC — substitui a heurística
+// por nome de setor/sala, que produzia falsos positivos: "Laboratório de Vida Diária" (ambiente
+// simulado de terapia ocupacional, com cozinha, sala e quarto de treino) casava com o termo
+// "laboratório" e era classificado como laboratório de análises. A heurística por nome permanece
+// apenas como fallback para salas sem Tipo de Ambiente cadastrado.
 const TIPOS_AMBIENTE_SALA = [
   // Criticidade Alta (A)
   { value: 'cpd_servidores',   label: 'CPD / Data Center / Sala de Servidores',     classe: 'Alta' },
@@ -1077,17 +1085,23 @@ const TIPOS_AMBIENTE_SALA = [
   { value: 'sala_baterias',    label: 'Sala de Baterias / Nobreak com Baterias Ventiladas', classe: 'Alta',
     exaustao: 'Baterias ventiladas (chumbo-ácido abertas) liberam hidrogênio — exaustão mecânica obrigatória. Baterias VRLA seladas dispensam' },
   { value: 'laboratorio',      label: 'Laboratório Químico / Biológico (análises, pesquisa, saúde)', classe: 'Alta',
+    assistencial: true,
     exaustao: 'Manipulação de reagentes e agentes biológicos — exaustão/capela obrigatória' },
-  { value: 'farmacia',         label: 'Farmácia — Dispensação / Estoque de Medicamentos', classe: 'Alta' },
+  { value: 'farmacia',         label: 'Farmácia — Dispensação / Estoque de Medicamentos', classe: 'Alta',
+    assistencial: true },
   { value: 'farmacia_manipulacao', label: 'Farmácia de Manipulação / Laboratório Farmacotécnico', classe: 'Alta',
+    assistencial: true,
     exaustao: 'Manipulação de insumos farmacêuticos — captação de pós e vapores (RDC ANVISA 67/2007)' },
   { value: 'camara_fria',      label: 'Câmara Fria / Frigorífica',                  classe: 'Alta' },
   { value: 'insumo_biologico', label: 'Insumos Biológicos / Banco de Sangue',       classe: 'Alta',
+    assistencial: true,
     exaustao: 'Ambiente de contenção biológica — renovação de ar e controle de pressão' },
   { value: 'centro_cirurgico', label: 'Centro Cirúrgico / UTI / Emergência',        classe: 'Alta',
+    assistencial: true,
     exaustao: 'Ambiente crítico assistencial — exaustão dedicada (ABNT NBR 7256)' },
   { value: 'arquivo_medico',   label: 'Arquivo Médico / Prontuários',               classe: 'Alta' },
-  { value: 'raio_x',           label: 'Sala de Raio-X / Diagnóstico por Imagem',    classe: 'Alta' },
+  { value: 'raio_x',           label: 'Sala de Raio-X / Diagnóstico por Imagem',    classe: 'Alta',
+    assistencial: true },
   // Criticidade Média (B)
   { value: 'sala_aula',        label: 'Sala de Aula',                               classe: 'Média' },
   { value: 'auditorio',        label: 'Auditório',                                  classe: 'Média' },
@@ -1097,8 +1111,10 @@ const TIPOS_AMBIENTE_SALA = [
     exaustao: 'Cocção e higienização — captação de vapores, calor e gordura (coifa/exaustor)' },
   { value: 'sala_professores', label: 'Sala de Professores / Reunião',              classe: 'Média' },
   { value: 'sala_tecnica_ti',  label: 'Sala Técnica de TI / Rack de Andar / Suporte', classe: 'Média' },
-  { value: 'consultorio',      label: 'Consultório / Atendimento Clínico',          classe: 'Média' },
+  { value: 'consultorio',      label: 'Consultório / Atendimento Clínico',          classe: 'Média',
+    assistencial: true },
   { value: 'laboratorio_seco', label: 'Laboratório sem Agentes Químicos/Biológicos (Psicologia, Fonoaudiologia, Informática)', classe: 'Média' },
+  { value: 'ambiente_simulado', label: 'Ambiente Simulado de Ensino (Lab. de Vida Diária, sala de habilidades, clínica-modelo)', classe: 'Média' },
   { value: 'sala_espera',      label: 'Sala de Espera / Recepção',                  classe: 'Média' },
   { value: 'deposito_quimico', label: 'Depósito de Produtos Químicos / Saneantes / Inflamáveis', classe: 'Média',
     exaustao: 'Guarda de produtos químicos, saneantes ou inflamáveis — renovação de ar para dispersão de vapores' },
@@ -1291,6 +1307,16 @@ function obterExigenciaExaustaoSala(sala) {
   return tipo.exaustao
     ? { exige: true,  origem: 'tipo', motivo: tipo.exaustao }
     : { exige: false, origem: 'tipo', motivo: `Tipo de Ambiente "${tipo.label}" não demanda exaustão mecânica dedicada` };
+}
+
+// Resolve o caráter ASSISTENCIAL de uma sala a partir do Tipo de Ambiente cadastrado.
+// Retorna true | false quando há tipo definido, e null quando a sala não tem tipo (ou tem
+// 'Outro') — hipótese em que cabe ao chamador aplicar sua heurística de fallback por nome.
+// Fonte única consumida pelo item 5.3 do Plano PMOC.
+function salaTipoEhAssistencial(sala) {
+  const t = TIPOS_AMBIENTE_SALA.find(x => x.value === (sala && sala.tipo_ambiente));
+  if (!t || t.value === 'outro') return null;
+  return t.assistencial === true;
 }
 
 // Identifica se um ativo cumpre FUNÇÃO DE EXAUSTÃO. A categoria VEN é compartilhada entre

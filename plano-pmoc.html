@@ -924,11 +924,28 @@ function gerarDocumentoPMOC() {
     acPorSala[e.sala_id].btu += parseCapacidadeBTU(e.potencia);
   });
 
-  const salasAssistenciais = _planoSalas.filter(s =>
-    (acPorSala[s.id]?.qtd || 0) > 0 &&
-    PLANO_RE_ASSISTENCIAL.test(`${s.setor} ${s.nome}`) &&
-    !PLANO_RE_APOIO.test(s.nome)
-  );
+  // ── Seleção das salas assistenciais ───────────────────────────────────────
+  // Hierarquia de decisão, do mais forte para o mais fraco:
+  //   1º  Campo "Exaustão mecânica" da Sala = "Não" — declaração expressa do responsável
+  //       técnico de que o ambiente não demanda tratamento de ar dedicado. Exclui.
+  //   2º  Tipo de Ambiente cadastrado — salaTipoEhAssistencial() (app.js).
+  //   3º  Heurística por nome de setor/sala — fallback para cadastros sem Tipo de Ambiente.
+  //
+  // A heurística por nome sozinha produzia falsos positivos: "LABORATÓRIO DE VIDA DIÁRIA"
+  // — ambiente simulado de terapia ocupacional composto por cozinha, sala e quarto de
+  // treino — casava com o termo "laboratório" e era classificado como laboratório de
+  // análises clínicas, atraindo indevidamente a ABNT NBR 7256.
+  const excluidasPorCadastro = [];
+  const salasAssistenciais = _planoSalas.filter(s => {
+    if ((acPorSala[s.id]?.qtd || 0) === 0) return false;
+
+    if (String(s.exige_exaustao || '').toLowerCase() === 'nao') { excluidasPorCadastro.push(s); return false; }
+
+    const porTipo = (typeof salaTipoEhAssistencial === 'function') ? salaTipoEhAssistencial(s) : null;
+    if (porTipo !== null) return porTipo;
+
+    return PLANO_RE_ASSISTENCIAL.test(`${s.setor} ${s.nome}`) && !PLANO_RE_APOIO.test(s.nome);
+  });
   const semRenovacao = salasAssistenciais.filter(s => !(venPorSala[s.id] > 0));
 
   let sec53 = '';
@@ -1001,11 +1018,14 @@ function gerarDocumentoPMOC() {
       M5</strong>, elevada conforme a classificação de risco do ambiente pela NBR 7256.</p>
       <p class="texto" style="font-size:9px;color:#4a5568;">É <strong>tecnicamente inadmissível</strong>
       atender ambiente assistencial de ocupação permanente exclusivamente por sistema de expansão direta em
-      recirculação total, sem admissão de ar exterior. <strong>Ressalva:</strong> a relação abaixo é composta
-      automaticamente a partir da nomenclatura de setores e ambientes do cadastro de locais, e áreas
-      administrativas ou de apoio são excluídas pelo mesmo critério. Trata-se de <strong>triagem preliminar</strong>:
-      a classificação definitiva de cada ambiente, inclusive quanto à exigência de pressurização diferencial
-      e de exaustão dedicada, compete ao responsável técnico à luz da RDC ANVISA nº 50/2002 e da ABNT NBR 7256.</p>
+      recirculação total, sem admissão de ar exterior. <strong>Critério de composição:</strong> a relação
+      abaixo decorre do <em>Tipo de Ambiente</em> declarado no cadastro de Locais; para ambientes ainda sem
+      tipo cadastrado, aplica-se subsidiariamente a triagem pela nomenclatura de setores e salas, e áreas
+      administrativas ou de apoio são excluídas pelo mesmo critério. Ambientes com declaração expressa de
+      dispensa no cadastro são excluídos da relação e contabilizados ao final da tabela. Trata-se de
+      <strong>triagem preliminar</strong>: a classificação definitiva de cada ambiente, inclusive quanto à
+      exigência de pressurização diferencial e de exaustão dedicada, compete ao responsável técnico à luz da
+      RDC ANVISA nº 50/2002 e da ABNT NBR 7256.</p>
       <table class="tb-lista">
         <thead><tr>
           <th>Ambiente</th><th style="width:8%;">Ocup.</th>
@@ -1016,7 +1036,11 @@ function gerarDocumentoPMOC() {
       </table>
       <p class="texto" style="font-size:8px;color:#718096;">Relação agrupada por Bloco › Setor. Os setores
       são apresentados em ordem decrescente de não conformidades de renovação de ar e, dentro de cada setor,
-      os ambientes em ordem decrescente de capacidade instalada.</p>
+      os ambientes em ordem decrescente de capacidade instalada.
+      ${excluidasPorCadastro.length ? `<br><strong>Exclusões declaradas:</strong> ${excluidasPorCadastro.length}
+      ambiente(s) climatizado(s) foram excluídos desta relação por declaração expressa de dispensa no cadastro
+      de Locais (campo "Exaustão mecânica" = Não), sob responsabilidade do responsável técnico:
+      ${escapeHTML(excluidasPorCadastro.map(s => `${s.setor} › ${s.nome}`).sort().join('; '))}.` : ''}</p>
       ${semRenovacao.length ? `<p class="texto" style="font-size:9px;color:#9b2c2c;border-left:3px solid #9b2c2c;padding-left:8px;">
         <strong>NÃO CONFORMIDADE DE PROJETO.</strong> ${semRenovacao.length} de ${salasAssistenciais.length}
         ambientes assistenciais não possuem nenhum ativo de ventilação ou exaustão cadastrado, operando em
