@@ -933,23 +933,60 @@ function gerarDocumentoPMOC() {
 
   let sec53 = '';
   if (salasAssistenciais.length) {
-    const linhas = salasAssistenciais
-      .sort((a, b) => (acPorSala[b.id].btu - acPorSala[a.id].btu))
-      .map(s => {
-        const ven = venPorSala[s.id] || 0;
-        const arMin = s.pessoas * PLANO_AR_EXTERIOR_MIN_M3H_PESSOA;
-        return `<tr${ven === 0 ? ' style="background:#fff5f5;"' : ''}>
-          <td>${escapeHTML(s.setor)}</td>
-          <td>${escapeHTML(s.nome)}</td>
-          <td style="text-align:center;">${s.pessoas || '—'}</td>
-          <td style="text-align:right;">${Math.round(acPorSala[s.id].btu).toLocaleString('pt-BR')}</td>
-          <td style="text-align:center;">${ven}</td>
-          <td style="text-align:right;">${arMin ? arMin.toLocaleString('pt-BR') : '<em>ocupação não informada</em>'}</td>
-          <td>${ven === 0
-            ? '<strong style="color:#9b2c2c;">NC — recirculação total (item 7.4)</strong>'
-            : 'Verificar vazão efetiva em DUT-05'}</td>
+    // ── Agrupamento por setor (auditoria 2026) ────────────────────────────────
+    // A listagem plana ordenada por capacidade instalada misturava ambientes de
+    // setores distintos, dificultando o encaminhamento: o tratamento das não
+    // conformidades de renovação de ar é feito por setor (uma tomada de ar exterior
+    // ou um sistema de exaustão atende o conjunto de salas contíguas), não ambiente a
+    // ambiente. Os setores são ordenados por quantidade de não conformidades — do mais
+    // crítico para o menos —, e os ambientes dentro de cada setor por capacidade
+    // instalada decrescente, que é o melhor indicador disponível de porte do ambiente.
+    const gruposAssist = {};
+    salasAssistenciais.forEach(s => {
+      const bl = (s.bloco && s.bloco !== '—') ? s.bloco : 'Sem bloco';
+      const st = (s.setor && s.setor !== '—') ? s.setor : 'Sem setor';
+      const chave = `${bl} › ${st}`;
+      (gruposAssist[chave] = gruposAssist[chave] || []).push(s);
+    });
+
+    const ordemGrupos = Object.entries(gruposAssist).map(([chave, salas]) => {
+      const nc = salas.filter(s => !(venPorSala[s.id] > 0)).length;
+      const btu = salas.reduce((acc, s) => acc + (acPorSala[s.id]?.btu || 0), 0);
+      return { chave, salas, nc, btu };
+    }).sort((a, b) => (b.nc - a.nc) || a.chave.localeCompare(b.chave));
+
+    const linhas = ordemGrupos.map(g => {
+      const cabecalho = `
+        <tr style="background:#eef2ff;break-after:avoid;page-break-after:avoid;">
+          <td colspan="6" style="font-weight:700;color:#1e3a5f;">
+            ${escapeHTML(g.chave)}
+            <span style="font-weight:400;font-size:8px;color:#4a5568;">
+              — ${g.salas.length} ambiente(s) · ${Math.round(g.btu).toLocaleString('pt-BR')} BTU/h instalados
+              ${g.nc ? `· <strong style="color:#9b2c2c;">${g.nc} sem renovação</strong>` : '· sem pendência de renovação'}
+            </span>
+          </td>
         </tr>`;
-      }).join('');
+
+      const corpo = g.salas
+        .slice()
+        .sort((a, b) => (acPorSala[b.id].btu - acPorSala[a.id].btu))
+        .map(s => {
+          const ven = venPorSala[s.id] || 0;
+          const arMin = s.pessoas * PLANO_AR_EXTERIOR_MIN_M3H_PESSOA;
+          return `<tr${ven === 0 ? ' style="background:#fff5f5;"' : ''}>
+            <td style="padding-left:14px;">${escapeHTML(s.nome)}</td>
+            <td style="text-align:center;">${s.pessoas || '—'}</td>
+            <td style="text-align:right;">${Math.round(acPorSala[s.id].btu).toLocaleString('pt-BR')}</td>
+            <td style="text-align:center;">${ven}</td>
+            <td style="text-align:right;">${arMin ? arMin.toLocaleString('pt-BR') : '<em>ocupação não informada</em>'}</td>
+            <td>${ven === 0
+              ? '<strong style="color:#9b2c2c;">NC — recirculação total (item 7.4)</strong>'
+              : 'Verificar vazão efetiva em DUT-05'}</td>
+          </tr>`;
+        }).join('');
+
+      return cabecalho + corpo;
+    }).join('');
 
     sec53 = `
       <div class="cat-titulo">5.3 Renovação de Ar Exterior e Exaustão — Setores Assistenciais</div>
@@ -971,12 +1008,15 @@ function gerarDocumentoPMOC() {
       e de exaustão dedicada, compete ao responsável técnico à luz da RDC ANVISA nº 50/2002 e da ABNT NBR 7256.</p>
       <table class="tb-lista">
         <thead><tr>
-          <th>Setor</th><th>Ambiente</th><th style="width:8%;">Ocup.</th>
-          <th style="width:12%;">Instalado (BTU/h)</th><th style="width:8%;">Ativos VEN</th>
-          <th style="width:13%;">Ar ext. mín. (m³/h)</th><th style="width:22%;">Situação</th>
+          <th>Ambiente</th><th style="width:8%;">Ocup.</th>
+          <th style="width:13%;">Instalado (BTU/h)</th><th style="width:9%;">Ativos VEN</th>
+          <th style="width:14%;">Ar ext. mín. (m³/h)</th><th style="width:24%;">Situação</th>
         </tr></thead>
         <tbody>${linhas}</tbody>
       </table>
+      <p class="texto" style="font-size:8px;color:#718096;">Relação agrupada por Bloco › Setor. Os setores
+      são apresentados em ordem decrescente de não conformidades de renovação de ar e, dentro de cada setor,
+      os ambientes em ordem decrescente de capacidade instalada.</p>
       ${semRenovacao.length ? `<p class="texto" style="font-size:9px;color:#9b2c2c;border-left:3px solid #9b2c2c;padding-left:8px;">
         <strong>NÃO CONFORMIDADE DE PROJETO.</strong> ${semRenovacao.length} de ${salasAssistenciais.length}
         ambientes assistenciais não possuem nenhum ativo de ventilação ou exaustão cadastrado, operando em
