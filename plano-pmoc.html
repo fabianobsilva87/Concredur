@@ -470,7 +470,7 @@ let _planoSalas = [];
 async function carregarSalasPlano() {
   const { data, error } = await db
     .from('salas')
-    .select('id, nome, area_m2, pessoas_previstas, carga_termica_btu, tipo_ambiente, setores(nome, blocos(nome))')
+    .select('id, nome, area_m2, pessoas_previstas, carga_termica_btu, tipo_ambiente, exige_exaustao, setores(nome, blocos(nome))')
     .order('nome', { ascending: true });
   if (error) { _planoSalas = []; return; }
   _planoSalas = (data || []).map(s => ({
@@ -481,6 +481,13 @@ async function carregarSalasPlano() {
     carga:   parseFloat(s.carga_termica_btu) || 0,
     setor:   s.setores?.nome || '—',
     bloco:   s.setores?.blocos?.nome || '—',
+    // Campos do cadastro de Locais que governam a exigência de exaustão. Consumidos
+    // pelo item 5.1 via obterExigenciaExaustaoSala()/analisarConformidadeExaustao()
+    // (app.js) — fonte única da regra, compartilhada com o Dashboard e a Central de
+    // Impressões. Sem eles o memorial voltaria a inferir a exigência apenas pela
+    // presença de ativos VEN, acusando não conformidade em setores que a dispensam.
+    tipo_ambiente:   s.tipo_ambiente || null,
+    exige_exaustao:  s.exige_exaustao || null,
   }));
 }
 
@@ -816,6 +823,18 @@ function gerarDocumentoPMOC() {
     'Portátil':                                     'Condicionador portátil — unidade móvel de ambiente único',
   };
 
+  // Índice de salas por grupo "bloco › setor", com a MESMA chave usada em `grupos`.
+  // Permite que a linha de exaustão do memorial seja resolvida pelo cadastro de Locais
+  // (Tipo de Ambiente + campo "Exaustão mecânica" da Sala) em vez de ser inferida pela
+  // simples presença de um ativo VEN no setor.
+  const salasPorGrupoMemorial = {};
+  _planoSalas.forEach(s => {
+    const bl = (s.bloco && s.bloco !== '—') ? s.bloco : 'Sem bloco';
+    const st = (s.setor && s.setor !== '—') ? s.setor : 'Sem setor';
+    const chave = [bl, st].join(' › ');
+    (salasPorGrupoMemorial[chave] = salasPorGrupoMemorial[chave] || []).push(s);
+  });
+
   let memorialCorpo = '';
   Object.entries(grupos).sort((a, b) => a[0].localeCompare(b[0])).forEach(([grupo, eqs]) => {
     const eqsACGrupo = eqs.filter(e => planoNormCat(e.categoria) === 'AC');
@@ -825,23 +844,65 @@ function gerarDocumentoPMOC() {
     const possuiRenovacaoAr = eqs.some(e => planoNormCat(e.categoria) === 'VEN');
     const categoriasGrupo = [...new Set(eqs.map(e => PLANO_CAT_LABEL[planoNormCat(e.categoria)]))];
 
+    // ── Exigência de exaustão do setor (auditoria 2026) ────────────────────────
+    // A regra NÃO é mais "setor sem ativo VEN = não conformidade". A exigência é
+    // declarada ambiente a ambiente no cadastro de Locais e resolvida por
+    // obterExigenciaExaustaoSala() (app.js): o campo "Exaustão mecânica" da Sala
+    // prevalece; na sua ausência, herda-se a regra do Tipo de Ambiente. Setores
+    // integralmente compostos por ambientes que dispensam exaustão dedicada deixam de
+    // ser apontados como não conformes — apontamento que, sendo indevido, enfraquecia
+    // os achados legítimos em documento com ART.
+    const salasGrupo = salasPorGrupoMemorial[grupo] || [];
+    const analisesExaustao = (typeof analisarConformidadeExaustao === 'function')
+      ? analisarConformidadeExaustao(salasGrupo, eqs) : [];
+    const exaExigem     = analisesExaustao.filter(a => a.exigencia.exige === true);
+    const exaPendentes  = exaExigem.filter(a => a.qtd === 0);
+    const exaIndefinidos = analisesExaustao.filter(a => a.exigencia.exige === null);
+
     const tipologias = tiposUnicos.length
       ? tiposUnicos.map(t => `<li>${escapeHTML(AC_TIPOLOGIA_MEMORIAL[t] || t)}</li>`).join('')
       : '<li>Não informado / sem equipamento AC cadastrado</li>';
 
-    const rotulaRenovacao = possuiRenovacaoAr
-      ? 'Presente — verificar vazão efetiva no item DUT-05'
-      : '<strong style="color:#9b2c2c;">AUSENTE — não conformidade de projeto (submeter ao Plano de Contingência, Seção 7)</strong>';
+    const nomesSalas = (lista, max = 4) => {
+      const nomes = lista.map(a => a.sala.nome);
+      return nomes.length > max
+        ? escapeHTML(nomes.slice(0, max).join(', ')) + ` e mais ${nomes.length - max}`
+        : escapeHTML(nomes.join(', '));
+    };
+
+    let rotulaRenovacao;
+    if (!salasGrupo.length) {
+      // Setor com ativos porém sem nenhuma sala cadastrada em Locais: não há base
+      // cadastral para afirmar exigência nem dispensa.
+      rotulaRenovacao = possuiRenovacaoAr
+        ? 'Ativos de ventilação/exaustão presentes — verificar vazão efetiva no item DUT-05'
+        : '<strong style="color:#975a16;">Não avaliada — setor sem ambientes cadastrados em Locais</strong>';
+    } else if (exaPendentes.length) {
+      rotulaRenovacao = `<strong style="color:#9b2c2c;">AUSENTE — não conformidade de projeto`
+        + ` (${nomesSalas(exaPendentes)})</strong>`
+        + ` <span style="font-size:8px;">Submeter ao Plano de Contingência, Seção 7.</span>`;
+    } else if (exaExigem.length) {
+      rotulaRenovacao = `Presente nos ${exaExigem.length} ambiente(s) que a exigem — verificar vazão efetiva no item DUT-05`;
+    } else if (exaIndefinidos.length) {
+      rotulaRenovacao = possuiRenovacaoAr
+        ? 'Ativos de ventilação/exaustão presentes — verificar vazão efetiva no item DUT-05'
+        : `<strong style="color:#975a16;">Não avaliada — ${exaIndefinidos.length} ambiente(s) sem Tipo de Ambiente cadastrado</strong>`;
+    } else {
+      rotulaRenovacao = 'Não exigida — nenhum ambiente do setor demanda exaustão mecânica dedicada'
+        + (possuiRenovacaoAr ? ' (ativos de ventilação instalados — manter rotinas VEN)' : '');
+    }
 
     memorialCorpo += `
+      <div class="bloco-memorial">
       <div class="cat-titulo">📍 ${escapeHTML(grupo)}</div>
       <table class="tb-ident">
         <tr><td class="lbl">Sistemas Presentes</td><td colspan="3">${escapeHTML(categoriasGrupo.join(', ') || '—')}</td></tr>
         <tr><td class="lbl">Tipologia Construtiva</td><td colspan="3"><ul style="margin:0;padding-left:14px;">${tipologias}</ul></td></tr>
         <tr><td class="lbl">Componentes de Distribuição de Ar</td>
             <td>${possuiPlenum ? 'Presentes (plenum, dutos e/ou bocas de ar remotas) — rotinas DUT-01 a DUT-05 aplicáveis' : 'Ausentes — insuflamento e retorno diretos no gabinete'}</td>
-            <td class="lbl">Renovação/Exaustão de Ar</td><td>${rotulaRenovacao}</td></tr>
-      </table>`;
+            <td class="lbl">Exaustão Mecânica Dedicada</td><td>${rotulaRenovacao}</td></tr>
+      </table>
+      </div>`;
   });
 
   // ── 5.3 Renovação de ar exterior em setores assistenciais (auditoria 2026) ──
@@ -974,6 +1035,14 @@ function gerarDocumentoPMOC() {
       exterior ou exaustão, conforme o cadastro de equipamentos vigente. <strong>A classificação tipológica
       aqui estabelecida é vinculante para a determinação de aplicabilidade das atividades da Seção 6.</strong></p>
       <div class="cat-titulo">5.1 Tipologia Construtiva por Setor</div>
+      <p class="texto" style="font-size:9px;color:#4a5568;">A exigência de <strong>exaustão mecânica
+      dedicada</strong> indicada em cada setor não decorre da simples presença ou ausência de ativos de
+      ventilação: é determinada ambiente a ambiente pelo cadastro de Locais — campo <em>Tipo de Ambiente</em>
+      e, quando declarado, o campo <em>Exaustão mecânica</em> da Sala, que prevalece sobre a regra do tipo.
+      Ambientes que, por sua destinação, não geram aerossóis, vapores, gases ou material contaminado não
+      demandam exaustão dedicada e não são apontados como não conformes. A <strong>renovação de ar
+      exterior</strong>, obrigação distinta e de alcance mais amplo, é tratada no item 5.3 e verificada em
+      campo pela rotina <strong>[DUT-05]</strong>.</p>
       ${memorialCorpo || '<p class="texto">Nenhum equipamento cadastrado para compor o memorial descritivo.</p>'}
       <div class="cat-titulo">5.2 Regime de Aplicabilidade das Rotinas</div>
       <p class="texto" style="font-size:9px;color:#4a5568;border-left:3px solid #1e3a5f;padding-left:8px;">
@@ -1426,6 +1495,10 @@ function gerarDocumentoPMOC() {
       .tr-grupo td{background:#f0f4ff;font-weight:700;color:#1e3a5f;font-size:8.5px;}
       .tr-periodo td{background:#f8fafc;font-weight:700;color:#475569;font-size:8.5px;letter-spacing:.03em;}
       .cat-titulo{font-size:9.5px;font-weight:700;color:#1e3a5f;margin:10px 0 4px;break-after:avoid;page-break-after:avoid;}
+      /* Cada setor do Memorial (5.1) é uma unidade de leitura: título + tabela não podem
+         ser separados por quebra de página, sob pena de o setor aparecer com apenas a
+         linha "Sistemas Presentes" no rodapé de uma página. */
+      .bloco-memorial{break-inside:avoid;page-break-inside:avoid;}
 
       /* Avaliação (C/NC/NA) na tabela de atividades */
       .avaliacao-opcoes{display:flex;gap:4px;justify-content:center;}
