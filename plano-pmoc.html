@@ -105,6 +105,11 @@
         Os dados preenchidos abaixo ficam salvos e são reutilizados nas próximas emissões.
       </div>
 
+      <!-- Ressalva de criticidade — uso interno, nunca impressa no PMOC (auditoria, item S3) -->
+      <div id="plano-alerta-criticidade" class="no-print"
+           style="display:none;margin:0 0 16px;padding:12px 14px;border-left:4px solid #9b2c2c;
+                  background:#fff5f5;color:#742a2a;border-radius:6px;font-size:13px;line-height:1.55;"></div>
+
       <!-- 1. Estabelecimento -->
       <div class="plano-card">
         <h3>🏛️ Identificação do Estabelecimento (Proprietário)</h3>
@@ -207,9 +212,52 @@
             <label for="pp-qai-qtd-amostras">Quantidade de Amostras</label>
             <input type="text" id="pp-qai-qtd-amostras" placeholder="Ex: 2 amostras por ambiente (interno + externo)">
           </div>
+          <div class="plano-field">
+            <label for="pp-qai-lab-cnpj">CNPJ do Laboratório de QAI</label>
+            <input type="text" id="pp-qai-lab-cnpj" placeholder="00.000.000/0000-00">
+            <div class="plano-hint">A ABNT NBR 17037, 8.3, exige que as análises de QAI e sua responsabilidade
+            técnica sejam <strong>desvinculadas</strong> das atividades de limpeza, manutenção e comercialização
+            de produtos. O CNPJ informado não pode coincidir com o da empresa executante da manutenção.</div>
+          </div>
+          <div class="plano-field">
+            <label for="pp-qai-lab-acreditacao">Acreditação do Laboratório (CGCRE/INMETRO)</label>
+            <input type="text" id="pp-qai-lab-acreditacao" placeholder="Ex: CRL 9999 — ABNT NBR ISO/IEC 17025">
+          </div>
           <div class="plano-field full">
             <label for="pp-qai-pontos-coleta">Pontos de Coleta</label>
             <textarea id="pp-qai-pontos-coleta" placeholder="Ex: 1 ponto interno por setor climatizado + 1 ponto de referência externo, a favor do vento."></textarea>
+          </div>
+          <div class="plano-field">
+            <label for="pp-qai-inspecao-periodicidade">Periodicidade da Inspeção Visual (ISO 16000-40)</label>
+            <select id="pp-qai-inspecao-periodicidade">
+              <option value="mensal">Mensal</option>
+              <option value="trimestral" selected>Trimestral</option>
+              <option value="semestral">Semestral</option>
+              <option value="anual">Anual</option>
+            </select>
+            <div class="plano-hint">Plano de inspeção visual do ambiente e do sistema de climatização, com
+            relatório técnico e fotográfico — ABNT NBR 17037, 6.7.</div>
+          </div>
+          <div class="plano-field">
+            <label for="pp-qai-questionario-periodicidade">Periodicidade do Questionário de Satisfação</label>
+            <select id="pp-qai-questionario-periodicidade">
+              <option value="semestral">Semestral</option>
+              <option value="anual" selected>Anual</option>
+            </select>
+            <div class="plano-hint">Avaliação de satisfação dos usuários sugerida pela ABNT NBR 16401-3.</div>
+          </div>
+          <div class="plano-field">
+            <label for="pp-qai-divulgacao-meio">Meio de Divulgação aos Ocupantes</label>
+            <input type="text" id="pp-qai-divulgacao-meio" placeholder="Ex: mural físico nas recepções + intranet institucional">
+            <div class="plano-hint">Obrigação expressa da ABNT NBR 17037, 8.1 e), e da Portaria MS nº 3.523/98.</div>
+          </div>
+          <div class="plano-field">
+            <label for="pp-qai-divulgacao-periodicidade">Periodicidade da Divulgação</label>
+            <select id="pp-qai-divulgacao-periodicidade">
+              <option value="A cada campanha de amostragem" selected>A cada campanha de amostragem</option>
+              <option value="Semestral">Semestral</option>
+              <option value="Anual">Anual</option>
+            </select>
           </div>
         </div>
       </div>
@@ -237,6 +285,16 @@
           </div>
           <div class="plano-field full">
             <label style="display:flex;align-items:flex-start;gap:8px;font-weight:600;">
+              <input type="checkbox" id="pp-incluir-carga" style="margin-top:3px;width:auto;">
+              <span>Incluir a tabela “Carga Instalada por Ambiente” na Seção 4</span>
+            </label>
+            <div class="plano-hint">Desmarcado por padrão. A tabela repete, agregada por sala, a capacidade
+            que a Seção 4 já apresenta ativo a ativo, e não é exigida por nenhuma das normas de referência.
+            No parque atual ela acrescenta cerca de <strong>cinco páginas</strong> ao documento. O detalhamento
+            de carga por ambiente permanece disponível na Central de Impressões.</div>
+          </div>
+          <div class="plano-field full">
+            <label style="display:flex;align-items:flex-start;gap:8px;font-weight:600;">
               <input type="checkbox" id="pp-incluir-54" style="margin-top:3px;width:auto;">
               <span>Incluir a seção “5.4 Adequação da Capacidade Instalada” no PMOC</span>
             </label>
@@ -244,6 +302,18 @@
             térmica é matéria de <strong>projeto</strong> (ABNT NBR 16401-1) e não integra o conteúdo exigido
             para o PMOC pela Lei 13.589/2018 nem pela Portaria MS 3.523/98. O relatório permanece disponível,
             em maior detalhe, na Central de Impressões.</div>
+          </div>
+          <div class="plano-field full">
+            <label style="display:flex;align-items:flex-start;gap:8px;font-weight:600;">
+              <input type="checkbox" id="pp-incluir-pop" style="margin-top:3px;width:auto;">
+              <span>Incluir o Anexo “POP-PMOC-001 — Guia de Execução” no corpo do PMOC</span>
+            </label>
+            <div class="plano-hint">Desmarcado por padrão. O Procedimento Operacional Padrão é documento do
+            <strong>sistema de gestão da manutenção</strong> e não integra o conteúdo do PMOC exigido pela
+            Lei 13.589/2018 nem pela Portaria MS 3.523/98. Com a opção desmarcada, o PMOC apenas
+            <strong>referencia o POP por código e revisão</strong>, e o guia permanece emitível em separado
+            pela Central de Impressões. Manter o anexo embutido converte 79 itens de procedimento interno em
+            obrigação auto-imposta e fiscalizável.</div>
           </div>
           <div class="plano-field full">
             <label for="pp-obs">Observações Gerais (impressas na seção de orientações)</label>
@@ -295,6 +365,11 @@ function planoNormCat(c) {
 function planoSanearTexto(v) {
   if (!v) return v;
   return v.replace(/\s*[-–—(]\s*(teste|test|dev|desenvolvimento|homolog(a[cç][aã]o)?|sandbox)\s*\)?\s*$/i, '').trim();
+}
+
+// Reduz um documento (CNPJ/CPF) aos dígitos, para comparação insensível à máscara.
+function planoSoDigitos(v) {
+  return String(v || '').replace(/\D/g, '');
 }
 
 // Detecta se algum termo de ambiente de teste/dev restou no texto (case-insensitive).
@@ -350,6 +425,26 @@ function planoValidarCamposCriticos(cfg) {
 
   if (!cfg.rt_empresa) pendentes.push('Empresa executante da manutenção');
 
+  // ── Desvinculação técnica das análises de QAI — ABNT NBR 17037, 8.3 ──
+  // A norma determina que as análises laboratoriais e sua responsabilidade técnica sejam
+  // desvinculadas das atividades de limpeza, manutenção e comercialização de produtos.
+  // Quando a executante da manutenção é a própria instituição (caso IEMAT), a coincidência
+  // de CNPJ entre laboratório e executante é vício expresso — bloqueia a emissão.
+  if (!cfg.qai_laboratorio) pendentes.push('Laboratório de QAI (razão social)');
+  if (!cfg.qai_lab_cnpj) {
+    pendentes.push('CNPJ do laboratório de QAI — exigido pela NBR 17037, 8.3 (desvinculação técnica)');
+  } else if (planoSoDigitos(cfg.qai_lab_cnpj).length !== 14) {
+    pendentes.push('CNPJ do laboratório de QAI inválido — informe 14 dígitos');
+  } else if (planoSoDigitos(cfg.qai_lab_cnpj) === planoSoDigitos(cfg.cnpj)) {
+    pendentes.push('CNPJ do laboratório de QAI coincide com o do estabelecimento — a NBR 17037, 8.3, exige desvinculação das análises em relação às atividades de manutenção');
+  }
+  if (!cfg.qai_lab_acreditacao) {
+    pendentes.push('Acreditação do laboratório de QAI (CGCRE/INMETRO — ABNT NBR ISO/IEC 17025)');
+  }
+  if (!cfg.qai_divulgacao_meio) {
+    pendentes.push('Meio de divulgação aos ocupantes — obrigação da NBR 17037, 8.1 e), e da Portaria MS nº 3.523/98');
+  }
+
   if (!(cfg.mes_inicio >= 0 && cfg.mes_inicio <= 11)) pendentes.push('Mês de início do ciclo');
   if (!(cfg.ano >= 2020 && cfg.ano <= 2100)) pendentes.push('Ano de vigência');
 
@@ -357,6 +452,30 @@ function planoValidarCamposCriticos(cfg) {
 }
 
 let _planoToastTimer = null;
+// Ressalva de classificação de criticidade (auditoria NBR 17037, item S3).
+// Renderizada exclusivamente na interface do gestor — nunca no PMOC emitido, para não
+// converter uma fragilidade metodológica interna em declaração oponível pela fiscalização.
+function planoAlertaCriticidade(pctMaior, faixaDominante) {
+  const host = $('plano-alerta-criticidade');
+  if (!host) return;
+  if (pctMaior === null || pctMaior === undefined) {
+    host.style.display = 'none';
+    host.innerHTML = '';
+    return;
+  }
+  host.style.display = 'block';
+  host.innerHTML = `
+    <strong>⚠️ Ressalva de classificação de criticidade (uso interno).</strong>
+    ${(100 * pctMaior).toFixed(1)}% dos ativos estão classificados na faixa
+    <strong>${escapeHTML(String(faixaDominante))}</strong>. Uma variável que assume praticamente um único
+    valor em toda a população não discrimina: o plano perde critério objetivo de priorização de atendimento
+    e de dimensionamento de estoque de peças. Recomenda-se reaplicar o fluxograma de criticidade
+    (impacto da interrupção, risco à segurança, criticidade operacional e existência de reserva) ativo por
+    ativo. Distribuição de referência: 15 a 25% em Alta, 40 a 50% em Média e 30 a 40% em Baixa.
+    <br><span style="font-size:11px;opacity:.85;">Este aviso é interno e <strong>não é impresso</strong>
+    no PMOC.</span>`;
+}
+
 function planoToast(msg, err = false) {
   const el = $('plano-toast');
   el.textContent = msg;
@@ -389,6 +508,15 @@ function planoColetarConfig() {
     qai_laboratorio:    $('pp-qai-laboratorio').value.trim(),
     qai_qtd_amostras:   $('pp-qai-qtd-amostras').value.trim(),
     qai_pontos_coleta:  $('pp-qai-pontos-coleta').value.trim(),
+    qai_lab_cnpj:              $('pp-qai-lab-cnpj').value.trim(),
+    qai_lab_acreditacao:       $('pp-qai-lab-acreditacao').value.trim(),
+    qai_inspecao_periodicidade:    $('pp-qai-inspecao-periodicidade').value,
+    qai_questionario_periodicidade: $('pp-qai-questionario-periodicidade').value,
+    qai_divulgacao_meio:           $('pp-qai-divulgacao-meio').value.trim(),
+    qai_divulgacao_periodicidade:  $('pp-qai-divulgacao-periodicidade').value,
+    incluir_carga: !!$('pp-incluir-carga').checked,
+    incluir_54:    !!$('pp-incluir-54').checked,
+    incluir_pop:   !!$('pp-incluir-pop').checked,
     ano:           parseInt($('pp-ano').value, 10) || new Date().getFullYear(),
     mes_inicio:    parseInt($('pp-mes-inicio').value, 10) || 0,
     local_emissao: $('pp-local-emissao').value.trim(),
@@ -410,6 +538,15 @@ function planoAplicarConfig(cfg) {
   setVal('pp-rt-atribuicao', cfg.rt_atribuicao); setVal('pp-rt-certidao', cfg.rt_certidao);
   setVal('pp-qai-metodologia', cfg.qai_metodologia); setVal('pp-qai-laboratorio', cfg.qai_laboratorio);
   setVal('pp-qai-qtd-amostras', cfg.qai_qtd_amostras); setVal('pp-qai-pontos-coleta', cfg.qai_pontos_coleta);
+  setVal('pp-qai-lab-cnpj', cfg.qai_lab_cnpj);
+  setVal('pp-qai-lab-acreditacao', cfg.qai_lab_acreditacao);
+  setVal('pp-qai-inspecao-periodicidade', cfg.qai_inspecao_periodicidade);
+  setVal('pp-qai-questionario-periodicidade', cfg.qai_questionario_periodicidade);
+  setVal('pp-qai-divulgacao-meio', cfg.qai_divulgacao_meio);
+  setVal('pp-qai-divulgacao-periodicidade', cfg.qai_divulgacao_periodicidade);
+  if (cfg.incluir_carga !== undefined) $('pp-incluir-carga').checked = !!cfg.incluir_carga;
+  if (cfg.incluir_54  !== undefined) $('pp-incluir-54').checked  = !!cfg.incluir_54;
+  if (cfg.incluir_pop !== undefined) $('pp-incluir-pop').checked = !!cfg.incluir_pop;
   setVal('pp-ano', cfg.ano);               setVal('pp-mes-inicio', cfg.mes_inicio);
   setVal('pp-local-emissao', cfg.local_emissao);
   setVal('pp-data-emissao', cfg.data_emissao);
@@ -602,6 +739,7 @@ function gerarDocumentoPMOC() {
       <div class="capa-legal">
         <span>Lei Federal nº 13.589/2018</span><span>Portaria MS nº 3.523/98</span>
         <span>ABNT NBR 17037</span><span>ABNT NBR 16401</span>
+        <span>ABNT NBR 13971</span><span>RDC ANVISA nº 886/2024</span>
       </div>
       <div class="capa-box">
         <div class="capa-box-header">Dados do Plano</div>
@@ -731,8 +869,18 @@ function gerarDocumentoPMOC() {
       abrangidos por este plano e demandam inclusão no cadastro e reemissão do documento.</p>
       <p class="texto">As atividades e periodicidades são as definidas na Seção 6 e o cronograma o da Seção 7,
       em atendimento à <strong>Lei Federal nº 13.589/2018</strong>, à <strong>Portaria MS nº 3.523/98</strong>,
-      às normas técnicas <strong>ABNT NBR 17037</strong> (que substituiu a revogada RE ANVISA nº 09/2003), <strong>ABNT NBR 16401</strong>,
-      <strong>ABNT NBR 7256</strong> e correlatas.</p>
+      às normas técnicas <strong>ABNT NBR 17037</strong> (que substituiu a revogada RE ANVISA nº 09/2003),
+      <strong>ABNT NBR 16401</strong>, <strong>ABNT NBR 13971</strong>, <strong>ABNT NBR 7256</strong> e correlatas.</p>
+      <p class="texto"><strong>Vínculo com a manutenção programada.</strong> A ABNT NBR 17037, item 4.2, vincula
+      expressamente o PMOC ao plano de manutenção programada da <strong>ABNT NBR 13971 — Sistemas de refrigeração,
+      condicionamento de ar, ventilação e aquecimento: manutenção programada</strong>. As rotinas e periodicidades
+      da Seção 6 observam essa norma naquilo que não for expressamente disciplinado pela Portaria MS nº 3.523/98.</p>
+      <p class="texto" style="font-size:9px;color:#4a5568;border-left:3px solid #1e3a5f;padding-left:8px;">
+      <strong>Distinção de origem das exigências.</strong> Ao longo deste documento, os requisitos decorrentes
+      diretamente de lei, portaria ou norma técnica são apresentados com a respectiva <strong>referência
+      normativa</strong> na própria tabela. Os requisitos identificados como <strong>definição interna do
+      responsável técnico</strong> — patamares de escalonamento, prazos de resposta e protocolos internos — vêm
+      expressamente rotulados como tal e não constituem literalidade de norma.</p>
       <p class="texto">A execução das atividades é registrada nas fichas de manutenção (laudos PMOC) do sistema
       de gestão, que ficam disponíveis para verificação pela fiscalização, acompanhadas das respectivas
       evidências e assinaturas dos executantes.</p>
@@ -784,18 +932,28 @@ function gerarDocumentoPMOC() {
       linhasAdeq += `<tr><td>${escapeHTML(salaNome)}</td><td style="text-align:right;">${Math.round(total).toLocaleString('pt-BR')}</td></tr>`;
     });
   });
-  const secAdequacao = linhasAdeq ? `
+  // AUDITORIA NBR 17037 / RDC 886, item S4. A tabela "Carga Instalada por Ambiente" duplica,
+  // por sala, a capacidade já relacionada ativo a ativo na própria Seção 4, e nenhuma norma de
+  // referência a exige. No parque atual ela ocupa cerca de cinco páginas do documento. Passa a
+  // ser opcional; o relatório detalhado permanece disponível na Central de Impressões.
+  const secAdequacao = (cfg.incluir_carga && linhasAdeq) ? `
     <div class="cat-titulo">Carga Instalada por Ambiente</div>
     <table class="tb-lista">
       <thead><tr><th>Sala/Ambiente</th><th style="width:130px;">Instalada (BTU/h)</th></tr></thead>
       <tbody>${linhasAdeq}</tbody>
     </table>` : '';
 
-  // ── Painel de distribuição de criticidade (auditoria 2026) ──
+  // ── Painel de distribuição de criticidade ──
   // A matriz de criticidade só é útil se discriminar. Quando uma única classe concentra
   // praticamente todo o parque, a variável não carrega informação e o plano deixa de
-  // oferecer critério de priorização de atendimento, de estoque de peças e de metas
-  // diferenciadas de MTBF/MTTR (Seção 10). Este painel torna a condição visível.
+  // oferecer critério de priorização de atendimento e de estoque de peças.
+  //
+  // AUDITORIA NBR 17037 / RDC 886 (item S3): a matriz de criticidade NÃO é conteúdo
+  // exigido do PMOC por nenhuma das normas de referência. Manter no documento oficial a
+  // "ressalva de classificação" — com a distribuição de referência 15-25 / 40-50 / 30-40 —
+  // faz o próprio PMOC denunciar à fiscalização a fragilidade metodológica da classificação.
+  // A ressalva passou a ser emitida APENAS na tela do sistema, para o gestor
+  // (ver planoAlertaCriticidade). O documento conserva somente a tabela descritiva.
   const critContagem = {};
   _planoEqs.forEach(e => {
     const c = (e.criticidade || 'Não informada').trim();
@@ -817,14 +975,14 @@ function gerarDocumentoPMOC() {
       <thead><tr><th>Criticidade</th><th style="width:100px;">Ativos</th><th style="width:100px;">Participação</th></tr></thead>
       <tbody>${linhasCrit || '<tr><td colspan="3">Sem ativos cadastrados.</td></tr>'}</tbody>
     </table>
-    ${critDegenerada ? `<p class="texto" style="font-size:9px;color:#9b2c2c;border-left:3px solid #9b2c2c;padding-left:8px;">
-      <strong>RESSALVA DE CLASSIFICAÇÃO.</strong> ${(100 * critMaiorPct).toFixed(1)}% dos ativos estão
-      classificados em uma única faixa de criticidade. Uma variável que assume praticamente um único valor
-      em toda a população <strong>não discrimina</strong>: o plano deixa de oferecer critério objetivo de
-      priorização de atendimento, de dimensionamento de estoque de peças e de metas diferenciadas de MTBF e
-      MTTR (Seção 10). Recomenda-se reaplicar o fluxograma de criticidade (impacto da interrupção, risco à
-      segurança, criticidade operacional e existência de reserva) ativo por ativo. Distribuição de
-      referência: 15 a 25% na faixa Alta, 40 a 50% na Média e 30 a 40% na Baixa.</p>` : ''}`;
+    `;
+
+  // Ressalva de classificação — exibida somente na tela do gestor, nunca no documento emitido.
+  if (critDegenerada) {
+    planoAlertaCriticidade(critMaiorPct, critOrdenado.length ? critOrdenado[0][0] : '—');
+  } else {
+    planoAlertaCriticidade(null);
+  }
 
   const sec4 = `
     <div class="sec">
@@ -1060,11 +1218,15 @@ function gerarDocumentoPMOC() {
       dedicada nos ambientes geradores de aerossol, de manipulação de saneantes e de material contaminado.
       A vazão mínima observa o piso de <strong>${PLANO_AR_EXTERIOR_MIN_M3H_PESSOA} m³/h por pessoa</strong>
       (Portaria MS nº 3.523/98), prevalecendo valor superior quando resultante do dimensionamento pela
-      <strong>ABNT NBR 16401-3, Nível 2</strong>. Filtragem mínima do ar exterior: <strong>G4 seguida de
-      M5</strong>, elevada conforme a classificação de risco do ambiente pela NBR 7256.</p>
-      <p class="texto" style="font-size:9px;color:#4a5568;">É <strong>tecnicamente inadmissível</strong>
-      atender ambiente assistencial de ocupação permanente exclusivamente por sistema de expansão direta em
-      recirculação total, sem admissão de ar exterior. <strong>Critério de composição:</strong> a relação
+      <strong>ABNT NBR 16401-3, Nível 2</strong>. Filtragem mínima do ar exterior: classe <strong>G4 seguida
+      de M5 conforme ABNT NBR 16101</strong>, ou classe equivalente segundo a ABNT NBR ISO 16890, elevada
+      conforme a classificação de risco do ambiente pela NBR 7256.</p>
+      <p class="texto" style="font-size:9px;color:#4a5568;"><strong>Interpretação do responsável técnico.</strong>
+      Nenhuma norma enuncia literalmente a vedação a seguir; ela decorre da leitura conjunta da
+      <strong>ABNT NBR 7256</strong> com a <strong>Portaria MS nº 3.523/98</strong> e é assumida como
+      posicionamento do RT: é <strong>tecnicamente inadmissível</strong> atender ambiente assistencial de
+      ocupação permanente exclusivamente por sistema de expansão direta em recirculação total, sem admissão de
+      ar exterior. <strong>Critério de composição:</strong> a relação
       abaixo decorre do <em>Tipo de Ambiente</em> declarado no cadastro de Locais; para ambientes ainda sem
       tipo cadastrado, aplica-se subsidiariamente a triagem pela nomenclatura de setores e salas, e áreas
       administrativas ou de apoio são excluídas pelo mesmo critério. Ambientes com declaração expressa de
@@ -1125,8 +1287,8 @@ function gerarDocumentoPMOC() {
     <p class="texto">Ambientes cuja capacidade instalada é inferior a
     <strong>${(PLANO_ADEQUACAO_MINIMA * 100).toFixed(0)}%</strong> da carga térmica calculada.
     A operação permanente em demanda máxima compromete o conforto térmico, impede o sistema de atingir o
-    setpoint em condição de pico e <strong>acelera a degradação do equipamento</strong>, refletindo-se na
-    redução do MTBF apurado na Seção 10.</p>
+    setpoint em condição de pico e <strong>acelera a degradação do equipamento</strong>, com redução da vida
+    útil e aumento da frequência de intervenções corretivas.</p>
     <table class="tb-lista">
       <thead><tr>
         <th>Setor</th><th>Ambiente</th><th style="width:13%;">Carga calc. (BTU/h)</th>
@@ -1221,6 +1383,16 @@ function gerarDocumentoPMOC() {
       </table>`;
   });
 
+  // Remissão ao POP quando o anexo não é embutido — mantém a rastreabilidade documental
+  // exigida pela Portaria MS 3.523/98 sem incorporar o procedimento ao acervo do PMOC.
+  const remissaoPop = cfg.incluir_pop ? '' : `
+    <p class="texto" style="font-size:9px;color:#4a5568;border-left:3px solid #1e3a5f;padding-left:8px;">
+    <strong>Procedimento de execução.</strong> O método de execução de cada item de verificação e os
+    critérios objetivos de classificação C / NC / NA constam do documento
+    <strong>POP-PMOC-001 — Guia de Execução dos Itens de Verificação</strong>, rev. ${cfg.ano}, mantido pelo
+    sistema de gestão da manutenção sob controle de revisão e disponível à autoridade sanitária mediante
+    solicitação. O POP é documento do sistema de gestão e não integra o acervo normativo deste PMOC.</p>`;
+
   const sec5 = `
     <div class="sec">
       <div class="sec-titulo">6. PLANO DE ATIVIDADES DE MANUTENÇÃO E CONTROLE</div>
@@ -1231,6 +1403,7 @@ function gerarDocumentoPMOC() {
       — Não Conforme (requer ação corretiva/Ordem de Serviço); <strong>NA</strong> — Não Aplicável ao equipamento
       ou sistema em questão.</p>
       ${sec5Corpo}
+      ${remissaoPop}
     </div>`;
 
   // ── 7. Monitoramento da Qualidade do Ar Interior — QAI (itens 9 e 10) ──
@@ -1252,27 +1425,52 @@ function gerarDocumentoPMOC() {
       <table class="tb-ident">
         <tr><td class="lbl">Metodologia</td><td colspan="3">${escapeHTML(cfg.qai_metodologia || '—')}</td></tr>
         <tr><td class="lbl">Laboratório Responsável</td><td>${escapeHTML(cfg.qai_laboratorio || '—')}</td>
+            <td class="lbl">CNPJ do Laboratório</td><td>${escapeHTML(cfg.qai_lab_cnpj || '—')}</td></tr>
+        <tr><td class="lbl">Acreditação</td><td>${escapeHTML(cfg.qai_lab_acreditacao || '—')}</td>
             <td class="lbl">Qtd. de Amostras</td><td>${escapeHTML(cfg.qai_qtd_amostras || '—')}</td></tr>
         <tr><td class="lbl">Pontos de Coleta</td><td colspan="3">${escapeHTML(cfg.qai_pontos_coleta || '—')}</td></tr>
       </table>
+      <p class="texto" style="font-size:9px;color:#4a5568;border-left:3px solid #1e3a5f;padding-left:8px;">
+      <strong>Desvinculação técnica das análises (ABNT NBR 17037, 8.3).</strong> A norma determina que as
+      análises laboratoriais de QAI e a respectiva responsabilidade técnica sejam <strong>desvinculadas das
+      atividades de limpeza, manutenção e comercialização de produtos</strong>. Declara-se, para todos os fins,
+      que as análises objeto desta seção são contratadas de laboratório acreditado
+      <strong>independente da empresa executante da manutenção</strong> — ${escapeHTML(cfg.rt_empresa || '—')} —
+      não havendo coincidência de titularidade, de quadro societário ou de responsabilidade técnica entre
+      ambos. A acreditação do laboratório junto à CGCRE/INMETRO, conforme ABNT NBR ISO/IEC 17025, é condição
+      de validade dos laudos que integram este acervo.</p>
       <div class="cat-titulo">7.1 Parâmetros Obrigatórios e Critérios de Aceitação</div>
       <table class="tb-lista">
-        <thead><tr><th>Parâmetro</th><th style="width:52%;">Valor Máximo Aceitável (VMA) / Faixa</th><th style="width:20%;">Referência</th></tr></thead>
+        <thead><tr><th>Parâmetro</th><th style="width:44%;">Valor Máximo Aceitável (VMA) / Faixa</th><th style="width:13%;">Periodicidade mínima</th><th style="width:18%;">Referência</th></tr></thead>
         <tbody>
-          <tr><td>Dióxido de carbono (CO₂)</td><td><strong>Diferencial interno-externo ≤ 700 ppm.</strong> O padrão é a diferença entre a concentração no ambiente e a medida no ar exterior no mesmo período — não um valor absoluto. Com ar exterior típico de 400 ppm, o interior pode legitimamente alcançar valores acima de 1.100 ppm</td><td>NBR 17037, 5.2.1</td></tr>
-          <tr><td>Material particulado PM₁₀</td><td><strong>≤ 50 µg/m³</strong> (concentração média em 24 h)</td><td>NBR 17037, 5.2.2</td></tr>
-          <tr><td>Material particulado PM₂,₅</td><td><strong>≤ 25 µg/m³</strong> (concentração média em 24 h)</td><td>NBR 17037, 5.2.2</td></tr>
-          <tr><td>Contagem fúngica</td><td><strong>≤ 750 UFC/m³</strong> <em>e</em> relação Interior/Exterior (I/E) ≤ 1,5</td><td>NBR 17037, 5.1</td></tr>
-          <tr><td>Bactérias mesófilas (contagem total)</td><td><strong>≤ 500 UFC/m³</strong>, ressalvados valores fixados em regulamento específico. Análise indicada em ambientes de característica epidemiológica diferenciada, entre os quais os estabelecimentos assistenciais de saúde</td><td>NBR 17037, 5.1</td></tr>
-          <tr><td>Fungos patogênicos e toxigênicos</td><td>Identificados, devem ser <strong>avaliados quanto ao risco</strong>, considerando o perfil de ocupação e os fatores ambientais. A norma não estabelece reprovação automática: a decisão compete ao responsável técnico</td><td>NBR 17037, 6.5</td></tr>
-          <tr><td>Temperatura de bulbo seco</td><td>21 °C a 26 °C</td><td>NBR 17037, 5.2.3</td></tr>
-          <tr><td>Umidade relativa</td><td>35 % a 65 % (faixa recomendável)</td><td>NBR 17037, 5.2.3</td></tr>
-          <tr><td>Velocidade do ar na zona de ocupação</td><td><strong>≤ 0,20 m/s</strong></td><td>NBR 17037, 5.2.3</td></tr>
-          <tr><td>Contaminação microbiológica em bandeja e serpentina</td><td>Sem VMA pré-determinado — avaliação pelo <strong>histórico de análises do local</strong> com presença de água</td><td>NBR 17037, 5.1</td></tr>
-          <tr><td>Taxa de renovação de ar exterior</td><td><strong>≥ 27 m³/h·pessoa</strong>, ou valor superior resultante da NBR 16401-3 Nível 2 em setores assistenciais</td><td>Portaria MS nº 3.523/98 · NBR 16401-3</td></tr>
-          <tr><td>Diferencial de pressão em filtros</td><td>Conforme especificação do fabricante; troca obrigatória ao atingir o valor final</td><td>NBR 16401-1</td></tr>
+          <tr><td>Dióxido de carbono (CO₂)</td><td><strong>Diferencial interno-externo ≤ 700 ppm.</strong> O padrão é a diferença entre a concentração no ambiente e a medida no ar exterior no mesmo período — não um valor absoluto. Com ar exterior típico de 400 ppm, o interior pode legitimamente alcançar valores acima de 1.100 ppm</td><td><strong>Semestral</strong></td><td>NBR 17037, 5.2.1 · 7.2</td></tr>
+          <tr><td>Material particulado PM₁₀</td><td><strong>≤ 50 µg/m³</strong> (concentração <strong>média em 24 h</strong>)</td><td>Semestral</td><td>NBR 17037, 5.2.2</td></tr>
+          <tr><td>Material particulado PM₂,₅</td><td><strong>≤ 25 µg/m³</strong> (concentração <strong>média em 24 h</strong>)</td><td>Semestral</td><td>NBR 17037, 5.2.2</td></tr>
+          <tr><td>Contagem fúngica</td><td><strong>≤ 750 UFC/m³</strong> <em>e</em> relação Interior/Exterior (I/E) ≤ 1,5</td><td><strong>Semestral</strong></td><td>NBR 17037, 5.1 · 7.1.1 d)</td></tr>
+          <tr><td>Bactérias mesófilas (contagem total)</td><td><strong>≤ 500 UFC/m³</strong>, ressalvados valores fixados em regulamento específico. Análise indicada em ambientes de característica epidemiológica diferenciada, entre os quais os estabelecimentos assistenciais de saúde</td><td><strong>Semestral</strong></td><td>NBR 17037, 5.1 · 7.1.1 d)</td></tr>
+          <tr><td>Fungos patogênicos e toxigênicos</td><td>Identificados, devem ser <strong>avaliados quanto ao risco</strong>, considerando o perfil de ocupação e os fatores ambientais. A norma não estabelece reprovação automática: a decisão compete ao responsável técnico</td><td>Por ocorrência</td><td>NBR 17037, 6.5</td></tr>
+          <tr><td>Temperatura de bulbo seco</td><td>21 °C a 26 °C</td><td>Semestral</td><td>NBR 17037, 5.2.3</td></tr>
+          <tr><td>Umidade relativa</td><td>35 % a 65 % (faixa recomendável)</td><td>Semestral</td><td>NBR 17037, 5.2.3</td></tr>
+          <tr><td>Velocidade do ar na zona de ocupação</td><td><strong>≤ 0,20 m/s</strong></td><td>Semestral</td><td>NBR 17037, 5.2.3</td></tr>
+          <tr><td>Contaminação microbiológica em bandeja e serpentina</td><td>Sem VMA pré-determinado — avaliação pelo <strong>histórico de análises do local</strong> com presença de água</td><td>Semestral</td><td>NBR 17037, 5.1</td></tr>
+          <tr><td>Taxa de renovação de ar exterior</td><td><strong>≥ 27 m³/h·pessoa</strong>, ou valor superior resultante da NBR 16401-3 Nível 2 em setores assistenciais</td><td>Anual</td><td>Portaria MS nº 3.523/98 · NBR 16401-3</td></tr>
+          <tr><td>Diferencial de pressão em filtros</td><td>Conforme especificação do fabricante; troca obrigatória ao atingir o valor final</td><td>Mensal</td><td>NBR 16401-1</td></tr>
         </tbody>
       </table>
+      <p class="texto" style="font-size:9px;color:#718096;"><strong>Periodicidade.</strong> A ABNT NBR 17037
+      (7.1.1 d) e 7.2) fixa periodicidade <strong>no mínimo semestral</strong> para bioaerossóis e para CO₂. A
+      redução dessa frequência para o CO₂ só é admitida, em casos específicos, em locais com densidade de
+      ocupação superior a 0,5 pessoa/m². Não se adota, neste plano, qualquer redução: mantém-se a periodicidade
+      semestral para todos os parâmetros de campanha.</p>
+
+      <p class="texto" style="font-size:9px;color:#4a5568;border-left:3px solid #1e3a5f;padding-left:8px;">
+      <strong>Critério de material particulado (NBR 17037, 5.2.2).</strong> Os limites de PM₁₀ e PM₂,₅ são
+      <strong>concentrações médias em 24 horas</strong>. Medição instantânea acima do limite
+      <strong>não configura, por si só, não conformidade</strong>: caracteriza-se como resultado de
+      <strong>investigação</strong>, determinando nova campanha de medição em regime de 24 h e diagnóstico das
+      fontes (obra em curso, tráfego externo, ressuspensão por limpeza a seco, filtragem colmatada ou
+      subdimensionada). Somente a média de 24 h acima do VMA gera não conformidade e aciona o plano de ação.</p>
+
       <p class="texto" style="font-size:9px;color:#4a5568;border-left:3px solid #1e3a5f;padding-left:8px;">
       <strong>Nota técnica.</strong> O CO₂ não é, isoladamente, poluente de risco nas concentrações em análise:
       é <strong>indicador substituto (proxy) da taxa de renovação de ar exterior</strong>. Diferencial acima de
@@ -1280,13 +1478,16 @@ function gerarDocumentoPMOC() {
       acúmulo proporcional dos demais bioefluentes e contaminantes do ambiente. Por essa razão, a reprovação em CO₂
       <strong>não é corrigível por higienização de equipamento</strong>: exige intervenção sobre a infraestrutura de
       renovação. <strong>Atenção ao método:</strong> por ser um critério diferencial, toda campanha exige amostra
-      simultânea de ar exterior — laudo sem medição externa é inconclusivo para este parâmetro.</p>
+      simultânea de ar exterior — laudo sem medição externa é inconclusivo para este parâmetro. Registre-se que a
+      ABNT NBR 17037 (5.2.1) trata o CO₂ como <strong>indicador de odores corporais</strong> decorrentes da
+      ocupação, e não como indicador de poluição química do ambiente.</p>
 
       <div class="cat-titulo">7.2 Condições de Validade da Amostragem</div>
       <p class="texto">A amostragem deve ser realizada <strong>em regime de ocupação normal</strong>, com o sistema
       em operação há no mínimo 2 horas, por laboratório acreditado conforme a <strong>ABNT NBR ISO/IEC 17025</strong>
       e com instrumentos calibrados. <strong>Amostragem em ambiente desocupado é inválida para o parâmetro CO₂.</strong>
-      Os laudos integram o acervo do PMOC pelo prazo mínimo de 3 (três) anos e devem estar disponíveis à autoridade
+      Os laudos integram o acervo do PMOC pelo prazo mínimo de 3 (três) anos — <strong>prazo fixado como critério
+      interno do responsável técnico</strong>, não decorrente de norma expressa — e devem estar disponíveis à autoridade
       sanitária. Ambientes com NC registrada em campanha anterior sofrem <strong>reamostragem em até 30 dias</strong>
       após a ação corretiva.</p>
       <p class="texto">Exige-se, no mínimo, <strong>uma amostra de ar exterior por campanha</strong>, colhida fora da
@@ -1338,7 +1539,8 @@ function gerarDocumentoPMOC() {
       <table class="tb-lista">
         <thead><tr><th style="width:32%;">Providência</th><th>Conteúdo e prazos</th></tr></thead>
         <tbody>
-          <tr><td><strong>(i) ADEQUAÇÃO MECÂNICA IMEDIATA</strong></td><td>Implantação de sistema de suprimento de ar exterior filtrado — e de exaustão, quando exigida — dimensionado conforme ABNT NBR 16401-3 (Nível 2 para setores assistenciais), observado o piso legal de 27 m³/h·pessoa, com filtragem mínima <strong>G4 + M5</strong>, comando intertravado ao funcionamento da climatização e balanceamento comprovado por anemometria. <strong>Prazos:</strong> projeto executivo em 30 dias · execução em 90 dias · laudo de comprovação por reamostragem em até 15 dias após o comissionamento.</td></tr>
+          <tr><td><strong>(i) ADEQUAÇÃO MECÂNICA IMEDIATA</strong></td><td>Implantação de sistema de suprimento de ar exterior filtrado — e de exaustão, quando exigida — dimensionado conforme ABNT NBR 16401-3 (Nível 2 para setores assistenciais), observado o piso legal de 27 m³/h·pessoa, com filtragem de classe mínima <strong>G4 seguida de M5 conforme ABNT NBR 16101</strong>, ou classe
+      equivalente segundo a ABNT NBR ISO 16890, comando intertravado ao funcionamento da climatização e balanceamento comprovado por anemometria. <strong>Prazos:</strong> projeto executivo em 30 dias · execução em 90 dias · laudo de comprovação por reamostragem em até 15 dias após o comissionamento.</td></tr>
           <tr><td><strong>(ii) INTERDIÇÃO DE USO INTENSIVO</strong><br><em>(medida paliativa temporária)</em></td><td>Enquanto não concluída a adequação (i), restrição formal de uso com comunicado afixado e registro no acervo do PMOC, compreendendo cumulativamente: <strong>redução da densidade de ocupação</strong> ao máximo que mantenha o diferencial de CO₂ abaixo de 700 ppm sobre o ar exterior, determinado por medição em regime; <strong>limitação do tempo de permanência contínua</strong>, com intervalos obrigatórios de ventilação natural forçada (portas e janelas abertas, climatização desligada) de no mínimo 15 minutos a cada 2 horas de uso; e <strong>vedação de uso para atividades de ocupação máxima</strong> (turmas completas, atendimento simultâneo, eventos).</td></tr>
         </tbody>
       </table>
@@ -1354,6 +1556,42 @@ function gerarDocumentoPMOC() {
       desinfecção completa do sistema (serpentina, bandeja e dreno, <strong>plenum e bocas de ar</strong>, rede de dutos
       quando existente), substituição integral dos elementos filtrantes e reamostragem em até 30 dias.
       <strong>Identificação de fungo patogênico ou toxigênico:</strong> a ABNT NBR 17037 (6.5) não impõe reprovação automática — determina avaliação do risco à luz do perfil de ocupação e dos fatores ambientais. Fica estabelecido, por decisão do responsável técnico e em razão do caráter assistencial dos ambientes, o seguinte protocolo interno: suspensão do uso do ambiente, higienização com produto saneante regularizado na ANVISA, investigação da causa-raiz (fonte de umidade, infiltração ou material poroso contaminado) e liberação <strong>condicionada a laudo de reamostragem aprovado</strong>. Adicionalmente, <strong>contagem bacteriana &gt; 500 UFC/m³</strong> em ambiente assistencial enseja o mesmo ciclo de higienização e reamostragem.</p>
+
+      <div class="cat-titulo">7.6 Programa de Gestão da Qualidade do Ar Interior (ISO 16000-40)</div>
+      <p class="texto">Em <strong>complemento</strong> às análises laboratoriais de que tratam os itens
+      anteriores, a <strong>ABNT NBR 17037, 6.7</strong>, determina a elaboração de programa de gestão da
+      qualidade do ar interior conforme a <strong>ISO 16000-40</strong>. O programa integra este PMOC e é
+      executado sob responsabilidade técnica de profissional habilitado na área de qualidade do ar de
+      interiores, compreendendo os elementos abaixo.</p>
+      <table class="tb-lista">
+        <thead><tr><th style="width:32%;">Elemento do programa</th><th style="width:16%;">Periodicidade</th><th>Conteúdo e evidência</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Plano de inspeção visual</strong></td><td><strong>${escapeHTML(PLANO_PERIODO_LABEL[cfg.qai_inspecao_periodicidade] || 'Trimestral')}</strong></td><td>Inspeção do ambiente ocupado e do sistema de climatização — tomada de ar exterior, filtros, serpentina, bandeja e dreno, plenum, bocas de insuflamento e retorno, rede de dutos quando existente, isolamento térmico e indícios de umidade, infiltração ou proliferação microbiana em materiais porosos.</td></tr>
+          <tr><td><strong>Relatório técnico e fotográfico</strong></td><td>A cada inspeção</td><td>Registro descritivo e fotográfico de cada ponto inspecionado, com identificação do ambiente, data, executante e classificação do achado. Integra o acervo do PMOC.</td></tr>
+          <tr><td><strong>Questionário de satisfação dos usuários</strong></td><td><strong>${escapeHTML((cfg.qai_questionario_periodicidade || 'anual').replace(/^./, c => c.toUpperCase()))}</strong></td><td>Avaliação da percepção dos ocupantes quanto a conforto térmico, odores, qualidade percebida do ar e sintomatologia associada ao ambiente, no modelo sugerido pela <strong>ABNT NBR 16401-3</strong>. O resultado é analisado em conjunto com os laudos da campanha.</td></tr>
+          <tr><td><strong>Plano de ação</strong></td><td>Por não conformidade</td><td>Eliminação, controle ou mitigação de cada não conformidade identificada nas análises, na inspeção visual ou no questionário, com causa raiz, ação determinada, responsável, prazo e evidência de conclusão, vinculado a Ordem de Serviço no sistema de gestão.</td></tr>
+          <tr><td><strong>Responsabilidade técnica</strong></td><td>Permanente</td><td>Execução e supervisão do programa por responsável técnico habilitado na área de qualidade do ar de interiores, nos termos da ABNT NBR 17037, 6.7.</td></tr>
+        </tbody>
+      </table>
+      <p class="texto" style="font-size:9px;color:#718096;">A inspeção visual e o questionário <strong>não
+      substituem</strong> a amostragem laboratorial: são instrumentos complementares de detecção precoce, que
+      podem antecipar campanha extraordinária quando indicarem degradação da qualidade do ar.</p>
+
+      <div class="cat-titulo">7.7 Divulgação aos Ocupantes</div>
+      <p class="texto">Constitui obrigação expressa da <strong>ABNT NBR 17037, 8.1 e)</strong>, e da
+      <strong>Portaria MS nº 3.523/1998</strong>, a divulgação aos ocupantes dos procedimentos e dos resultados
+      das atividades de avaliação, correção e manutenção da qualidade do ar interior.</p>
+      <table class="tb-ident">
+        <tr><td class="lbl">Meio de divulgação</td><td colspan="3">${escapeHTML(cfg.qai_divulgacao_meio || '—')}</td></tr>
+        <tr><td class="lbl">Periodicidade</td><td>${escapeHTML(cfg.qai_divulgacao_periodicidade || '—')}</td>
+            <td class="lbl">Responsável</td><td>${escapeHTML(cfg.resp_legal || 'Responsável Legal')} — ${escapeHTML(cfg.resp_cargo || 'Representante do Estabelecimento')}</td></tr>
+      </table>
+      <p class="texto">São objeto de divulgação, no mínimo: a existência e a vigência deste PMOC; o nome e o
+      registro do responsável técnico; os resultados de cada campanha de amostragem de QAI, com indicação dos
+      parâmetros conformes e não conformes; as ações corretivas determinadas e seus prazos; e o canal para
+      comunicação de queixas relacionadas à qualidade do ar. A evidência da divulgação — registro fotográfico do
+      mural, comprovante de publicação ou de envio — integra o acervo documental do PMOC.</p>
+
       <p class="texto" style="font-size:9px;color:#718096;">Toda ação decorrente desta seção gera <strong>Ordem de
       Serviço</strong> vinculada ao ambiente e ao ativo, com prazo, responsável e evidência de conclusão, integrando o
       cômputo dos indicadores de desempenho. Parâmetros específicos de ambientes críticos (salas limpas, centros
@@ -1413,118 +1651,27 @@ function gerarDocumentoPMOC() {
       ${cfg.obs ? `<p class="texto"><strong>Observações específicas do estabelecimento:</strong> ${escapeHTML(cfg.obs)}</p>` : ''}
     </div>`;
 
-  // ── 10. Indicadores de desempenho (KPI) — introduzido pela auditoria técnica 2026 ──
-  // Define métricas obrigatórias de eficácia do plano. Apurados exclusivamente a partir de
-  // historico_manutencoes e das Ordens de Serviço — vedada a apuração por estimativa.
-  const secKpi = `
-    <div class="sec">
-      <div class="sec-titulo">10. INDICADORES DE DESEMPENHO (KPI)</div>
-      <p class="texto">Os indicadores abaixo destinam-se a <strong>demonstrar objetivamente a eficácia da execução
-      deste plano</strong> e a <strong>detectar degradação de desempenho antes da falha</strong>, constituindo evidência
-      de gestão perante a autoridade sanitária. Todos são apurados exclusivamente a partir dos registros de Ordens de
-      Serviço e do histórico de manutenções do sistema de gestão, sendo <strong>vedada a apuração por estimativa</strong>.</p>
-
-      <div class="cat-titulo">10.1 MTBF — Tempo Médio Entre Falhas</div>
-      <p class="texto">Intervalo médio de operação entre duas falhas funcionais consecutivas; mede a
-      <strong>confiabilidade</strong> do ativo e a eficácia da preventiva. <strong>MTBF = HO / NF</strong>, onde HO =
-      horas de operação disponíveis no período e NF = número de Ordens de Serviço corretivas não programadas. Apurado
-      por ativo e consolidado por classe de criticidade e por bloco/setor. Não computar preventivas programadas nem
-      chamados improcedentes.</p>
-      <table class="tb-lista">
-        <thead><tr><th style="width:26%;">Criticidade</th><th style="width:26%;">Meta de MTBF</th><th>Equivalência prática (base 2.100 h/ano)</th></tr></thead>
-        <tbody>
-          <tr><td><strong>A — Alta</strong></td><td>≥ 4.200 h</td><td>máx. 1 falha a cada 2 anos</td></tr>
-          <tr><td><strong>B — Média</strong></td><td>≥ 2.100 h</td><td>máx. 1 falha por ano</td></tr>
-          <tr><td><strong>C — Baixa</strong></td><td>≥ 1.050 h</td><td>máx. 2 falhas por ano</td></tr>
-        </tbody>
-      </table>
-      <p class="texto" style="font-size:9px;color:#718096;">MTBF em queda por dois trimestres consecutivos indica
-      subdimensionamento do plano preventivo ou ativo em fim de vida útil — exige revisão de periodicidade ou estudo
-      de substituição.</p>
-
-      <div class="cat-titulo">10.2 MTTR — Tempo Médio de Reparo</div>
-      <p class="texto">Tempo médio entre a abertura da O.S. corretiva e o restabelecimento da função do ativo; mede a
-      <strong>manutenibilidade</strong> e a capacidade de resposta. <strong>MTTR = ΣTR / NI</strong>, onde ΣTR = somatório
-      dos tempos de reparo (horas úteis) e NI = número de intervenções corretivas concluídas.
-      <strong>Segregação obrigatória:</strong> o tempo de espera por peça deve ser registrado em campo próprio e reportado
-      à parte do tempo de reparo efetivo, sob pena de o indicador medir logística de suprimentos em vez de desempenho
-      de manutenção.</p>
-      <table class="tb-lista">
-        <thead><tr><th style="width:34%;">Criticidade</th><th style="width:22%;">Meta de MTTR</th><th>Indicador derivado</th></tr></thead>
-        <tbody>
-          <tr><td><strong>A — Alta</strong> (setores assistenciais, laboratórios, salas técnicas)</td><td>≤ 8 h úteis</td><td rowspan="3"><strong>Disponibilidade:</strong> D (%) = MTBF / (MTBF + MTTR) × 100.<br>Meta: <strong>≥ 98 %</strong> para ativos de criticidade A.</td></tr>
-          <tr><td><strong>B — Média</strong></td><td>≤ 24 h úteis</td></tr>
-          <tr><td><strong>C — Baixa</strong></td><td>≤ 72 h úteis</td></tr>
-        </tbody>
-      </table>
-
-      <div class="cat-titulo">10.3 Percentual de Preventivas Concluídas (Cumprimento do Plano)</div>
-      <p class="texto">Aderência entre a preventiva programada e a efetivamente executada na janela prevista. É o
-      <strong>indicador de conformidade legal do PMOC</strong>: mede o cumprimento do próprio plano exigido pela
-      Lei nº 13.589/2018. <strong>%PC = (O.S. preventivas concluídas no prazo / O.S. preventivas programadas) × 100</strong>.
-      Considera-se concluída no prazo a O.S. executada dentro da <strong>janela de tolerância de ±15 % da
-      periodicidade</strong> (mensal: ±4 dias; trimestral: ±13 dias).</p>
-      <table class="tb-lista">
-        <thead><tr><th style="width:18%;">Faixa</th><th style="width:28%;">Classificação</th><th>Conduta</th></tr></thead>
-        <tbody>
-          <tr><td>≥ 95 %</td><td><strong>Conforme</strong></td><td>Manutenção do plano vigente.</td></tr>
-          <tr><td>90 % a 94,9 %</td><td><strong>Alerta</strong></td><td>Plano de ação com identificação de causa e prazo de recuperação em 30 dias.</td></tr>
-          <tr><td>&lt; 90 %</td><td><strong style="color:#9b2c2c;">Não Conformidade do PMOC</strong></td><td>Caracteriza descumprimento do plano. Comunicação formal à direção e ao responsável técnico, com plano de recuperação obrigatório.</td></tr>
-        </tbody>
-      </table>
-      <p class="texto" style="font-size:9px;color:#718096;">Apurar separadamente por categoria (AC, BEB, CLIM, VEN, OUT)
-      e por periodicidade: a média global tende a mascarar a inexecução sistemática das rotinas semestrais e anuais.</p>
-
-      <div class="cat-titulo">10.4 Eficiência Térmica (Delta T)</div>
-      <p class="texto">Diferencial de temperatura de bulbo seco entre o ar de retorno e o ar de insuflamento, em regime
-      permanente: <strong>ΔT = T<sub>retorno</sub> − T<sub>insuflamento</sub></strong>. É o indicador não invasivo de
-      saúde do ciclo de refrigeração. <strong>Método:</strong> termohigrômetro com certificado de calibração vigente;
-      medição na grelha de retorno e na boca de insuflamento (nas unidades Cassete, na saída de uma das vias, evitando
-      indução de ar ambiente); sistema em operação contínua há no mínimo 15 minutos, com setpoint em demanda plena.</p>
-      <table class="tb-lista">
-        <thead><tr><th style="width:16%;">ΔT medido</th><th style="width:50%;">Diagnóstico</th><th>Ação</th></tr></thead>
-        <tbody>
-          <tr><td><strong>8 °C a 12 °C</strong></td><td><strong>Conforme</strong> — ciclo em regime adequado</td><td>Registrar e manter</td></tr>
-          <tr><td>12 °C a 14 °C</td><td>Aceitável com atenção; monitorar tendência</td><td>Verificar vazão de ar e estado do filtro</td></tr>
-          <tr><td><strong>&lt; 8 °C</strong></td><td>Carga de fluido refrigerante insuficiente, vazamento na linha frigorígena, degradação do compressor, serpentina obstruída ou vazão de ar excessiva</td><td>Abrir O.S. de investigação; teste de estanqueidade</td></tr>
-          <tr><td><strong>&gt; 14 °C</strong></td><td><strong>Vazão de ar insuficiente</strong> — filtro colmatado, serpentina obstruída, ventilador degradado, correia frouxa, duto ou plenum obstruído. <strong>Risco de congelamento da serpentina</strong></td><td>Abrir O.S. imediata; higienização e verificação do conjunto de ventilação</td></tr>
-        </tbody>
-      </table>
-      <p class="texto" style="font-size:9px;color:#718096;">O ΔT deve ser medido e registrado em <strong>toda intervenção
-      preventiva</strong> de ativos de criticidade A e B, constituindo série histórica por ativo. Variação superior a
-      <strong>2 °C</strong> em relação à média histórica do próprio ativo caracteriza alerta, ainda que o valor absoluto
-      permaneça na faixa de conformidade.</p>
-
-      <div class="cat-titulo">10.5 Indicadores Complementares e Governança</div>
-      <table class="tb-lista">
-        <thead><tr><th style="width:32%;">Indicador</th><th style="width:44%;">Fórmula</th><th>Meta</th></tr></thead>
-        <tbody>
-          <tr><td>Backlog de manutenção</td><td>Σ h de serviços pendentes / h disponíveis da equipe no período</td><td>≤ 1,0</td></tr>
-          <tr><td>Taxa de retrabalho</td><td>(O.S. corretivas reincidentes no mesmo ativo em 90 dias / total de O.S. corretivas) × 100</td><td>≤ 5 %</td></tr>
-          <tr><td>Índice de conformidade QAI</td><td>(Pontos aprovados / pontos amostrados) × 100</td><td>100 %</td></tr>
-          <tr><td>Relação Preventiva/Corretiva</td><td>h preventivas / h corretivas</td><td>≥ 4:1</td></tr>
-          <tr><td>Índice de adequação térmica</td><td>(Ambientes com capacidade instalada adequada à carga térmica / total) × 100</td><td>≥ 95 %</td></tr>
-        </tbody>
-      </table>
-      <table class="tb-lista">
-        <thead><tr><th style="width:52%;">Atividade de governança</th><th style="width:20%;">Periodicidade</th><th>Responsável</th></tr></thead>
-        <tbody>
-          <tr><td>Coleta e registro dos dados-fonte (O.S., histórico, medições)</td><td>Contínua</td><td>Equipe de manutenção</td></tr>
-          <tr><td>Apuração e publicação dos indicadores</td><td><strong>Mensal</strong></td><td>Gestor do contrato</td></tr>
-          <tr><td>Análise crítica e plano de ação sobre desvios</td><td><strong>Trimestral</strong></td><td>Gestor + Responsável Técnico</td></tr>
-          <tr><td>Revisão de metas e periodicidades do plano</td><td><strong>Semestral</strong></td><td>Responsável Técnico (ART)</td></tr>
-          <tr><td>Consolidação anual e revisão do PMOC</td><td><strong>Anual</strong></td><td>Responsável Técnico (ART)</td></tr>
-        </tbody>
-      </table>
-      <p class="texto" style="font-size:9px;color:#718096;">Todo indicador fora de meta gera <strong>registro de análise
-      crítica</strong> com identificação de causa raiz, ação corretiva, responsável e prazo, integrando o acervo
-      documental do PMOC.</p>
-    </div>`;
+  // ── SEÇÃO 10 (INDICADORES DE DESEMPENHO) — SUPRIMIDA DO PMOC ──
+  //
+  // AUDITORIA NBR 17037 / RDC 886, item S1. MTBF, MTTR, disponibilidade, cumprimento do
+  // plano, backlog, retrabalho, relação preventiva/corretiva e índice de adequação térmica
+  // NÃO são conteúdo de PMOC: nenhuma das normas de referência (Lei 13.589/2018,
+  // Portaria MS 3.523/98, RDC ANVISA 886/2024, ABNT NBR 17037) exige indicadores de
+  // engenharia de manutenção dentro do plano. São matéria da ABNT NBR 5462 e de boas
+  // práticas de gestão.
+  //
+  // Ao permanecerem no documento oficial, as metas ali fixadas (MTBF ≥ x, disponibilidade
+  // ≥ 98 %, backlog ≤ 1,0 etc.) convertem-se em OBRIGAÇÃO AUTO-IMPOSTA e passam a ser
+  // exigíveis pela autoridade sanitária como descumprimento do próprio PMOC.
+  //
+  // O conteúdo foi migrado integralmente para 'relatorio-indicadores.html', relatório
+  // gerencial autônomo emitido pelo mesmo sistema, fora do acervo normativo do PMOC.
+  const secKpi = '';
 
   // ── 8. Termo de responsabilidade e assinaturas ──
   const sec8 = `
     <div class="sec sec-termo">
-      <div class="sec-titulo">11. TERMO DE RESPONSABILIDADE TÉCNICA</div>
+      <div class="sec-titulo">10. TERMO DE RESPONSABILIDADE TÉCNICA</div>
       <p class="texto">Declaro, na qualidade de responsável técnico, que o presente Plano de Manutenção,
       Operação e Controle foi elaborado em conformidade com a legislação e as normas técnicas vigentes,
       responsabilizando-me pela sua implantação, acompanhamento e atualização durante o período de vigência.</p>
@@ -1589,7 +1736,13 @@ function gerarDocumentoPMOC() {
     });
   });
 
-  const sec9Guia = `
+  // AUDITORIA NBR 17037 / RDC 886, item S5. O POP é documento do sistema de gestão da
+  // manutenção, não conteúdo de PMOC — nenhuma norma de referência o exige dentro do plano.
+  // Embutir 79 itens de procedimento interno converte-os em obrigação auto-imposta e
+  // fiscalizável, além de inflar o documento a tamanho incompatível com a fiscalização.
+  // Por padrão, o PMOC apenas REFERENCIA o POP por código e revisão; o anexo integral só é
+  // embutido por escolha expressa do RT no painel de configuração.
+  const sec9Guia = cfg.incluir_pop ? `
     <div class="sec sec-anexo">
       <div class="anexo-etiqueta">ANEXO · POP-PMOC-001</div>
       <div class="sec-titulo">GUIA DE EXECUÇÃO DOS ITENS DE VERIFICAÇÃO</div>
@@ -1598,7 +1751,9 @@ function gerarDocumentoPMOC() {
       (Conforme), <strong>NC</strong> (Não Conforme) ou <strong>NA</strong> (Não Aplicável) no laudo PMOC do
       sistema. Os códigos seguem exatamente o checklist desta Seção 6.</p>
       ${guiaCorpo}
-    </div>`;
+    </div>` : '';
+
+
 
   const html = capa + sec1 + sec2 + sec3 + sec4 + sec5Memorial + sec5 + secQai + sec6 + sec7 + secKpi + sec8 + sec9Guia + rodape;
 
