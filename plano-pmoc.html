@@ -491,16 +491,49 @@ async function carregarSalasPlano() {
   }));
 }
 
-// Identificação de ambientes assistenciais pelo nome do setor ou da sala.
-// Ajustar conforme a nomenclatura adotada pelo estabelecimento.
-const PLANO_RE_ASSISTENCIAL = /(odonto|medicin|fisioterap|fonoaudio|enfermag|cl[ií]nic|consult[óo]rio|ambulat[óo]ri|laborat[óo]ri|esteriliza|expurgo|curativo|procedimento|inala[çc]|biomedic|farm[áa]c|nutri[çc])/i;
+// ── Heurística de fallback para salas SEM Tipo de Ambiente cadastrado ─────────────
+// Só é aplicada quando salaTipoEhAssistencial() devolve null. O cadastro sempre prevalece.
+//
+// AUDITORIA 2026 — a expressão única anterior era testada contra "setor + sala" e
+// produzia falsos positivos sistemáticos, porque o nome do SETOR contamina todas as
+// salas que ele contém. Em clínica-escola, "CLINICA INTEGRADA › ODONTOLOGIA" fazia com
+// que a copa, o depósito e a sala de reunião do setor fossem classificados como
+// ambientes assistenciais. O termo genérico "laborat[óo]ri" agravava o problema:
+// laboratório de informática, de prótese e de vida diária eram tratados como
+// laboratório de análises clínicas.
+//
+// A heurística passa a distinguir dois níveis de evidência:
+//   FORTE  — o nome da própria SALA descreve a atividade assistencial. Decide sozinho.
+//   FRACO  — apenas o nome do SETOR indica a especialidade. Classifica a sala somente
+//            se o nome dela não a identificar como área de apoio, ensino ou simulação.
+const PLANO_RE_ASSISTENCIAL_SALA = /(consult[óo]rio|ambulat[óo]ri|cl[ií]nic|esteriliza|expurgo|curativo|sutura|procedimento|inala[çc]|coleta|triagem|acolhimento|radiolog|raio[\s-]?x|imagenolog|tomografi|necrot[ée]ri|anatomia|microbiolog|patolog|histolog|bioqu[íi]mic|pr[óo]tese|dispensa[çc][ãa]o|farmacot[ée]cnic|manipula[çc][ãa]o|laborat[óo]rio\s+(de\s+)?(an[áa]lises|cl[íi]nic|qu[íi]mic|biolog|microbiolog|patolog|histolog|bioqu[íi]mic|pr[óo]tese))/i;
 
-// Exclusão de áreas administrativas e de apoio. Necessária porque a detecção acima
-// também casa pelo nome do SETOR: sem esta exclusão, uma copa ou um almoxarifado
-// pertencente ao setor "Coord. das Clínicas" seria classificado como ambiente
-// assistencial. Sobreclassificar em documento com ART enfraquece a credibilidade dos
-// achados que de fato exigem exaustão dedicada.
-const PLANO_RE_APOIO = /(almoxarifado|arquivo|dep[óo]sito|copa|coordena|recep[çc]|sala dos professores|manuten[çc]|sala de ti|prontu[áa]rio|apoio acad[êe]mico|sala de espera|conviv[êe]ncia|secretaria|sanit[áa]rio|banheiro|corredor|vestu[áa]rio|roupa limpa)/i;
+const PLANO_RE_ASSISTENCIAL_SETOR = /(odonto|medicin|fisioterap|fonoaudio|psicolog|terapia ocupacional|enfermag|cl[ií]nic|ambulat[óo]ri|biomedic|farm[áa]c|nutri[çc]|est[ée]tic)/i;
+
+// Retrocompatibilidade: alguns trechos legados ainda referenciam a expressão única.
+const PLANO_RE_ASSISTENCIAL = new RegExp(
+  `${PLANO_RE_ASSISTENCIAL_SALA.source}|${PLANO_RE_ASSISTENCIAL_SETOR.source}`, 'i');
+
+// Exclusão de áreas administrativas, de apoio, de ensino teórico e de simulação.
+// Necessária porque a detecção por SETOR alcança todas as salas do setor: sem esta
+// exclusão, uma copa ou um almoxarifado pertencente a "Coord. das Clínicas" seria
+// classificado como ambiente assistencial. Sobreclassificar em documento com ART
+// enfraquece a credibilidade dos achados que de fato exigem tratamento de ar.
+const PLANO_RE_APOIO = /(almoxarifado|arquivo|dep[óo]sito|copa|cozinha|\bcoord|recep[çc]|sala dos professores|manuten[çc]|sala de ti|inform[áa]tica|prontu[áa]rio|apoio acad[êe]mico|sala de espera|conviv[êe]ncia|secretaria|sanit[áa]rio|banheiro|corredor|vestu[áa]rio|roupa limpa|sala de aula|audit[óo]rio|biblioteca|sala de estudo|reuni[ãa]o|vida di[áa]ria|simula[çc]|habilidades|brinquedoteca|guarda[\s-]?volume)/i;
+
+// Aplica a heurística de fallback. Devolve true|false.
+function planoSalaAssistencialPorNome(sala) {
+  const nome  = String(sala.nome || '');
+  const setor = String(sala.setor || '');
+  if (PLANO_RE_ASSISTENCIAL_SALA.test(nome)) return true;   // evidência forte
+  if (PLANO_RE_APOIO.test(nome)) return false;              // apoio/ensino/simulação
+  // Evidência fraca: o setor indica a especialidade. Não se aplica quando o próprio
+  // setor é de apoio — "Coord. das Clínicas" casa com "clínica" pela nomenclatura, mas
+  // é área administrativa; sem esta verificação, uma sala genérica nele contida seria
+  // classificada como assistencial.
+  if (PLANO_RE_APOIO.test(setor)) return false;
+  return PLANO_RE_ASSISTENCIAL_SETOR.test(setor);
+}
 
 // Piso legal de renovação de ar exterior — Portaria MS nº 3.523/1998.
 const PLANO_AR_EXTERIOR_MIN_M3H_PESSOA = 27;
@@ -936,6 +969,7 @@ function gerarDocumentoPMOC() {
   // treino — casava com o termo "laboratório" e era classificado como laboratório de
   // análises clínicas, atraindo indevidamente a ABNT NBR 7256.
   const excluidasPorCadastro = [];
+  const porHeuristica = [];
   const salasAssistenciais = _planoSalas.filter(s => {
     if ((acPorSala[s.id]?.qtd || 0) === 0) return false;
 
@@ -944,7 +978,9 @@ function gerarDocumentoPMOC() {
     const porTipo = (typeof salaTipoEhAssistencial === 'function') ? salaTipoEhAssistencial(s) : null;
     if (porTipo !== null) return porTipo;
 
-    return PLANO_RE_ASSISTENCIAL.test(`${s.setor} ${s.nome}`) && !PLANO_RE_APOIO.test(s.nome);
+    const heur = planoSalaAssistencialPorNome(s);
+    if (heur) porHeuristica.push(s);
+    return heur;
   });
   const semRenovacao = salasAssistenciais.filter(s => !(venPorSala[s.id] > 0));
 
@@ -1040,7 +1076,12 @@ function gerarDocumentoPMOC() {
       ${excluidasPorCadastro.length ? `<br><strong>Exclusões declaradas:</strong> ${excluidasPorCadastro.length}
       ambiente(s) climatizado(s) foram excluídos desta relação por declaração expressa de dispensa no cadastro
       de Locais (campo "Exaustão mecânica" = Não), sob responsabilidade do responsável técnico:
-      ${escapeHTML(excluidasPorCadastro.map(s => `${s.setor} › ${s.nome}`).sort().join('; '))}.` : ''}</p>
+      ${escapeHTML(excluidasPorCadastro.map(s => `${s.setor} › ${s.nome}`).sort().join('; '))}.` : ''}
+      ${porHeuristica.length ? `<br><strong style="color:#975a16;">Classificação provisória:</strong>
+      ${porHeuristica.length} de ${salasAssistenciais.length} ambientes desta relação foram classificados pela
+      triagem por nomenclatura, por não possuírem <em>Tipo de Ambiente</em> no cadastro de Locais. A
+      classificação desses ambientes é <strong>provisória</strong> e deve ser confirmada pelo responsável
+      técnico: ${escapeHTML(porHeuristica.map(s => `${s.setor} › ${s.nome}`).sort().join('; '))}.` : ''}</p>
       ${semRenovacao.length ? `<p class="texto" style="font-size:9px;color:#9b2c2c;border-left:3px solid #9b2c2c;padding-left:8px;">
         <strong>NÃO CONFORMIDADE DE PROJETO.</strong> ${semRenovacao.length} de ${salasAssistenciais.length}
         ambientes assistenciais não possuem nenhum ativo de ventilação ou exaustão cadastrado, operando em
