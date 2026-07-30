@@ -45,6 +45,12 @@
       opacity: 0; transition: opacity .25s; pointer-events: none;
     }
     #plano-toast.show { opacity: 1; }
+    /* Destaque do campo que bloqueou a emissão (planoFocarPendencia) */
+    .pp-pendente {
+      border: 2px solid #c53030 !important;
+      background: #fff5f5 !important;
+      box-shadow: 0 0 0 3px rgba(197, 48, 48, .15) !important;
+    }
   </style>
   <script>
     /* T2.3 — oculta o conteúdo até a sessão ser validada (ver style.css).
@@ -93,6 +99,7 @@
       <h2>📘 Plano PMOC — Documento Estruturado</h2>
       <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;">
         <button type="button" class="btn-toolbar primary" onclick="salvarConfigPlano()">💾 Salvar Dados</button>
+        <button type="button" class="btn-toolbar" onclick="gerarMinutaPMOC()">👁️ Gerar Minuta (rascunho)</button>
         <button type="button" class="btn-toolbar success" onclick="gerarDocumentoPMOC()">🖨️ Gerar Documento PMOC</button>
       </div>
     </div>
@@ -248,8 +255,20 @@
           </div>
           <div class="plano-field">
             <label for="pp-qai-divulgacao-meio">Meio de Divulgação aos Ocupantes</label>
-            <input type="text" id="pp-qai-divulgacao-meio" placeholder="Ex: mural físico nas recepções + intranet institucional">
-            <div class="plano-hint">Obrigação expressa da ABNT NBR 17037, 8.1 e), e da Portaria MS nº 3.523/98.</div>
+            <input type="text" id="pp-qai-divulgacao-meio" list="pp-dl-divulgacao"
+                   placeholder="Onde os ocupantes leem os resultados da QAI?">
+            <datalist id="pp-dl-divulgacao">
+              <option value="Mural físico nas recepções dos setores climatizados"></option>
+              <option value="Mural físico nas recepções + intranet institucional"></option>
+              <option value="Intranet institucional, em área de acesso aberto aos ocupantes"></option>
+              <option value="Portal institucional e comunicado por e-mail aos ocupantes"></option>
+              <option value="Mural físico, intranet e comunicado às coordenações de curso"></option>
+            </datalist>
+            <div class="plano-hint">Obrigação expressa da ABNT NBR 17037, 8.1 e), e da Portaria MS nº 3.523/98:
+            é preciso declarar <strong>onde</strong> os ocupantes têm acesso aos procedimentos e resultados de
+            QAI. É <strong>declaração, não evidência</strong> — exigível já na implantação, porque se responde
+            antes de existir qualquer laudo. O campo tem sugestões: clique nele para ver as opções, ou escreva
+            o meio efetivamente adotado.</div>
           </div>
           <div class="plano-field">
             <label for="pp-qai-divulgacao-periodicidade">Periodicidade da Divulgação</label>
@@ -425,25 +444,29 @@ function planoValidarART(art) {
 }
 
 // Validação consolidada de todos os campos críticos antes da emissão final (item 15).
-// Retorna { ok, pendentes[] } — pendentes lista as descrições dos campos com problema.
+// Retorna { ok, pendentes[], campos[] } — pendentes traz as descrições e campos os IDs
+// correspondentes, para que a emissão bloqueada leve o usuário direto ao campo faltante
+// em vez de apenas exibir a mensagem.
 function planoValidarCamposCriticos(cfg) {
   const pendentes = [];
+  const campos = [];
+  const falta = (msg, id) => { pendentes.push(msg); if (id) campos.push(id); };
 
-  if (!cfg.razao)      pendentes.push('Razão social do estabelecimento');
-  if (!cfg.rt_nome)    pendentes.push('Nome do responsável técnico');
+  if (!cfg.razao)      falta('Razão social do estabelecimento', 'pp-razao');
+  if (!cfg.rt_nome)    falta('Nome do responsável técnico', 'pp-rt-nome');
 
   if (!cfg.rt_titulo) {
-    pendentes.push('Título profissional do responsável técnico');
+    falta('Título profissional do responsável técnico', 'pp-rt-titulo');
   } else if (planoContemTermoTeste(cfg.rt_titulo)) {
-    pendentes.push('Título profissional contém termo de ambiente de teste/desenvolvimento ("' + cfg.rt_titulo + '") — corrija antes de emitir');
+    falta('Título profissional contém termo de ambiente de teste/desenvolvimento ("' + cfg.rt_titulo + '") — corrija antes de emitir', 'pp-rt-titulo');
   }
 
-  if (!cfg.rt_registro) pendentes.push('Nº de registro no conselho de classe');
+  if (!cfg.rt_registro) falta('Nº de registro no conselho de classe', 'pp-rt-registro');
 
   const artCheck = planoValidarART(cfg.rt_art);
-  if (!artCheck.ok) pendentes.push(artCheck.motivo);
+  if (!artCheck.ok) falta(artCheck.motivo, 'pp-rt-art');
 
-  if (!cfg.rt_empresa) pendentes.push('Empresa executante da manutenção');
+  if (!cfg.rt_empresa) falta('Empresa executante da manutenção', 'pp-rt-empresa');
 
   // ── Desvinculação técnica das análises de QAI — ABNT NBR 17037, 8.3 ──
   //
@@ -462,40 +485,52 @@ function planoValidarCamposCriticos(cfg) {
   const emImplantacao = cfg.regime === 'implantacao';
 
   if (!emImplantacao && !cfg.qai_laboratorio) {
-    pendentes.push('Laboratório de QAI (razão social) — obrigatório em regime pleno');
+    falta('Laboratório de QAI (razão social) — obrigatório em regime pleno', 'pp-qai-laboratorio');
   }
   if (!cfg.qai_lab_cnpj) {
     if (!emImplantacao) {
-      pendentes.push('CNPJ do laboratório de QAI — exigido pela NBR 17037, 8.3 (desvinculação técnica)');
+      falta('CNPJ do laboratório de QAI — exigido pela NBR 17037, 8.3 (desvinculação técnica)', 'pp-qai-lab-cnpj');
     }
   } else if (planoSoDigitos(cfg.qai_lab_cnpj).length !== 14) {
-    pendentes.push('CNPJ do laboratório de QAI inválido — informe 14 dígitos');
+    falta('CNPJ do laboratório de QAI inválido — informe 14 dígitos', 'pp-qai-lab-cnpj');
   } else if (planoSoDigitos(cfg.qai_lab_cnpj) === planoSoDigitos(cfg.cnpj)) {
-    pendentes.push('CNPJ do laboratório de QAI coincide com o do estabelecimento — a NBR 17037, 8.3, exige desvinculação das análises em relação às atividades de manutenção');
+    falta('CNPJ do laboratório de QAI coincide com o do estabelecimento — a NBR 17037, 8.3, exige desvinculação das análises em relação às atividades de manutenção', 'pp-qai-lab-cnpj');
   }
   if (!emImplantacao && !cfg.qai_lab_acreditacao) {
-    pendentes.push('Acreditação do laboratório de QAI (CGCRE/INMETRO — ABNT NBR ISO/IEC 17025) — obrigatória em regime pleno');
+    falta('Acreditação do laboratório de QAI (CGCRE/INMETRO — ABNT NBR ISO/IEC 17025) — obrigatória em regime pleno', 'pp-qai-lab-acreditacao');
   }
   // Divulgação é declaração, não evidência: exigível já no primeiro dia, em qualquer regime.
   if (!cfg.qai_divulgacao_meio) {
-    pendentes.push('Meio de divulgação aos ocupantes — obrigação da NBR 17037, 8.1 e), e da Portaria MS nº 3.523/98');
+    falta('Meio de divulgação aos ocupantes — obrigação da NBR 17037, 8.1 e), e da Portaria MS nº 3.523/98', 'pp-qai-divulgacao-meio');
   }
   if (emImplantacao) {
     if (!(cfg.impl_prazo_lab > 0 && cfg.impl_prazo_lab <= 720)) {
-      pendentes.push('Prazo para contratação do laboratório de QAI (1 a 720 dias)');
+      falta('Prazo para contratação do laboratório de QAI (1 a 720 dias)', 'pp-impl-prazo-lab');
     }
     if (!(cfg.impl_prazo_campanha > 0 && cfg.impl_prazo_campanha <= 720)) {
-      pendentes.push('Prazo para a 1ª campanha de QAI (1 a 720 dias)');
+      falta('Prazo para a 1ª campanha de QAI (1 a 720 dias)', 'pp-impl-prazo-campanha');
     }
     if (cfg.impl_prazo_campanha < cfg.impl_prazo_lab) {
-      pendentes.push('O prazo da 1ª campanha de QAI não pode ser anterior ao prazo de contratação do laboratório');
+      falta('O prazo da 1ª campanha de QAI não pode ser anterior ao prazo de contratação do laboratório', 'pp-impl-prazo-campanha');
     }
   }
 
-  if (!(cfg.mes_inicio >= 0 && cfg.mes_inicio <= 11)) pendentes.push('Mês de início do ciclo');
-  if (!(cfg.ano >= 2020 && cfg.ano <= 2100)) pendentes.push('Ano de vigência');
+  if (!(cfg.mes_inicio >= 0 && cfg.mes_inicio <= 11)) falta('Mês de início do ciclo', 'pp-mes-inicio');
+  if (!(cfg.ano >= 2020 && cfg.ano <= 2100)) falta('Ano de vigência', 'pp-ano');
 
-  return { ok: pendentes.length === 0, pendentes };
+  return { ok: pendentes.length === 0, pendentes, campos };
+}
+
+// Leva o usuário ao primeiro campo pendente: rola até ele, destaca e dá foco.
+// Emissão bloqueada sem indicar onde corrigir é beco sem saída.
+function planoFocarPendencia(campos) {
+  document.querySelectorAll('.pp-pendente').forEach(el => el.classList.remove('pp-pendente'));
+  if (!campos || !campos.length) return;
+  campos.forEach(id => { const el = $(id); if (el) el.classList.add('pp-pendente'); });
+  const primeiro = $(campos[0]);
+  if (!primeiro) return;
+  primeiro.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  setTimeout(() => { try { primeiro.focus({ preventScroll: true }); } catch (e) { primeiro.focus(); } }, 350);
 }
 
 let _planoToastTimer = null;
@@ -784,16 +819,35 @@ function planoMesesAtivos(periodoKey, mesInicio) {
 }
 
 // ── Geração do documento ──────────────────────────────────────────────────
-function gerarDocumentoPMOC() {
+// Gera a MINUTA: mesmo documento, sem gate de validação, marcado de forma inequívoca como
+// rascunho sem validade. Serve para conferir estrutura, textos e cálculos antes de existirem
+// os dados que só a contratação do laboratório e o primeiro ciclo vão trazer.
+function gerarMinutaPMOC() {
+  return gerarDocumentoPMOC(true);
+}
+
+function gerarDocumentoPMOC(modoMinuta = false) {
   const cfg = planoColetarConfig();
 
   // Bloqueio de emissão com campos críticos ausentes/ inválidos (item 15),
   // incluindo empresa executante obrigatória (item 7) e validação de ART (item 5)
   // e de termos de ambiente de teste no título profissional (item 3).
+  //
+  // Em modo MINUTA o bloqueio não se aplica: o gate existe para impedir que um documento
+  // incompleto seja EMITIDO e ASSINADO, não para impedir que seja lido em desenvolvimento.
+  // A minuta sai com marca d'água, aviso na capa, relação das pendências e sem campos de
+  // assinatura — não há como confundi-la com o documento válido.
   const validacao = planoValidarCamposCriticos(cfg);
-  if (!validacao.ok) {
+  if (!validacao.ok && !modoMinuta) {
     planoToast('⚠️ Não é possível emitir o PMOC. Pendências: ' + validacao.pendentes.join(' · '), true);
+    planoFocarPendencia(validacao.campos);
     return;
+  }
+  if (modoMinuta) {
+    planoFocarPendencia([]);
+    planoToast(validacao.ok
+      ? 'ℹ️ Minuta gerada. Nenhuma pendência — pode emitir o documento válido.'
+      : `ℹ️ Minuta gerada com ${validacao.pendentes.length} pendência(s). Sem validade para fiscalização.`);
   }
   if (!_planoEqs.length) { planoToast('⚠️ Nenhum equipamento cadastrado para compor o plano.', true); return; }
 
@@ -839,6 +893,12 @@ function gerarDocumentoPMOC() {
         </div>
       </div>
       <div class="capa-emissao">${escapeHTML(cfg.local_emissao || '')}${cfg.local_emissao ? ', ' : ''}${emissaoBR}</div>
+      ${modoMinuta ? `<div class="minuta-capa-aviso">
+        <strong>MINUTA — DOCUMENTO SEM VALIDADE</strong>
+        Rascunho gerado para conferência técnica durante o desenvolvimento do plano.
+        Não constitui PMOC emitido, não está assinado e <strong>não é válido para apresentação
+        à fiscalização sanitária</strong>. As pendências de preenchimento estão relacionadas ao final.
+      </div>` : ''}
     </div>`;
 
   // ── 1. Identificação do estabelecimento + DELIMITAÇÃO DE ESCOPO ──
@@ -1799,6 +1859,11 @@ function gerarDocumentoPMOC() {
       <p class="texto">Declaro, na qualidade de responsável técnico, que o presente Plano de Manutenção,
       Operação e Controle foi elaborado em conformidade com a legislação e as normas técnicas vigentes,
       responsabilizando-me pela sua implantação, acompanhamento e atualização durante o período de vigência.</p>
+      ${modoMinuta ? `<div class="minuta-sem-assinatura">
+        <strong>Campos de assinatura suprimidos nesta minuta.</strong> O termo de responsabilidade técnica
+        só é firmado no documento emitido, após o saneamento das pendências relacionadas adiante. Assinar
+        uma minuta vincularia o responsável técnico a um plano incompleto.
+      </div>` : `
       <div class="assinaturas">
         <div class="ass-bloco">
           <div class="ass-linha"></div>
@@ -1813,12 +1878,28 @@ function gerarDocumentoPMOC() {
           <div class="ass-info">${escapeHTML(cfg.razao)}</div>
         </div>
       </div>
-      <div class="ass-local">${escapeHTML(cfg.local_emissao || '')}${cfg.local_emissao ? ', ' : ''}${emissaoBR}</div>
+      <div class="ass-local">${escapeHTML(cfg.local_emissao || '')}${cfg.local_emissao ? ', ' : ''}${emissaoBR}</div>`}
     </div>`;
+
+  // Relação das pendências, ao final da minuta: o que falta preencher e por que a norma exige.
+  const secPendencias = (modoMinuta && !validacao.ok) ? `
+    <div class="sec sec-minuta-pend">
+      <div class="sec-titulo" style="background:#9b2c2c;">MINUTA · PENDÊNCIAS DE PREENCHIMENTO</div>
+      <p class="texto">Relação dos campos que impedem a emissão do documento válido. Enquanto qualquer item
+      permanecer nesta lista, o botão <strong>Gerar Documento PMOC</strong> não emite — apenas a minuta.</p>
+      <table class="tb-lista">
+        <thead><tr><th style="width:44px;">#</th><th>Pendência</th></tr></thead>
+        <tbody>${validacao.pendentes.map((pd, i) =>
+          `<tr><td style="text-align:center;">${i + 1}</td><td>${escapeHTML(pd)}</td></tr>`).join('')}</tbody>
+      </table>
+      <p class="texto" style="font-size:9px;color:#718096;">${emImplantacao
+        ? 'O plano está em <strong>regime de implantação</strong>: a identificação do laboratório de QAI é opcional neste estágio e não figura acima. As pendências listadas são de preenchimento imediato.'
+        : 'O plano está em <strong>regime pleno</strong>: a identificação completa do laboratório de QAI acreditado é condição de emissão. Para conferência estrutural antes da contratação, alterne o regime para Implantação no painel de configuração.'}</p>
+    </div>` : '';
 
   const rodape = `
     <div class="doc-rodape">
-      PMOC ${cfg.ano} — ${escapeHTML(cfg.razao)} · Lei nº 13.589/2018 · Portaria MS nº 3.523/98
+      ${modoMinuta ? 'MINUTA SEM VALIDADE · ' : ''}PMOC ${cfg.ano} — ${escapeHTML(cfg.razao)} · Lei nº 13.589/2018 · Portaria MS nº 3.523/98
     </div>`;
 
   // ── 11. Guia de Execução dos Itens de Verificação (POP-PMOC-001) ──
@@ -1879,13 +1960,13 @@ function gerarDocumentoPMOC() {
 
 
 
-  const html = capa + sec1 + sec2 + sec3 + sec4 + sec5Memorial + sec5 + secQai + sec6 + sec7 + secKpi + sec8 + sec9Guia + rodape;
+  const html = capa + sec1 + sec2 + sec3 + sec4 + sec5Memorial + sec5 + secQai + sec6 + sec7 + secKpi + sec8 + sec9Guia + secPendencias + rodape;
 
   // ── Popup de impressão (mesma técnica das demais impressões do sistema) ──
   const win = window.open('', '_blank', 'width=1000,height=760');
   if (!win) { planoToast('⚠️ Permita pop-ups para gerar o documento.', true); return; }
   win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
-    <title>PMOC ${cfg.ano} — ${escapeHTML(cfg.razao)}</title>
+    <title>${modoMinuta ? 'MINUTA — ' : ''}PMOC ${cfg.ano} — ${escapeHTML(cfg.razao)}</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1970,6 +2051,22 @@ function gerarDocumentoPMOC() {
       .ass-info{font-size:8.5px;color:#475569;}
       .ass-local{text-align:center;margin-top:22px;font-size:9.5px;color:#475569;}
 
+      /* ── Marcação de MINUTA ──
+         position:fixed é repetido pelo motor de impressão em todas as páginas, o que garante
+         que nenhuma folha solta do rascunho possa ser confundida com o documento válido. */
+      .minuta-marca{position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;
+                    pointer-events:none;display:flex;align-items:center;justify-content:center;}
+      .minuta-marca span{font-size:88px;font-weight:700;color:rgba(155,44,44,.13);
+                          letter-spacing:.14em;transform:rotate(-38deg);white-space:nowrap;
+                          border:6px solid rgba(155,44,44,.13);padding:14px 40px;border-radius:14px;}
+      .minuta-capa-aviso{margin-top:24px;max-width:430px;border:2px solid #9b2c2c;border-radius:10px;
+                          background:#fff5f5;color:#742a2a;padding:12px 16px;font-size:9px;line-height:1.6;
+                          text-align:left;}
+      .minuta-capa-aviso strong{display:block;font-size:11px;letter-spacing:.06em;margin-bottom:5px;}
+      .minuta-capa-aviso strong + strong{display:inline;font-size:9px;letter-spacing:0;margin:0;}
+      .minuta-sem-assinatura{border:1px dashed #9b2c2c;border-radius:8px;background:#fff5f5;
+                              color:#742a2a;padding:12px 14px;font-size:9.5px;line-height:1.6;margin-top:10px;}
+      .sec-minuta-pend{break-before:page;page-break-before:always;}
       .doc-rodape{margin-top:18px;padding-top:6px;border-top:1px solid #cbd5e1;
                   font-size:7.5px;color:#94a3b8;text-align:center;}
 
@@ -2001,7 +2098,7 @@ function gerarDocumentoPMOC() {
       .guia-extra{margin-top:7px;font-size:7.5px;color:#475569;display:flex;gap:16px;flex-wrap:wrap;}
       .guia-extra b{color:#92400e;}
     </style></head>
-    <body>${html}
+    <body>${modoMinuta ? '<div class="minuta-marca"><span>MINUTA</span></div>' : ''}${html}
     <script>window.addEventListener('load',function(){setTimeout(function(){window.print();window.addEventListener('afterprint',function(){window.close();});},600);});<\/script>
     </body></html>`);
   win.document.close();
