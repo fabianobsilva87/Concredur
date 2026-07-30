@@ -213,14 +213,14 @@
             <input type="text" id="pp-qai-qtd-amostras" placeholder="Ex: 2 amostras por ambiente (interno + externo)">
           </div>
           <div class="plano-field">
-            <label for="pp-qai-lab-cnpj">CNPJ do Laboratório de QAI</label>
+            <label for="pp-qai-lab-cnpj" id="pp-lbl-lab-cnpj">CNPJ do Laboratório de QAI</label>
             <input type="text" id="pp-qai-lab-cnpj" placeholder="00.000.000/0000-00">
             <div class="plano-hint">A ABNT NBR 17037, 8.3, exige que as análises de QAI e sua responsabilidade
             técnica sejam <strong>desvinculadas</strong> das atividades de limpeza, manutenção e comercialização
             de produtos. O CNPJ informado não pode coincidir com o da empresa executante da manutenção.</div>
           </div>
           <div class="plano-field">
-            <label for="pp-qai-lab-acreditacao">Acreditação do Laboratório (CGCRE/INMETRO)</label>
+            <label for="pp-qai-lab-acreditacao" id="pp-lbl-lab-acred">Acreditação do Laboratório (CGCRE/INMETRO)</label>
             <input type="text" id="pp-qai-lab-acreditacao" placeholder="Ex: CRL 9999 — ABNT NBR ISO/IEC 17025">
           </div>
           <div class="plano-field full">
@@ -266,6 +266,26 @@
       <div class="plano-card">
         <h3>⚙️ Parâmetros do Plano</h3>
         <div class="plano-grid">
+          <div class="plano-field full">
+            <label for="pp-regime">Regime do Plano</label>
+            <select id="pp-regime" onchange="planoAtualizarRegime()">
+              <option value="implantacao" selected>Implantação — 1º ciclo (QAI ainda não executada)</option>
+              <option value="pleno">Regime pleno (QAI já em execução)</option>
+            </select>
+            <div class="plano-hint">Em <strong>implantação</strong>, o PMOC declara o compromisso, o critério de
+            contratação e os prazos da primeira campanha de QAI, sem exigir laboratório já contratado — a Lei
+            13.589/2018 e a Portaria MS 3.523/98 exigem a <em>existência do plano</em>, não a execução prévia da
+            amostragem. Em <strong>regime pleno</strong>, a identificação completa do laboratório acreditado passa
+            a ser condição de emissão.</div>
+          </div>
+          <div class="plano-field" id="pp-wrap-prazo-lab">
+            <label for="pp-impl-prazo-lab">Prazo para contratação do laboratório (dias)</label>
+            <input type="number" id="pp-impl-prazo-lab" min="1" max="720" value="90">
+          </div>
+          <div class="plano-field" id="pp-wrap-prazo-campanha">
+            <label for="pp-impl-prazo-campanha">Prazo para a 1ª campanha de QAI (dias)</label>
+            <input type="number" id="pp-impl-prazo-campanha" min="1" max="720" value="180">
+          </div>
           <div class="plano-field">
             <label for="pp-ano">Ano de Vigência</label>
             <input type="number" id="pp-ano" min="2020" max="2100">
@@ -426,23 +446,50 @@ function planoValidarCamposCriticos(cfg) {
   if (!cfg.rt_empresa) pendentes.push('Empresa executante da manutenção');
 
   // ── Desvinculação técnica das análises de QAI — ABNT NBR 17037, 8.3 ──
+  //
   // A norma determina que as análises laboratoriais e sua responsabilidade técnica sejam
   // desvinculadas das atividades de limpeza, manutenção e comercialização de produtos.
-  // Quando a executante da manutenção é a própria instituição (caso IEMAT), a coincidência
-  // de CNPJ entre laboratório e executante é vício expresso — bloqueia a emissão.
-  if (!cfg.qai_laboratorio) pendentes.push('Laboratório de QAI (razão social)');
+  //
+  // REGIME DE IMPLANTAÇÃO: o PMOC é um PLANO. A Lei 13.589/2018 e a Portaria MS 3.523/98
+  // exigem sua existência e conteúdo mínimo, não a execução prévia da campanha de QAI.
+  // Exigir laboratório já contratado como condição de emissão inviabilizaria o documento
+  // no primeiro ciclo. No regime de implantação, portanto, a identificação do laboratório
+  // é OPCIONAL e o documento declara critério, compromisso e prazos (item 7.8).
+  //
+  // O que NUNCA é dispensado, em nenhum regime: se um laboratório for informado, ele não
+  // pode ser inválido nem coincidir com o CNPJ do estabelecimento — declarar laboratório
+  // vinculado é vício pior do que declarar laboratório a contratar.
+  const emImplantacao = cfg.regime === 'implantacao';
+
+  if (!emImplantacao && !cfg.qai_laboratorio) {
+    pendentes.push('Laboratório de QAI (razão social) — obrigatório em regime pleno');
+  }
   if (!cfg.qai_lab_cnpj) {
-    pendentes.push('CNPJ do laboratório de QAI — exigido pela NBR 17037, 8.3 (desvinculação técnica)');
+    if (!emImplantacao) {
+      pendentes.push('CNPJ do laboratório de QAI — exigido pela NBR 17037, 8.3 (desvinculação técnica)');
+    }
   } else if (planoSoDigitos(cfg.qai_lab_cnpj).length !== 14) {
     pendentes.push('CNPJ do laboratório de QAI inválido — informe 14 dígitos');
   } else if (planoSoDigitos(cfg.qai_lab_cnpj) === planoSoDigitos(cfg.cnpj)) {
     pendentes.push('CNPJ do laboratório de QAI coincide com o do estabelecimento — a NBR 17037, 8.3, exige desvinculação das análises em relação às atividades de manutenção');
   }
-  if (!cfg.qai_lab_acreditacao) {
-    pendentes.push('Acreditação do laboratório de QAI (CGCRE/INMETRO — ABNT NBR ISO/IEC 17025)');
+  if (!emImplantacao && !cfg.qai_lab_acreditacao) {
+    pendentes.push('Acreditação do laboratório de QAI (CGCRE/INMETRO — ABNT NBR ISO/IEC 17025) — obrigatória em regime pleno');
   }
+  // Divulgação é declaração, não evidência: exigível já no primeiro dia, em qualquer regime.
   if (!cfg.qai_divulgacao_meio) {
     pendentes.push('Meio de divulgação aos ocupantes — obrigação da NBR 17037, 8.1 e), e da Portaria MS nº 3.523/98');
+  }
+  if (emImplantacao) {
+    if (!(cfg.impl_prazo_lab > 0 && cfg.impl_prazo_lab <= 720)) {
+      pendentes.push('Prazo para contratação do laboratório de QAI (1 a 720 dias)');
+    }
+    if (!(cfg.impl_prazo_campanha > 0 && cfg.impl_prazo_campanha <= 720)) {
+      pendentes.push('Prazo para a 1ª campanha de QAI (1 a 720 dias)');
+    }
+    if (cfg.impl_prazo_campanha < cfg.impl_prazo_lab) {
+      pendentes.push('O prazo da 1ª campanha de QAI não pode ser anterior ao prazo de contratação do laboratório');
+    }
   }
 
   if (!(cfg.mes_inicio >= 0 && cfg.mes_inicio <= 11)) pendentes.push('Mês de início do ciclo');
@@ -474,6 +521,24 @@ function planoAlertaCriticidade(pctMaior, faixaDominante) {
     ativo. Distribuição de referência: 15 a 25% em Alta, 40 a 50% em Média e 30 a 40% em Baixa.
     <br><span style="font-size:11px;opacity:.85;">Este aviso é interno e <strong>não é impresso</strong>
     no PMOC.</span>`;
+}
+
+// Mostra os prazos de implantação apenas no regime correspondente, e sinaliza no painel
+// que a identificação do laboratório é opcional nesse estágio.
+function planoAtualizarRegime() {
+  const impl = $('pp-regime') && $('pp-regime').value === 'implantacao';
+  ['pp-wrap-prazo-lab', 'pp-wrap-prazo-campanha'].forEach(id => {
+    const el = $(id);
+    if (el) el.style.display = impl ? '' : 'none';
+  });
+  const marcar = (id, texto) => {
+    const el = $(id);
+    if (el) el.textContent = texto;
+  };
+  marcar('pp-lbl-lab-cnpj', impl ? 'CNPJ do Laboratório de QAI (opcional na implantação)'
+                                 : 'CNPJ do Laboratório de QAI');
+  marcar('pp-lbl-lab-acred', impl ? 'Acreditação do Laboratório (opcional na implantação)'
+                                  : 'Acreditação do Laboratório (CGCRE/INMETRO)');
 }
 
 function planoToast(msg, err = false) {
@@ -508,6 +573,9 @@ function planoColetarConfig() {
     qai_laboratorio:    $('pp-qai-laboratorio').value.trim(),
     qai_qtd_amostras:   $('pp-qai-qtd-amostras').value.trim(),
     qai_pontos_coleta:  $('pp-qai-pontos-coleta').value.trim(),
+    regime:                    $('pp-regime').value,
+    impl_prazo_lab:            parseInt($('pp-impl-prazo-lab').value, 10) || 90,
+    impl_prazo_campanha:       parseInt($('pp-impl-prazo-campanha').value, 10) || 180,
     qai_lab_cnpj:              $('pp-qai-lab-cnpj').value.trim(),
     qai_lab_acreditacao:       $('pp-qai-lab-acreditacao').value.trim(),
     qai_inspecao_periodicidade:    $('pp-qai-inspecao-periodicidade').value,
@@ -538,6 +606,9 @@ function planoAplicarConfig(cfg) {
   setVal('pp-rt-atribuicao', cfg.rt_atribuicao); setVal('pp-rt-certidao', cfg.rt_certidao);
   setVal('pp-qai-metodologia', cfg.qai_metodologia); setVal('pp-qai-laboratorio', cfg.qai_laboratorio);
   setVal('pp-qai-qtd-amostras', cfg.qai_qtd_amostras); setVal('pp-qai-pontos-coleta', cfg.qai_pontos_coleta);
+  setVal('pp-regime', cfg.regime);
+  setVal('pp-impl-prazo-lab', cfg.impl_prazo_lab);
+  setVal('pp-impl-prazo-campanha', cfg.impl_prazo_campanha);
   setVal('pp-qai-lab-cnpj', cfg.qai_lab_cnpj);
   setVal('pp-qai-lab-acreditacao', cfg.qai_lab_acreditacao);
   setVal('pp-qai-inspecao-periodicidade', cfg.qai_inspecao_periodicidade);
@@ -727,6 +798,20 @@ function gerarDocumentoPMOC() {
   if (!_planoEqs.length) { planoToast('⚠️ Nenhum equipamento cadastrado para compor o plano.', true); return; }
 
   const emissaoBR = fmtDate(cfg.data_emissao);
+
+  // ── Regime do plano (implantação x pleno) ──
+  // Em implantação, o documento declara compromisso e prazos em lugar de afirmar execução
+  // que ainda não ocorreu. Declarar o regime é mais defensável perante a fiscalização do que
+  // omitir: o plano assume expressamente o marco zero e o cronograma de adimplemento.
+  const emImplantacao = cfg.regime === 'implantacao';
+  const baseImpl = cfg.data_emissao ? new Date(cfg.data_emissao + 'T00:00:00') : new Date();
+  const dataMaisDias = (dias) => {
+    const d = new Date(baseImpl.getTime());
+    d.setDate(d.getDate() + (parseInt(dias, 10) || 0));
+    return d.toLocaleDateString('pt-BR');
+  };
+  const prazoLabBR      = dataMaisDias(cfg.impl_prazo_lab);
+  const prazoCampanhaBR = dataMaisDias(cfg.impl_prazo_campanha);
   const catsPresentes = [...new Set(_planoEqs.map(e => planoNormCat(e.categoria)))]
     .sort((a, b) => Object.keys(PLANO_CAT_LABEL).indexOf(a) - Object.keys(PLANO_CAT_LABEL).indexOf(b));
 
@@ -747,6 +832,7 @@ function gerarDocumentoPMOC() {
           <div class="capa-item"><span>Estabelecimento</span><strong>${escapeHTML(cfg.razao)}</strong></div>
           ${cfg.cnpj ? `<div class="capa-item half"><span>CNPJ</span><strong>${escapeHTML(cfg.cnpj)}</strong></div>` : ''}
           <div class="capa-item half"><span>Vigência</span><strong>Ano de ${cfg.ano}</strong></div>
+          <div class="capa-item half"><span>Regime</span><strong>${emImplantacao ? 'Implantação — 1º ciclo' : 'Regime pleno'}</strong></div>
           <div class="capa-item"><span>Responsável Técnico</span><strong>${escapeHTML(cfg.rt_nome)}</strong></div>
           <div class="capa-item half"><span>Registro</span><strong>${escapeHTML(planoFormatRegistro(cfg.rt_conselho, cfg.rt_registro))}</strong></div>
           ${cfg.rt_art ? `<div class="capa-item half"><span>ART/TRT</span><strong>${escapeHTML(cfg.rt_art)}</strong></div>` : ''}
@@ -1424,9 +1510,9 @@ function gerarDocumentoPMOC() {
       por não ser ato da ANVISA e não integrar o rol revogado.</p>
       <table class="tb-ident">
         <tr><td class="lbl">Metodologia</td><td colspan="3">${escapeHTML(cfg.qai_metodologia || '—')}</td></tr>
-        <tr><td class="lbl">Laboratório Responsável</td><td>${escapeHTML(cfg.qai_laboratorio || '—')}</td>
-            <td class="lbl">CNPJ do Laboratório</td><td>${escapeHTML(cfg.qai_lab_cnpj || '—')}</td></tr>
-        <tr><td class="lbl">Acreditação</td><td>${escapeHTML(cfg.qai_lab_acreditacao || '—')}</td>
+        <tr><td class="lbl">Laboratório Responsável</td><td>${escapeHTML(cfg.qai_laboratorio || (emImplantacao ? 'A contratar — prazo em 7.8' : '—'))}</td>
+            <td class="lbl">CNPJ do Laboratório</td><td>${escapeHTML(cfg.qai_lab_cnpj || (emImplantacao ? 'A definir na contratação' : '—'))}</td></tr>
+        <tr><td class="lbl">Acreditação</td><td>${escapeHTML(cfg.qai_lab_acreditacao || (emImplantacao ? 'Acreditação CGCRE/INMETRO exigida em edital' : '—'))}</td>
             <td class="lbl">Qtd. de Amostras</td><td>${escapeHTML(cfg.qai_qtd_amostras || '—')}</td></tr>
         <tr><td class="lbl">Pontos de Coleta</td><td colspan="3">${escapeHTML(cfg.qai_pontos_coleta || '—')}</td></tr>
       </table>
@@ -1434,10 +1520,10 @@ function gerarDocumentoPMOC() {
       <strong>Desvinculação técnica das análises (ABNT NBR 17037, 8.3).</strong> A norma determina que as
       análises laboratoriais de QAI e a respectiva responsabilidade técnica sejam <strong>desvinculadas das
       atividades de limpeza, manutenção e comercialização de produtos</strong>. Declara-se, para todos os fins,
-      que as análises objeto desta seção são contratadas de laboratório acreditado
-      <strong>independente da empresa executante da manutenção</strong> — ${escapeHTML(cfg.rt_empresa || '—')} —
-      não havendo coincidência de titularidade, de quadro societário ou de responsabilidade técnica entre
-      ambos. A acreditação do laboratório junto à CGCRE/INMETRO, conforme ABNT NBR ISO/IEC 17025, é condição
+      que as análises objeto desta seção ${emImplantacao ? '<strong>serão obrigatoriamente contratadas</strong>' : '<strong>são contratadas</strong>'}
+      de laboratório acreditado <strong>independente da empresa executante da manutenção</strong> —
+      ${escapeHTML(cfg.rt_empresa || '—')} — vedada coincidência de titularidade, de quadro societário ou de
+      responsabilidade técnica entre ambos.${emImplantacao ? ' Esta vedação constitui <strong>requisito de habilitação</strong> do processo de contratação, cujo prazo consta do item 7.8.' : ''} A acreditação do laboratório junto à CGCRE/INMETRO, conforme ABNT NBR ISO/IEC 17025, é condição
       de validade dos laudos que integram este acervo.</p>
       <div class="cat-titulo">7.1 Parâmetros Obrigatórios e Critérios de Aceitação</div>
       <table class="tb-lista">
@@ -1573,6 +1659,10 @@ function gerarDocumentoPMOC() {
           <tr><td><strong>Responsabilidade técnica</strong></td><td>Permanente</td><td>Execução e supervisão do programa por responsável técnico habilitado na área de qualidade do ar de interiores, nos termos da ABNT NBR 17037, 6.7.</td></tr>
         </tbody>
       </table>
+      ${emImplantacao ? `<p class="texto" style="font-size:9px;color:#4a5568;">Em regime de implantação, a
+      primeira execução de cada elemento deste programa observa o cronograma do <strong>item 7.8</strong>. A
+      inspeção visual e o relatório fotográfico <strong>independem de contratação de laboratório</strong> e são
+      exigíveis desde o primeiro ciclo.</p>` : ''}
       <p class="texto" style="font-size:9px;color:#718096;">A inspeção visual e o questionário <strong>não
       substituem</strong> a amostragem laboratorial: são instrumentos complementares de detecção precoce, que
       podem antecipar campanha extraordinária quando indicarem degradação da qualidade do ar.</p>
@@ -1589,8 +1679,42 @@ function gerarDocumentoPMOC() {
       <p class="texto">São objeto de divulgação, no mínimo: a existência e a vigência deste PMOC; o nome e o
       registro do responsável técnico; os resultados de cada campanha de amostragem de QAI, com indicação dos
       parâmetros conformes e não conformes; as ações corretivas determinadas e seus prazos; e o canal para
-      comunicação de queixas relacionadas à qualidade do ar. A evidência da divulgação — registro fotográfico do
+      comunicação de queixas relacionadas à qualidade do ar.${emImplantacao ? ' Enquanto não concluída a primeira campanha, a divulgação compreende a existência e a vigência deste PMOC, o cronograma de implantação do item 7.8 e o canal de queixas.' : ''} A evidência da divulgação — registro fotográfico do
       mural, comprovante de publicação ou de envio — integra o acervo documental do PMOC.</p>
+
+
+      ${emImplantacao ? `
+      <div class="cat-titulo">7.8 Regime de Implantação — Cronograma do Primeiro Ciclo</div>
+      <p class="texto">Este PMOC é emitido em <strong>regime de implantação</strong>: trata-se do primeiro ciclo
+      do plano no estabelecimento, e as campanhas de amostragem de qualidade do ar interior
+      <strong>ainda não foram executadas</strong>. O registro expresso desta condição é deliberado — a
+      <strong>Lei nº 13.589/2018</strong> e a <strong>Portaria MS nº 3.523/1998</strong> exigem a existência do
+      plano e seu conteúdo mínimo, não a execução prévia da amostragem. O plano assume, portanto, o marco zero e
+      o cronograma de adimplemento abaixo, cujos prazos são contados da data de emissão
+      (${emissaoBR}) e constituem <strong>obrigação assumida pelo estabelecimento</strong>.</p>
+      <table class="tb-lista">
+        <thead><tr><th style="width:38%;">Marco de implantação</th><th style="width:14%;">Prazo</th><th style="width:14%;">Data-limite</th><th>Evidência de cumprimento</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Contratação do laboratório de QAI</strong><br><em>acreditado e desvinculado da manutenção (item 8.3 da NBR 17037)</em></td><td>${escapeHTML(String(cfg.impl_prazo_lab))} dias</td><td><strong>${prazoLabBR}</strong></td><td>Contrato ou empenho, com comprovação de acreditação CGCRE/INMETRO e declaração de independência em relação à executante.</td></tr>
+          <tr><td><strong>1ª campanha de amostragem de QAI</strong><br><em>bioaerossóis, CO₂, material particulado e parâmetros físicos</em></td><td>${escapeHTML(String(cfg.impl_prazo_campanha))} dias</td><td><strong>${prazoCampanhaBR}</strong></td><td>Laudos por ponto amostrado, com amostra externa simultânea e registro fotográfico dos pontos (itens 7.1 e 7.2).</td></tr>
+          <tr><td><strong>1ª inspeção visual do programa de gestão</strong><br><em>ISO 16000-40 (item 7.6)</em></td><td>${escapeHTML(String(Math.min(parseInt(cfg.impl_prazo_lab, 10) || 90, 90)))} dias</td><td><strong>${dataMaisDias(Math.min(parseInt(cfg.impl_prazo_lab, 10) || 90, 90))}</strong></td><td>Relatório técnico e fotográfico. Independe de contratação de laboratório e antecede a primeira campanha.</td></tr>
+          <tr><td><strong>1ª aplicação do questionário de satisfação</strong><br><em>modelo da NBR 16401-3 (item 7.6)</em></td><td>${escapeHTML(String(cfg.impl_prazo_campanha))} dias</td><td><strong>${prazoCampanhaBR}</strong></td><td>Formulários respondidos e consolidação dos resultados, analisados em conjunto com os laudos da campanha.</td></tr>
+          <tr><td><strong>1ª divulgação aos ocupantes</strong><br><em>item 7.7</em></td><td>30 dias após a 1ª campanha</td><td><strong>${dataMaisDias((parseInt(cfg.impl_prazo_campanha, 10) || 180) + 30)}</strong></td><td>Registro fotográfico do mural, comprovante de publicação ou de envio.</td></tr>
+          <tr><td><strong>Entrada em regime pleno</strong></td><td colspan="2" style="text-align:center;">Concluídos os marcos acima</td><td>Reemissão deste PMOC em <strong>regime pleno</strong>, com identificação completa do laboratório e incorporação dos laudos ao acervo.</td></tr>
+        </tbody>
+      </table>
+      <p class="texto" style="font-size:9px;color:#4a5568;border-left:3px solid #1e3a5f;padding-left:8px;">
+      <strong>Alcance do regime de implantação.</strong> O regime alcança <strong>exclusivamente</strong> os
+      marcos acima, que dependem de contratação de terceiro ou de decurso de prazo. <strong>Não alcança</strong>,
+      e não suspende, as rotinas de manutenção da Seção 6, o cronograma da Seção 8 nem os deveres de registro e
+      de guarda documental: estes são exigíveis desde a emissão. Também não afasta o item 7.4 — constatada
+      ausência de infraestrutura de renovação de ar exterior em ambiente assistencial, a providência ali
+      determinada é devida independentemente do estágio de implantação da amostragem.</p>
+      <p class="texto" style="font-size:9px;color:#718096;">Os prazos deste item são
+      <strong>definição interna do responsável técnico</strong>, fixados em razão do estágio de implantação, e
+      não decorrem de prazo normativo expresso. A periodicidade de regime, uma vez concluído o primeiro ciclo, é
+      a do item 7.1 — no mínimo semestral.</p>
+      ` : ''}
 
       <p class="texto" style="font-size:9px;color:#718096;">Toda ação decorrente desta seção gera <strong>Ordem de
       Serviço</strong> vinculada ao ambiente e ao ativo, com prazo, responsável e evidência de conclusão, integrando o
@@ -1893,6 +2017,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('pp-data-emissao').value = hoje();
   // Carrega config salva e inventário
   await carregarConfigPlano();
+  planoAtualizarRegime();
   await carregarEquipamentosPlano();
   await carregarBlocosPlano();
   await carregarSalasPlano();
