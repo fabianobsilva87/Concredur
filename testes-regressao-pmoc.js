@@ -26,7 +26,7 @@ console.log('\nR2. Itens que o plano proíbe marcar como NA têm campo no formul
   .forEach(k => t('   campo presente: '+k, campos.has(k)));
 
 // --- R3: BIO-05 semestral, BIO-06 anual ---
-console.log('\nR3. Alinhamento Seção 6 × Seção 7 (QAI semestral)');
+console.log('\nR3. Alinhamento Seção 6 × Anexo I (QAI semestral)');
 const AC = h.CHECKLIST_PMOC_DEFS.AC;
 t('   BIO-05 (QAI/laudos) está no bloco SEMESTRAL', AC.semestral.some(([k])=>k==='bio_05'));
 t('   BIO-05 saiu do bloco anual',                  !AC.anual.some(([k])=>k==='bio_05'));

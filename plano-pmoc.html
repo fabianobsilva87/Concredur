@@ -205,7 +205,12 @@
 
       <!-- 3. Monitoramento QAI -->
       <div class="plano-card">
-        <h3>🌬️ Monitoramento da Qualidade do Ar Interior (QAI)</h3>
+        <h3>🌬️ Monitoramento da Qualidade do Ar Interior (QAI) — Anexo I</h3>
+        <div class="plano-hint" style="margin:-4px 0 12px;">Este bloco alimenta o <strong>Anexo I</strong> do
+        documento, que deixou de figurar no corpo do plano. O anexo integra o PMOC para todos os efeitos, mas
+        <strong>nenhum campo aqui bloqueia a emissão</strong>: o que não for preenchido é impresso como
+        “A definir”. Campos informados continuam validados — CNPJ do laboratório malformado, ou coincidente
+        com o do estabelecimento, segue impedindo a emissão (ABNT NBR 17037, 8.3).</div>
         <div class="plano-grid">
           <div class="plano-field full">
             <label for="pp-qai-metodologia">Metodologia</label>
@@ -266,9 +271,9 @@
             </datalist>
             <div class="plano-hint">Obrigação expressa da ABNT NBR 17037, 8.1 e), e da Portaria MS nº 3.523/98:
             é preciso declarar <strong>onde</strong> os ocupantes têm acesso aos procedimentos e resultados de
-            QAI. É <strong>declaração, não evidência</strong> — exigível já na implantação, porque se responde
-            antes de existir qualquer laudo. O campo tem sugestões: clique nele para ver as opções, ou escreva
-            o meio efetivamente adotado.</div>
+            QAI. É <strong>declaração, não evidência</strong> — responde-se antes de existir qualquer laudo,
+            e por isso convém preencher desde já, ainda que o campo não bloqueie a emissão. O campo tem
+            sugestões: clique nele para ver as opções, ou escreva o meio efetivamente adotado.</div>
           </div>
           <div class="plano-field">
             <label for="pp-qai-divulgacao-periodicidade">Periodicidade da Divulgação</label>
@@ -291,11 +296,12 @@
               <option value="implantacao" selected>Implantação — 1º ciclo (QAI ainda não executada)</option>
               <option value="pleno">Regime pleno (QAI já em execução)</option>
             </select>
-            <div class="plano-hint">Em <strong>implantação</strong>, o PMOC declara o compromisso, o critério de
-            contratação e os prazos da primeira campanha de QAI, sem exigir laboratório já contratado — a Lei
-            13.589/2018 e a Portaria MS 3.523/98 exigem a <em>existência do plano</em>, não a execução prévia da
-            amostragem. Em <strong>regime pleno</strong>, a identificação completa do laboratório acreditado passa
-            a ser condição de emissão.</div>
+            <div class="plano-hint">Em <strong>implantação</strong>, o Anexo I acrescenta o item <strong>A.8</strong>
+            — cronograma do primeiro ciclo — declarando o compromisso, o critério de contratação e os prazos da
+            primeira campanha de QAI. A Lei 13.589/2018 e a Portaria MS 3.523/98 exigem a <em>existência do plano</em>,
+            não a execução prévia da amostragem. Em <strong>regime pleno</strong>, o item A.8 é suprimido e o anexo
+            passa a descrever a rotina semestral já vigente. Em nenhum dos dois regimes a falta de dados de QAI
+            impede a emissão do documento.</div>
           </div>
           <div class="plano-field" id="pp-wrap-prazo-lab">
             <label for="pp-impl-prazo-lab">Prazo para contratação do laboratório (dias)</label>
@@ -341,6 +347,20 @@
             térmica é matéria de <strong>projeto</strong> (ABNT NBR 16401-1) e não integra o conteúdo exigido
             para o PMOC pela Lei 13.589/2018 nem pela Portaria MS 3.523/98. O relatório permanece disponível,
             em maior detalhe, na Central de Impressões.</div>
+          </div>
+          <div class="plano-field full">
+            <label style="display:flex;align-items:flex-start;gap:8px;font-weight:600;">
+              <input type="checkbox" id="pp-incluir-qai" style="margin-top:3px;width:auto;" checked>
+              <span>Incluir o “Anexo I — Monitoramento da Qualidade do Ar Interior (QAI)” no PMOC</span>
+            </label>
+            <div class="plano-hint"><strong>Marcado por padrão — e a recomendação técnica é mantê-lo marcado.</strong>
+            Diferentemente do POP e da tabela de carga, o conteúdo deste anexo <em>é</em> matéria normativa: a
+            Lei 13.589/2018, art. 3º, parágrafo único, remete o PMOC à ABNT NBR 17037, que fixa os parâmetros,
+            os critérios de aceitação e a periodicidade semestral do monitoramento. Ao desmarcar, o PMOC deixa
+            de conter esses elementos e passa a <strong>remeter a um Plano de Monitoramento de QAI apartado</strong>,
+            que precisa existir de fato e estar disponível à autoridade sanitária — a remissão é impressa
+            automaticamente na Seção 6, e as não conformidades de recirculação passam a apontar para esse
+            documento externo em vez do item A.4. Desmarque apenas se o plano apartado já existir.</div>
           </div>
           <div class="plano-field full">
             <label style="display:flex;align-items:flex-start;gap:8px;font-weight:600;">
@@ -468,49 +488,36 @@ function planoValidarCamposCriticos(cfg) {
 
   if (!cfg.rt_empresa) falta('Empresa executante da manutenção', 'pp-rt-empresa');
 
-  // ── Desvinculação técnica das análises de QAI — ABNT NBR 17037, 8.3 ──
+  // ── QAI: conteúdo do ANEXO I — não trava a emissão do plano ──────────
   //
-  // A norma determina que as análises laboratoriais e sua responsabilidade técnica sejam
-  // desvinculadas das atividades de limpeza, manutenção e comercialização de produtos.
+  // DECISÃO DO RESPONSÁVEL TÉCNICO. O detalhamento da qualidade do ar interior foi
+  // transferido do corpo do plano para o ANEXO I. O anexo integra o PMOC para todos os
+  // efeitos — parâmetros, periodicidades e o item A.4 permanecem exigíveis —, mas a
+  // AUSÊNCIA dos dados operacionais da campanha (laboratório, CNPJ, acreditação, pontos
+  // de coleta, meio de divulgação) NÃO impede a emissão do documento.
   //
-  // REGIME DE IMPLANTAÇÃO: o PMOC é um PLANO. A Lei 13.589/2018 e a Portaria MS 3.523/98
-  // exigem sua existência e conteúdo mínimo, não a execução prévia da campanha de QAI.
-  // Exigir laboratório já contratado como condição de emissão inviabilizaria o documento
-  // no primeiro ciclo. No regime de implantação, portanto, a identificação do laboratório
-  // é OPCIONAL e o documento declara critério, compromisso e prazos (item 7.8).
+  // Fundamento: o PMOC é um PLANO. A Lei 13.589/2018 e a Portaria MS 3.523/98 exigem a
+  // sua existência e o seu conteúdo mínimo, não a execução prévia da campanha de QAI nem
+  // a contratação prévia do laboratório. Campos vazios são impressos no Anexo I como
+  // "A definir", preservando a rastreabilidade sem bloquear o ciclo de manutenção.
   //
-  // O que NUNCA é dispensado, em nenhum regime: se um laboratório for informado, ele não
-  // pode ser inválido nem coincidir com o CNPJ do estabelecimento — declarar laboratório
-  // vinculado é vício pior do que declarar laboratório a contratar.
+  // O que PERMANECE bloqueante, em qualquer regime: dado INFORMADO e inválido. Declarar
+  // laboratório com CNPJ malformado, ou vinculado ao próprio estabelecimento, é vício pior
+  // do que declarar laboratório a contratar — a ABNT NBR 17037, 8.3, exige que as análises
+  // e a respectiva responsabilidade técnica sejam desvinculadas da manutenção.
   const emImplantacao = cfg.regime === 'implantacao';
 
-  if (!emImplantacao && !cfg.qai_laboratorio) {
-    falta('Laboratório de QAI (razão social) — obrigatório em regime pleno', 'pp-qai-laboratorio');
-  }
-  if (!cfg.qai_lab_cnpj) {
-    if (!emImplantacao) {
-      falta('CNPJ do laboratório de QAI — exigido pela NBR 17037, 8.3 (desvinculação técnica)', 'pp-qai-lab-cnpj');
+  if (cfg.qai_lab_cnpj) {
+    if (planoSoDigitos(cfg.qai_lab_cnpj).length !== 14) {
+      falta('CNPJ do laboratório de QAI inválido — informe 14 dígitos ou deixe o campo em branco', 'pp-qai-lab-cnpj');
+    } else if (planoSoDigitos(cfg.qai_lab_cnpj) === planoSoDigitos(cfg.cnpj)) {
+      falta('CNPJ do laboratório de QAI coincide com o do estabelecimento — a NBR 17037, 8.3, exige desvinculação das análises em relação às atividades de manutenção', 'pp-qai-lab-cnpj');
     }
-  } else if (planoSoDigitos(cfg.qai_lab_cnpj).length !== 14) {
-    falta('CNPJ do laboratório de QAI inválido — informe 14 dígitos', 'pp-qai-lab-cnpj');
-  } else if (planoSoDigitos(cfg.qai_lab_cnpj) === planoSoDigitos(cfg.cnpj)) {
-    falta('CNPJ do laboratório de QAI coincide com o do estabelecimento — a NBR 17037, 8.3, exige desvinculação das análises em relação às atividades de manutenção', 'pp-qai-lab-cnpj');
-  }
-  if (!emImplantacao && !cfg.qai_lab_acreditacao) {
-    falta('Acreditação do laboratório de QAI (CGCRE/INMETRO — ABNT NBR ISO/IEC 17025) — obrigatória em regime pleno', 'pp-qai-lab-acreditacao');
-  }
-  // Divulgação é declaração, não evidência: exigível já no primeiro dia, em qualquer regime.
-  if (!cfg.qai_divulgacao_meio) {
-    falta('Meio de divulgação aos ocupantes — obrigação da NBR 17037, 8.1 e), e da Portaria MS nº 3.523/98', 'pp-qai-divulgacao-meio');
   }
   if (emImplantacao) {
-    if (!(cfg.impl_prazo_lab > 0 && cfg.impl_prazo_lab <= 720)) {
-      falta('Prazo para contratação do laboratório de QAI (1 a 720 dias)', 'pp-impl-prazo-lab');
-    }
-    if (!(cfg.impl_prazo_campanha > 0 && cfg.impl_prazo_campanha <= 720)) {
-      falta('Prazo para a 1ª campanha de QAI (1 a 720 dias)', 'pp-impl-prazo-campanha');
-    }
-    if (cfg.impl_prazo_campanha < cfg.impl_prazo_lab) {
+    if (cfg.impl_prazo_lab > 720 || cfg.impl_prazo_campanha > 720) {
+      falta('Prazos de implantação da QAI limitados a 720 dias', 'pp-impl-prazo-lab');
+    } else if (cfg.impl_prazo_campanha < cfg.impl_prazo_lab) {
       falta('O prazo da 1ª campanha de QAI não pode ser anterior ao prazo de contratação do laboratório', 'pp-impl-prazo-campanha');
     }
   }
@@ -570,10 +577,10 @@ function planoAtualizarRegime() {
     const el = $(id);
     if (el) el.textContent = texto;
   };
-  marcar('pp-lbl-lab-cnpj', impl ? 'CNPJ do Laboratório de QAI (opcional na implantação)'
-                                 : 'CNPJ do Laboratório de QAI');
-  marcar('pp-lbl-lab-acred', impl ? 'Acreditação do Laboratório (opcional na implantação)'
-                                  : 'Acreditação do Laboratório (CGCRE/INMETRO)');
+  marcar('pp-lbl-lab-cnpj', impl ? 'CNPJ do Laboratório de QAI (opcional — 1º ciclo)'
+                                 : 'CNPJ do Laboratório de QAI (opcional)');
+  marcar('pp-lbl-lab-acred', impl ? 'Acreditação do Laboratório (opcional — 1º ciclo)'
+                                  : 'Acreditação do Laboratório (CGCRE/INMETRO — opcional)');
 }
 
 function planoToast(msg, err = false) {
@@ -617,6 +624,7 @@ function planoColetarConfig() {
     qai_questionario_periodicidade: $('pp-qai-questionario-periodicidade').value,
     qai_divulgacao_meio:           $('pp-qai-divulgacao-meio').value.trim(),
     qai_divulgacao_periodicidade:  $('pp-qai-divulgacao-periodicidade').value,
+    incluir_qai:   !!$('pp-incluir-qai').checked,
     incluir_carga: !!$('pp-incluir-carga').checked,
     incluir_54:    !!$('pp-incluir-54').checked,
     incluir_pop:   !!$('pp-incluir-pop').checked,
@@ -650,6 +658,9 @@ function planoAplicarConfig(cfg) {
   setVal('pp-qai-questionario-periodicidade', cfg.qai_questionario_periodicidade);
   setVal('pp-qai-divulgacao-meio', cfg.qai_divulgacao_meio);
   setVal('pp-qai-divulgacao-periodicidade', cfg.qai_divulgacao_periodicidade);
+  // Configurações gravadas antes da criação deste campo não têm 'incluir_qai'.
+  // O default é INCLUIR: a ausência do dado nunca pode suprimir conteúdo normativo.
+  $('pp-incluir-qai').checked = (cfg.incluir_qai !== false);
   if (cfg.incluir_carga !== undefined) $('pp-incluir-carga').checked = !!cfg.incluir_carga;
   if (cfg.incluir_54  !== undefined) $('pp-incluir-54').checked  = !!cfg.incluir_54;
   if (cfg.incluir_pop !== undefined) $('pp-incluir-pop').checked = !!cfg.incluir_pop;
@@ -864,6 +875,18 @@ function gerarDocumentoPMOC(modoMinuta = false) {
     d.setDate(d.getDate() + (parseInt(dias, 10) || 0));
     return d.toLocaleDateString('pt-BR');
   };
+  // ── Anexo I (QAI): opcional, com default seguro ──
+  // Config legada (sem o campo) resolve para INCLUIR. Quando o anexo é suprimido, as
+  // remissões do corpo deixam de apontar para o item A.4 — que não existiria no
+  // documento — e passam a apontar para o plano apartado de QAI, preservando o
+  // encadeamento lógico da NC de recirculação. Ponteiro órfão em documento assinado é
+  // vício formal: nenhuma remissão pode sobreviver à supressão do seu destino.
+  const incluiQai   = cfg.incluir_qai !== false;
+  const refQaiPlano = incluiQai ? 'Anexo I' : 'Plano de Monitoramento de QAI, apartado deste PMOC';
+  const refQaiA4    = incluiQai ? 'Anexo I, item A.4'
+                                : 'Plano de Ação e Contingência do Plano de Monitoramento de QAI, apartado deste PMOC';
+  const refQaiCurta = incluiQai ? 'Anexo I, A.4' : 'Plano de QAI apartado';
+
   const prazoLabBR      = dataMaisDias(cfg.impl_prazo_lab);
   const prazoCampanhaBR = dataMaisDias(cfg.impl_prazo_campanha);
   const catsPresentes = [...new Set(_planoEqs.map(e => planoNormCat(e.categoria)))]
@@ -1227,7 +1250,7 @@ function gerarDocumentoPMOC(modoMinuta = false) {
     } else if (exaPendentes.length) {
       rotulaRenovacao = `<strong style="color:#9b2c2c;">AUSENTE — não conformidade de projeto`
         + ` (${nomesSalas(exaPendentes)})</strong>`
-        + ` <span style="font-size:8px;">Submeter ao Plano de Contingência, Seção 7.</span>`;
+        + ` <span style="font-size:8px;">Submeter ao Plano de Contingência — ${refQaiPlano}.</span>`;
     } else if (exaExigem.length) {
       rotulaRenovacao = `Presente nos ${exaExigem.length} ambiente(s) que a exigem — verificar vazão efetiva no item DUT-05`;
     } else if (exaIndefinidos.length) {
@@ -1347,7 +1370,7 @@ function gerarDocumentoPMOC(modoMinuta = false) {
             <td style="text-align:center;">${ven}</td>
             <td style="text-align:right;">${arMin ? arMin.toLocaleString('pt-BR') : '<em>ocupação não informada</em>'}</td>
             <td>${ven === 0
-              ? '<strong style="color:#9b2c2c;">NC — recirculação total (item 7.4)</strong>'
+              ? `<strong style="color:#9b2c2c;">NC — recirculação total (${refQaiCurta})</strong>`
               : 'Verificar vazão efetiva em DUT-05'}</td>
           </tr>`;
         }).join('');
@@ -1404,7 +1427,7 @@ function gerarDocumentoPMOC(modoMinuta = false) {
         <strong>NÃO CONFORMIDADE DE PROJETO.</strong> ${semRenovacao.length} de ${salasAssistenciais.length}
         ambientes assistenciais não possuem nenhum ativo de ventilação ou exaustão cadastrado, operando em
         recirculação total. Cada um deles constitui não conformidade de projeto — <strong>não hipótese de
-        inaplicabilidade</strong> —, sujeita ao Plano de Ação e Contingência do item 7.4, com abertura de
+        inaplicabilidade</strong> —, sujeita ao Plano de Ação e Contingência do ${refQaiA4}, com abertura de
         Ordem de Serviço de adequação. Ressalva: a ausência de registro no cadastro não comprova a
         inexistência física de exaustão; a confirmação depende de levantamento de campo com registro
         fotográfico e anemometria, executado pela rotina <strong>[DUT-05]</strong>.</p>` : ''}`;
@@ -1539,6 +1562,23 @@ function gerarDocumentoPMOC(modoMinuta = false) {
     sistema de gestão da manutenção sob controle de revisão e disponível à autoridade sanitária mediante
     solicitação. O POP é documento do sistema de gestão e não integra o acervo normativo deste PMOC.</p>`;
 
+  // Remissão ao plano de QAI quando o Anexo I não é embutido. O monitoramento da qualidade
+  // do ar é conteúdo normativo (Lei 13.589/2018, art. 3º, parágrafo único, c/c ABNT NBR
+  // 17037): suprimi-lo do PMOC sem declarar onde ele reside deixaria o documento sem um
+  // elemento exigido. A remissão preserva a rastreabilidade e explicita a obrigação.
+  const remissaoQai = incluiQai ? '' : `
+    <p class="texto" style="font-size:9px;color:#4a5568;border-left:3px solid #1e3a5f;padding-left:8px;">
+    <strong>Monitoramento da qualidade do ar interior.</strong> Os parâmetros, os critérios de aceitação, as
+    condições de validade da amostragem, o plano de ação e contingência e o programa de gestão de que trata a
+    <strong>ABNT NBR 17037:2023 (Versão Corrigida 2:2024)</strong> constam do <strong>Plano de Monitoramento de
+    Qualidade do Ar Interior</strong> do estabelecimento, documento apartado deste PMOC, mantido sob controle de
+    revisão e disponível à autoridade sanitária. Mantém-se a periodicidade <strong>no mínimo semestral</strong>
+    das campanhas de amostragem e a exigência de laboratório acreditado conforme a ABNT NBR ISO/IEC 17025,
+    tecnicamente desvinculado das atividades de manutenção (NBR 17037, 8.3). A remissão não afasta a
+    exigibilidade: o monitoramento é obrigação decorrente da Lei nº 13.589/2018, art. 3º, parágrafo único, e
+    da Portaria MS nº 3.523/1998, e o item BIO-05 do checklist desta seção verifica a existência dos laudos
+    correspondentes.</p>`;
+
   const sec5 = `
     <div class="sec">
       <div class="sec-titulo">6. PLANO DE ATIVIDADES DE MANUTENÇÃO E CONTROLE</div>
@@ -1549,13 +1589,24 @@ function gerarDocumentoPMOC(modoMinuta = false) {
       — Não Conforme (requer ação corretiva/Ordem de Serviço); <strong>NA</strong> — Não Aplicável ao equipamento
       ou sistema em questão.</p>
       ${sec5Corpo}
+      ${remissaoQai}
       ${remissaoPop}
     </div>`;
 
-  // ── 7. Monitoramento da Qualidade do Ar Interior — QAI (itens 9 e 10) ──
-  const secQai = `
-    <div class="sec">
-      <div class="sec-titulo">7. MONITORAMENTO DA QUALIDADE DO AR INTERIOR (QAI)</div>
+  // ── ANEXO I — Monitoramento da Qualidade do Ar Interior (QAI) ──
+  // Opcional por escolha expressa do RT. Suprimido, o corpo mantém a remissão ao plano
+  // apartado (ver 'remissaoQai', Seção 6) e nenhuma referência fica órfã.
+  const secQai = !incluiQai ? '' : `
+    <div class="sec sec-anexo">
+      <div class="anexo-etiqueta">ANEXO I · QAI</div>
+      <div class="sec-titulo">MONITORAMENTO DA QUALIDADE DO AR INTERIOR (QAI)</div>
+      <p class="texto" style="font-size:9px;color:#4a5568;border-left:3px solid #1e3a5f;padding-left:8px;">
+      <strong>Natureza deste anexo.</strong> O monitoramento da qualidade do ar interior é atividade de
+      periodicidade própria, executada por laboratório acreditado e tecnicamente desvinculada das rotinas de
+      manutenção da Seção 6. Por essa razão o seu detalhamento é apresentado em anexo, e não no corpo do plano.
+      O anexo <strong>integra este PMOC para todos os efeitos</strong>, por força do art. 3º, parágrafo único,
+      da Lei nº 13.589/2018 e da ABNT NBR 17037: a forma de apresentação não reduz, não condiciona e não
+      posterga a exigibilidade dos parâmetros, das periodicidades e das providências aqui estabelecidos.</p>
       <p class="texto">Independentemente da manutenção dos equipamentos descrita na Seção 6, o estabelecimento
       deve manter monitoramento periódico da qualidade do ar interior (QAI), com <strong>periodicidade
       semestral</strong>, contemplando a medição de CO₂, temperatura, umidade relativa, velocidade do ar e material
@@ -1569,12 +1620,12 @@ function gerarDocumentoPMOC(modoMinuta = false) {
       valores adiante já refletem a norma vigente. A Portaria MS nº 3.523/1998 <strong>permanece em vigor</strong>,
       por não ser ato da ANVISA e não integrar o rol revogado.</p>
       <table class="tb-ident">
-        <tr><td class="lbl">Metodologia</td><td colspan="3">${escapeHTML(cfg.qai_metodologia || '—')}</td></tr>
-        <tr><td class="lbl">Laboratório Responsável</td><td>${escapeHTML(cfg.qai_laboratorio || (emImplantacao ? 'A contratar — prazo em 7.8' : '—'))}</td>
-            <td class="lbl">CNPJ do Laboratório</td><td>${escapeHTML(cfg.qai_lab_cnpj || (emImplantacao ? 'A definir na contratação' : '—'))}</td></tr>
-        <tr><td class="lbl">Acreditação</td><td>${escapeHTML(cfg.qai_lab_acreditacao || (emImplantacao ? 'Acreditação CGCRE/INMETRO exigida em edital' : '—'))}</td>
-            <td class="lbl">Qtd. de Amostras</td><td>${escapeHTML(cfg.qai_qtd_amostras || '—')}</td></tr>
-        <tr><td class="lbl">Pontos de Coleta</td><td colspan="3">${escapeHTML(cfg.qai_pontos_coleta || '—')}</td></tr>
+        <tr><td class="lbl">Metodologia</td><td colspan="3">${escapeHTML(cfg.qai_metodologia || 'A definir na contratação da campanha')}</td></tr>
+        <tr><td class="lbl">Laboratório Responsável</td><td>${escapeHTML(cfg.qai_laboratorio || (emImplantacao ? 'A contratar — prazo em A.8' : 'A contratar'))}</td>
+            <td class="lbl">CNPJ do Laboratório</td><td>${escapeHTML(cfg.qai_lab_cnpj || 'A definir na contratação')}</td></tr>
+        <tr><td class="lbl">Acreditação</td><td>${escapeHTML(cfg.qai_lab_acreditacao || 'Acreditação CGCRE/INMETRO — requisito de habilitação na contratação')}</td>
+            <td class="lbl">Qtd. de Amostras</td><td>${escapeHTML(cfg.qai_qtd_amostras || 'Conforme Tabela 3 da ABNT NBR 17037 (item A.2)')}</td></tr>
+        <tr><td class="lbl">Pontos de Coleta</td><td colspan="3">${escapeHTML(cfg.qai_pontos_coleta || 'A definir no plano de amostragem, observado o item A.2')}</td></tr>
       </table>
       <p class="texto" style="font-size:9px;color:#4a5568;border-left:3px solid #1e3a5f;padding-left:8px;">
       <strong>Desvinculação técnica das análises (ABNT NBR 17037, 8.3).</strong> A norma determina que as
@@ -1583,9 +1634,9 @@ function gerarDocumentoPMOC(modoMinuta = false) {
       que as análises objeto desta seção ${emImplantacao ? '<strong>serão obrigatoriamente contratadas</strong>' : '<strong>são contratadas</strong>'}
       de laboratório acreditado <strong>independente da empresa executante da manutenção</strong> —
       ${escapeHTML(cfg.rt_empresa || '—')} — vedada coincidência de titularidade, de quadro societário ou de
-      responsabilidade técnica entre ambos.${emImplantacao ? ' Esta vedação constitui <strong>requisito de habilitação</strong> do processo de contratação, cujo prazo consta do item 7.8.' : ''} A acreditação do laboratório junto à CGCRE/INMETRO, conforme ABNT NBR ISO/IEC 17025, é condição
+      responsabilidade técnica entre ambos.${emImplantacao ? ' Esta vedação constitui <strong>requisito de habilitação</strong> do processo de contratação, cujo prazo consta do item A.8.' : ''} A acreditação do laboratório junto à CGCRE/INMETRO, conforme ABNT NBR ISO/IEC 17025, é condição
       de validade dos laudos que integram este acervo.</p>
-      <div class="cat-titulo">7.1 Parâmetros Obrigatórios e Critérios de Aceitação</div>
+      <div class="cat-titulo">A.1 Parâmetros Obrigatórios e Critérios de Aceitação</div>
       <table class="tb-lista">
         <thead><tr><th>Parâmetro</th><th style="width:44%;">Valor Máximo Aceitável (VMA) / Faixa</th><th style="width:13%;">Periodicidade mínima</th><th style="width:18%;">Referência</th></tr></thead>
         <tbody>
@@ -1628,7 +1679,7 @@ function gerarDocumentoPMOC(modoMinuta = false) {
       ABNT NBR 17037 (5.2.1) trata o CO₂ como <strong>indicador de odores corporais</strong> decorrentes da
       ocupação, e não como indicador de poluição química do ambiente.</p>
 
-      <div class="cat-titulo">7.2 Condições de Validade da Amostragem</div>
+      <div class="cat-titulo">A.2 Condições de Validade da Amostragem</div>
       <p class="texto">A amostragem deve ser realizada <strong>em regime de ocupação normal</strong>, com o sistema
       em operação há no mínimo 2 horas, por laboratório acreditado conforme a <strong>ABNT NBR ISO/IEC 17025</strong>
       e com instrumentos calibrados. <strong>Amostragem em ambiente desocupado é inválida para o parâmetro CO₂.</strong>
@@ -1662,7 +1713,7 @@ function gerarDocumentoPMOC(modoMinuta = false) {
       calibração <strong>semestral</strong> para amostragem microbiológica e <strong>anual</strong> para CO₂ (NDIR),
       material particulado (dispersão laser), temperatura, umidade relativa e velocidade do ar.</p>
 
-      <div class="cat-titulo">7.3 Plano de Ação e Contingência — Escalonamento por Severidade (CO₂)</div>
+      <div class="cat-titulo">A.3 Plano de Ação e Contingência — Escalonamento por Severidade (CO₂)</div>
       <p class="texto" style="font-size:9px;color:#4a5568;">Os níveis abaixo são expressos como <strong>diferencial
       (Δ) sobre a concentração medida no ar exterior na mesma campanha</strong>, em conformidade com o critério da
       ABNT NBR 17037, 5.2.1. O VMA normativo é Δ ≤ 700 ppm; os patamares N1 e N3 são definição interna do responsável
@@ -1671,12 +1722,12 @@ function gerarDocumentoPMOC(modoMinuta = false) {
         <thead><tr><th style="width:14%;">Nível</th><th style="width:22%;">Faixa medida (Δ sobre o ar exterior)</th><th style="width:12%;">Prazo</th><th>Ação determinada</th></tr></thead>
         <tbody>
           <tr><td><strong>N1 — Atenção</strong></td><td>Δ de 500 a 700 ppm <em>(dentro do VMA, em aproximação)</em></td><td>15 dias</td><td>Ajuste operacional: abertura de dampers de ar exterior, revisão de setpoints e horários de operação, verificação de obstrução da tomada de ar. Reamostragem na campanha seguinte.</td></tr>
-          <tr><td><strong>N2 — Não Conformidade</strong></td><td>Δ &gt; 700 e ≤ 1.000 ppm</td><td>30 dias</td><td>Diagnóstico de causa raiz. Causa <em>operacional</em> (damper fechado, tomada obstruída, filtro colmatado): correção imediata e reamostragem em 30 dias. Causa <em>estrutural</em>: aplica-se o item 7.4.</td></tr>
-          <tr><td><strong>N3 — NC Grave</strong></td><td>Δ &gt; 1.000 ppm, <em>ou</em> qualquer Δ &gt; 700 ppm em setor assistencial</td><td>Imediato</td><td>Aplicação imediata do item 7.4, sem prazo de diagnóstico prévio.</td></tr>
+          <tr><td><strong>N2 — Não Conformidade</strong></td><td>Δ &gt; 700 e ≤ 1.000 ppm</td><td>30 dias</td><td>Diagnóstico de causa raiz. Causa <em>operacional</em> (damper fechado, tomada obstruída, filtro colmatado): correção imediata e reamostragem em 30 dias. Causa <em>estrutural</em>: aplica-se o item A.4.</td></tr>
+          <tr><td><strong>N3 — NC Grave</strong></td><td>Δ &gt; 1.000 ppm, <em>ou</em> qualquer Δ &gt; 700 ppm em setor assistencial</td><td>Imediato</td><td>Aplicação imediata do item A.4, sem prazo de diagnóstico prévio.</td></tr>
         </tbody>
       </table>
 
-      <div class="cat-titulo">7.4 Determinação Vinculante — Reprovação por Ausência de Infraestrutura de Renovação</div>
+      <div class="cat-titulo">A.4 Determinação Vinculante — Reprovação por Ausência de Infraestrutura de Renovação</div>
       <p class="texto">Constatada a reprovação do laudo de CO₂ e <strong>identificada como causa a inexistência de
       infraestrutura prévia de renovação de ar exterior</strong> no ambiente, fica determinado que o ambiente será
       submetido, <strong>obrigatória e alternativamente</strong>, a uma das duas providências abaixo. <strong>Não é
@@ -1697,13 +1748,13 @@ function gerarDocumentoPMOC(modoMinuta = false) {
       responsável técnico registrar formalmente a recomendação de interdição à direção do estabelecimento —
       comunicação que, uma vez emitida, transfere à administração a responsabilidade pela manutenção do uso.</p>
 
-      <div class="cat-titulo">7.5 Contingência para Reprovação Microbiológica</div>
+      <div class="cat-titulo">A.5 Contingência para Reprovação Microbiológica</div>
       <p class="texto"><strong>Contagem fúngica &gt; 750 UFC/m³ ou relação I/E &gt; 1,5:</strong> higienização e
       desinfecção completa do sistema (serpentina, bandeja e dreno, <strong>plenum e bocas de ar</strong>, rede de dutos
       quando existente), substituição integral dos elementos filtrantes e reamostragem em até 30 dias.
       <strong>Identificação de fungo patogênico ou toxigênico:</strong> a ABNT NBR 17037 (6.5) não impõe reprovação automática — determina avaliação do risco à luz do perfil de ocupação e dos fatores ambientais. Fica estabelecido, por decisão do responsável técnico e em razão do caráter assistencial dos ambientes, o seguinte protocolo interno: suspensão do uso do ambiente, higienização com produto saneante regularizado na ANVISA, investigação da causa-raiz (fonte de umidade, infiltração ou material poroso contaminado) e liberação <strong>condicionada a laudo de reamostragem aprovado</strong>. Adicionalmente, <strong>contagem bacteriana &gt; 500 UFC/m³</strong> em ambiente assistencial enseja o mesmo ciclo de higienização e reamostragem.</p>
 
-      <div class="cat-titulo">7.6 Programa de Gestão da Qualidade do Ar Interior (ISO 16000-40)</div>
+      <div class="cat-titulo">A.6 Programa de Gestão da Qualidade do Ar Interior (ISO 16000-40)</div>
       <p class="texto">Em <strong>complemento</strong> às análises laboratoriais de que tratam os itens
       anteriores, a <strong>ABNT NBR 17037, 6.7</strong>, determina a elaboração de programa de gestão da
       qualidade do ar interior conforme a <strong>ISO 16000-40</strong>. O programa integra este PMOC e é
@@ -1720,31 +1771,31 @@ function gerarDocumentoPMOC(modoMinuta = false) {
         </tbody>
       </table>
       ${emImplantacao ? `<p class="texto" style="font-size:9px;color:#4a5568;">Em regime de implantação, a
-      primeira execução de cada elemento deste programa observa o cronograma do <strong>item 7.8</strong>. A
+      primeira execução de cada elemento deste programa observa o cronograma do <strong>item A.8</strong>. A
       inspeção visual e o relatório fotográfico <strong>independem de contratação de laboratório</strong> e são
       exigíveis desde o primeiro ciclo.</p>` : ''}
       <p class="texto" style="font-size:9px;color:#718096;">A inspeção visual e o questionário <strong>não
       substituem</strong> a amostragem laboratorial: são instrumentos complementares de detecção precoce, que
       podem antecipar campanha extraordinária quando indicarem degradação da qualidade do ar.</p>
 
-      <div class="cat-titulo">7.7 Divulgação aos Ocupantes</div>
+      <div class="cat-titulo">A.7 Divulgação aos Ocupantes</div>
       <p class="texto">Constitui obrigação expressa da <strong>ABNT NBR 17037, 8.1 e)</strong>, e da
       <strong>Portaria MS nº 3.523/1998</strong>, a divulgação aos ocupantes dos procedimentos e dos resultados
       das atividades de avaliação, correção e manutenção da qualidade do ar interior.</p>
       <table class="tb-ident">
-        <tr><td class="lbl">Meio de divulgação</td><td colspan="3">${escapeHTML(cfg.qai_divulgacao_meio || '—')}</td></tr>
+        <tr><td class="lbl">Meio de divulgação</td><td colspan="3">${escapeHTML(cfg.qai_divulgacao_meio || 'A definir pelo estabelecimento — obrigação exigível desde a emissão')}</td></tr>
         <tr><td class="lbl">Periodicidade</td><td>${escapeHTML(cfg.qai_divulgacao_periodicidade || '—')}</td>
             <td class="lbl">Responsável</td><td>${escapeHTML(cfg.resp_legal || 'Responsável Legal')} — ${escapeHTML(cfg.resp_cargo || 'Representante do Estabelecimento')}</td></tr>
       </table>
       <p class="texto">São objeto de divulgação, no mínimo: a existência e a vigência deste PMOC; o nome e o
       registro do responsável técnico; os resultados de cada campanha de amostragem de QAI, com indicação dos
       parâmetros conformes e não conformes; as ações corretivas determinadas e seus prazos; e o canal para
-      comunicação de queixas relacionadas à qualidade do ar.${emImplantacao ? ' Enquanto não concluída a primeira campanha, a divulgação compreende a existência e a vigência deste PMOC, o cronograma de implantação do item 7.8 e o canal de queixas.' : ''} A evidência da divulgação — registro fotográfico do
+      comunicação de queixas relacionadas à qualidade do ar.${emImplantacao ? ' Enquanto não concluída a primeira campanha, a divulgação compreende a existência e a vigência deste PMOC, o cronograma de implantação do item A.8 e o canal de queixas.' : ''} A evidência da divulgação — registro fotográfico do
       mural, comprovante de publicação ou de envio — integra o acervo documental do PMOC.</p>
 
 
       ${emImplantacao ? `
-      <div class="cat-titulo">7.8 Regime de Implantação — Cronograma do Primeiro Ciclo</div>
+      <div class="cat-titulo">A.8 Regime de Implantação — Cronograma do Primeiro Ciclo</div>
       <p class="texto">Este PMOC é emitido em <strong>regime de implantação</strong>: trata-se do primeiro ciclo
       do plano no estabelecimento, e as campanhas de amostragem de qualidade do ar interior
       <strong>ainda não foram executadas</strong>. O registro expresso desta condição é deliberado — a
@@ -1756,33 +1807,33 @@ function gerarDocumentoPMOC(modoMinuta = false) {
         <thead><tr><th style="width:38%;">Marco de implantação</th><th style="width:14%;">Prazo</th><th style="width:14%;">Data-limite</th><th>Evidência de cumprimento</th></tr></thead>
         <tbody>
           <tr><td><strong>Contratação do laboratório de QAI</strong><br><em>acreditado e desvinculado da manutenção (item 8.3 da NBR 17037)</em></td><td>${escapeHTML(String(cfg.impl_prazo_lab))} dias</td><td><strong>${prazoLabBR}</strong></td><td>Contrato ou empenho, com comprovação de acreditação CGCRE/INMETRO e declaração de independência em relação à executante.</td></tr>
-          <tr><td><strong>1ª campanha de amostragem de QAI</strong><br><em>bioaerossóis, CO₂, material particulado e parâmetros físicos</em></td><td>${escapeHTML(String(cfg.impl_prazo_campanha))} dias</td><td><strong>${prazoCampanhaBR}</strong></td><td>Laudos por ponto amostrado, com amostra externa simultânea e registro fotográfico dos pontos (itens 7.1 e 7.2).</td></tr>
-          <tr><td><strong>1ª inspeção visual do programa de gestão</strong><br><em>ISO 16000-40 (item 7.6)</em></td><td>${escapeHTML(String(Math.min(parseInt(cfg.impl_prazo_lab, 10) || 90, 90)))} dias</td><td><strong>${dataMaisDias(Math.min(parseInt(cfg.impl_prazo_lab, 10) || 90, 90))}</strong></td><td>Relatório técnico e fotográfico. Independe de contratação de laboratório e antecede a primeira campanha.</td></tr>
-          <tr><td><strong>1ª aplicação do questionário de satisfação</strong><br><em>modelo da NBR 16401-3 (item 7.6)</em></td><td>${escapeHTML(String(cfg.impl_prazo_campanha))} dias</td><td><strong>${prazoCampanhaBR}</strong></td><td>Formulários respondidos e consolidação dos resultados, analisados em conjunto com os laudos da campanha.</td></tr>
-          <tr><td><strong>1ª divulgação aos ocupantes</strong><br><em>item 7.7</em></td><td>30 dias após a 1ª campanha</td><td><strong>${dataMaisDias((parseInt(cfg.impl_prazo_campanha, 10) || 180) + 30)}</strong></td><td>Registro fotográfico do mural, comprovante de publicação ou de envio.</td></tr>
+          <tr><td><strong>1ª campanha de amostragem de QAI</strong><br><em>bioaerossóis, CO₂, material particulado e parâmetros físicos</em></td><td>${escapeHTML(String(cfg.impl_prazo_campanha))} dias</td><td><strong>${prazoCampanhaBR}</strong></td><td>Laudos por ponto amostrado, com amostra externa simultânea e registro fotográfico dos pontos (itens A.1 e A.2).</td></tr>
+          <tr><td><strong>1ª inspeção visual do programa de gestão</strong><br><em>ISO 16000-40 (item A.6)</em></td><td>${escapeHTML(String(Math.min(parseInt(cfg.impl_prazo_lab, 10) || 90, 90)))} dias</td><td><strong>${dataMaisDias(Math.min(parseInt(cfg.impl_prazo_lab, 10) || 90, 90))}</strong></td><td>Relatório técnico e fotográfico. Independe de contratação de laboratório e antecede a primeira campanha.</td></tr>
+          <tr><td><strong>1ª aplicação do questionário de satisfação</strong><br><em>modelo da NBR 16401-3 (item A.6)</em></td><td>${escapeHTML(String(cfg.impl_prazo_campanha))} dias</td><td><strong>${prazoCampanhaBR}</strong></td><td>Formulários respondidos e consolidação dos resultados, analisados em conjunto com os laudos da campanha.</td></tr>
+          <tr><td><strong>1ª divulgação aos ocupantes</strong><br><em>item A.7</em></td><td>30 dias após a 1ª campanha</td><td><strong>${dataMaisDias((parseInt(cfg.impl_prazo_campanha, 10) || 180) + 30)}</strong></td><td>Registro fotográfico do mural, comprovante de publicação ou de envio.</td></tr>
           <tr><td><strong>Entrada em regime pleno</strong></td><td colspan="2" style="text-align:center;">Concluídos os marcos acima</td><td>Reemissão deste PMOC em <strong>regime pleno</strong>, com identificação completa do laboratório e incorporação dos laudos ao acervo.</td></tr>
         </tbody>
       </table>
       <p class="texto" style="font-size:9px;color:#4a5568;border-left:3px solid #1e3a5f;padding-left:8px;">
       <strong>Alcance do regime de implantação.</strong> O regime alcança <strong>exclusivamente</strong> os
       marcos acima, que dependem de contratação de terceiro ou de decurso de prazo. <strong>Não alcança</strong>,
-      e não suspende, as rotinas de manutenção da Seção 6, o cronograma da Seção 8 nem os deveres de registro e
-      de guarda documental: estes são exigíveis desde a emissão. Também não afasta o item 7.4 — constatada
+      e não suspende, as rotinas de manutenção da Seção 6, o cronograma da Seção 7 nem os deveres de registro e
+      de guarda documental: estes são exigíveis desde a emissão. Também não afasta o item A.4 — constatada
       ausência de infraestrutura de renovação de ar exterior em ambiente assistencial, a providência ali
       determinada é devida independentemente do estágio de implantação da amostragem.</p>
       <p class="texto" style="font-size:9px;color:#718096;">Os prazos deste item são
       <strong>definição interna do responsável técnico</strong>, fixados em razão do estágio de implantação, e
       não decorrem de prazo normativo expresso. A periodicidade de regime, uma vez concluído o primeiro ciclo, é
-      a do item 7.1 — no mínimo semestral.</p>
+      a do item A.1 — no mínimo semestral.</p>
       ` : ''}
 
-      <p class="texto" style="font-size:9px;color:#718096;">Toda ação decorrente desta seção gera <strong>Ordem de
+      <p class="texto" style="font-size:9px;color:#718096;">Toda ação decorrente deste anexo gera <strong>Ordem de
       Serviço</strong> vinculada ao ambiente e ao ativo, com prazo, responsável e evidência de conclusão, integrando o
       cômputo dos indicadores de desempenho. Parâmetros específicos de ambientes críticos (salas limpas, centros
       cirúrgicos) são tratados em documentação complementar, conforme ABNT NBR 7256.</p>
     </div>`;
 
-  // ── 8. Cronograma anual ──
+  // ── 7. Cronograma anual ──
   const mesInicio = cfg.mes_inicio;
   let linhasCron = '';
   catsPresentes.forEach(cat => {
@@ -1802,7 +1853,7 @@ function gerarDocumentoPMOC(modoMinuta = false) {
 
   const sec6 = `
     <div class="sec">
-      <div class="sec-titulo">8. CRONOGRAMA ANUAL DE EXECUÇÃO — ${cfg.ano}</div>
+      <div class="sec-titulo">7. CRONOGRAMA ANUAL DE EXECUÇÃO — ${cfg.ano}</div>
       <p class="texto">Ciclo iniciado em <strong>${PLANO_MESES[mesInicio]}/${cfg.ano}</strong>. As datas efetivas
       de execução dentro de cada mês seguem a programação operacional do sistema (aba Programação PMOC),
       calculada em dias úteis.</p>
@@ -1830,7 +1881,7 @@ function gerarDocumentoPMOC(modoMinuta = false) {
   ];
   const sec7 = `
     <div class="sec">
-      <div class="sec-titulo">9. ORIENTAÇÕES E RECOMENDAÇÕES GERAIS</div>
+      <div class="sec-titulo">8. ORIENTAÇÕES E RECOMENDAÇÕES GERAIS</div>
       <ol class="lista-orient">${orientacoes.map(o => `<li>${o}</li>`).join('')}</ol>
       ${cfg.obs ? `<p class="texto"><strong>Observações específicas do estabelecimento:</strong> ${escapeHTML(cfg.obs)}</p>` : ''}
     </div>`;
@@ -1852,10 +1903,10 @@ function gerarDocumentoPMOC(modoMinuta = false) {
   // gerencial autônomo emitido pelo mesmo sistema, fora do acervo normativo do PMOC.
   const secKpi = '';
 
-  // ── 8. Termo de responsabilidade e assinaturas ──
+  // ── 9. Termo de responsabilidade e assinaturas ──
   const sec8 = `
     <div class="sec sec-termo">
-      <div class="sec-titulo">10. TERMO DE RESPONSABILIDADE TÉCNICA</div>
+      <div class="sec-titulo">9. TERMO DE RESPONSABILIDADE TÉCNICA</div>
       <p class="texto">Declaro, na qualidade de responsável técnico, que o presente Plano de Manutenção,
       Operação e Controle foi elaborado em conformidade com a legislação e as normas técnicas vigentes,
       responsabilizando-me pela sua implantação, acompanhamento e atualização durante o período de vigência.</p>
@@ -1893,8 +1944,8 @@ function gerarDocumentoPMOC(modoMinuta = false) {
           `<tr><td style="text-align:center;">${i + 1}</td><td>${escapeHTML(pd)}</td></tr>`).join('')}</tbody>
       </table>
       <p class="texto" style="font-size:9px;color:#718096;">${emImplantacao
-        ? 'O plano está em <strong>regime de implantação</strong>: a identificação do laboratório de QAI é opcional neste estágio e não figura acima. As pendências listadas são de preenchimento imediato.'
-        : 'O plano está em <strong>regime pleno</strong>: a identificação completa do laboratório de QAI acreditado é condição de emissão. Para conferência estrutural antes da contratação, alterne o regime para Implantação no painel de configuração.'}</p>
+        ? `O plano está em <strong>regime de implantação</strong>. Os dados de monitoramento da qualidade do ar${incluiQai ? ' (Anexo I)' : ''} não figuram nesta lista: por decisão do responsável técnico, a sua ausência não impede a emissão, sendo impressos como “A definir” até a contratação da campanha.`
+        : `O plano está em <strong>regime pleno</strong>. Os dados de monitoramento da qualidade do ar${incluiQai ? ' (Anexo I)' : ''} não figuram nesta lista: a sua ausência não impede a emissão, mas em regime pleno espera-se a identificação completa do laboratório acreditado — recomenda-se preenchê-los antes de emitir.`}</p>
     </div>` : '';
 
   const rodape = `
@@ -1902,7 +1953,7 @@ function gerarDocumentoPMOC(modoMinuta = false) {
       ${modoMinuta ? 'MINUTA SEM VALIDADE · ' : ''}PMOC ${cfg.ano} — ${escapeHTML(cfg.razao)} · Lei nº 13.589/2018 · Portaria MS nº 3.523/98
     </div>`;
 
-  // ── 11. Guia de Execução dos Itens de Verificação (POP-PMOC-001) ──
+  // ── ANEXO II — Guia de Execução dos Itens de Verificação (POP-PMOC-001) ──
   // Embutido no mesmo documento a pedido do RT: usa CHECKLIST_PMOC_DEFS (labels/periodicidade)
   // e CHECKLIST_EXECUCAO_GUIA (como executar, critérios C/NC/NA, ferramenta/segurança) — ambos
   // fonte única em app.js — restrito às categorias efetivamente presentes no parque cadastrado.
@@ -1949,7 +2000,7 @@ function gerarDocumentoPMOC(modoMinuta = false) {
   // embutido por escolha expressa do RT no painel de configuração.
   const sec9Guia = cfg.incluir_pop ? `
     <div class="sec sec-anexo">
-      <div class="anexo-etiqueta">ANEXO · POP-PMOC-001</div>
+      <div class="anexo-etiqueta">ANEXO ${incluiQai ? 'II' : 'I'} · POP-PMOC-001</div>
       <div class="sec-titulo">GUIA DE EXECUÇÃO DOS ITENS DE VERIFICAÇÃO</div>
       <p class="texto">Manual de campo para os executantes: o procedimento a ser realizado em cada item do
       checklist da Seção 6, e os critérios objetivos para classificar o resultado como <strong>C</strong>
@@ -1960,7 +2011,7 @@ function gerarDocumentoPMOC(modoMinuta = false) {
 
 
 
-  const html = capa + sec1 + sec2 + sec3 + sec4 + sec5Memorial + sec5 + secQai + sec6 + sec7 + secKpi + sec8 + sec9Guia + secPendencias + rodape;
+  const html = capa + sec1 + sec2 + sec3 + sec4 + sec5Memorial + sec5 + sec6 + sec7 + secKpi + sec8 + secQai + sec9Guia + secPendencias + rodape;
 
   // ── Popup de impressão (mesma técnica das demais impressões do sistema) ──
   const win = window.open('', '_blank', 'width=1000,height=760');
