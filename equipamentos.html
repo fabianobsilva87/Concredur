@@ -282,6 +282,15 @@
             <div class="eq-section-title eq-section-ven">💨 Dados Técnicos — Ventilador / Exaustor</div>
             <div class="form-grid">
               <div class="form-group">
+                <label for="eq-funcao-ven">Função do Ativo *</label>
+                <select id="eq-funcao-ven" class="form-input-style">
+                  <option value="">— Selecione —</option>
+                  <option value="Exaustão">Exaustão</option>
+                  <option value="Ventilação">Ventilação</option>
+                  <option value="Insuflamento">Insuflamento</option>
+                </select>
+              </div>
+              <div class="form-group">
                 <label for="eq-tipo-ven">Tipo</label>
                 <select id="eq-tipo-ven" class="form-input-style">
                   <option value="">— Selecione —</option>
@@ -308,6 +317,10 @@
                   <option value="220V">220V</option>
                   <option value="380V">380V Trifásico</option>
                 </select>
+              </div>
+              <div class="form-group">
+                <label for="eq-vazao-ven">Vazão de Exaustão (m³/h)</label>
+                <input type="text" id="eq-vazao-ven" placeholder="Ex: 320 m³/h">
               </div>
             </div>
           </div>
